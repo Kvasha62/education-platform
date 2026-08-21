@@ -21,6 +21,23 @@ The first vertical slice will establish the technical foundation and then enable
 
 Build small, preserve boundaries, test continuously, and add future systems through independent modules rather than creating one tightly coupled application.
 
+## Local development
+
+Copy the local environment template and start the four-service stack:
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+- Frontend: `http://localhost:5173`
+- Backend health: `http://localhost:8000/health`
+- Backend OpenAPI: `http://localhost:8000/docs`
+- MinIO console: `http://localhost:9001`
+
+Service-specific setup and checks are documented in `apps/backend/README.md` and
+`apps/frontend/README.md`.
+
 ## Status
 
-Architecture baseline established. Implementation starts with `EDU-001 — Repository & Architecture Foundation`.
+EDU-001 provides the runnable repository and architecture foundation. Product functionality is intentionally not implemented yet.
