@@ -70,5 +70,5 @@ class IdentityService:
         return identity
 
     def logout(self, token: str) -> None:
-        if not self.sessions.revoke(digest_session_token(token), datetime.now(UTC)):
-            raise InvalidSessionError
+        """Revoke a session when present; logout is intentionally idempotent."""
+        self.sessions.revoke(digest_session_token(token), datetime.now(UTC))

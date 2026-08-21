@@ -1,13 +1,15 @@
 from collections.abc import Generator
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, update
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.config import Settings, get_settings
 from app.core.database import Base, get_db
+from app.identity.infrastructure.models import AuthSessionModel
 from app.main import app
 
 engine = create_engine(
@@ -103,7 +105,15 @@ def test_me_requires_authentication_and_returns_identity(client: TestClient) -> 
     assert_no_credentials(response.json())
 
 
-def test_logout_revokes_session(client: TestClient) -> None:
+def assert_successful_logout(client: TestClient) -> None:
+    response = client.post("/api/v1/auth/logout", headers={"Origin": TEST_ORIGIN})
+    assert response.status_code == 200
+    assert response.json() == {"status": "logged_out"}
+    assert "education_session=" in response.headers["set-cookie"]
+    assert "Max-Age=0" in response.headers["set-cookie"]
+
+
+def test_logout_revokes_session_and_is_idempotent(client: TestClient) -> None:
     register(client)
     login(client)
     token = client.cookies.get("education_session")
@@ -112,12 +122,30 @@ def test_logout_revokes_session(client: TestClient) -> None:
     missing_origin = client.post("/api/v1/auth/logout")
     assert missing_origin.status_code == 403
 
-    response = client.post("/api/v1/auth/logout", headers={"Origin": TEST_ORIGIN})
-    assert response.status_code == 200
-    assert response.json() == {"status": "logged_out"}
-
+    assert_successful_logout(client)
     client.cookies.set("education_session", token)
     assert client.get("/api/v1/auth/me").status_code == 401
+
+    # An explicitly revoked session is still a successful logout.
+    assert_successful_logout(client)
+    # The previous response clears the cookie, so this is a repeated logout with no session.
+    assert_successful_logout(client)
+
+
+def test_logout_without_session_succeeds_and_clears_cookie(client: TestClient) -> None:
+    assert_successful_logout(client)
+
+
+def test_logout_with_expired_session_succeeds_and_clears_cookie(client: TestClient) -> None:
+    register(client)
+    login(client)
+    with TestingSession.begin() as session:
+        session.execute(
+            update(AuthSessionModel).values(expires_at=datetime.now(UTC) - timedelta(seconds=1))
+        )
+
+    assert client.get("/api/v1/auth/me").status_code == 401
+    assert_successful_logout(client)
 
 
 def test_openapi_contains_authentication_contract(client: TestClient) -> None:

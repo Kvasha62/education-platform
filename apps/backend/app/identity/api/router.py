@@ -2,14 +2,13 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 
 from app.core.config import Settings, get_settings
 from app.identity.api.dependencies import (
     SESSION_COOKIE_NAME,
     get_current_identity,
     get_identity_service,
-    get_session_token,
     require_trusted_origin,
 )
 from app.identity.api.schemas import (
@@ -19,11 +18,7 @@ from app.identity.api.schemas import (
     LogoutResponse,
     RegistrationRequest,
 )
-from app.identity.application.errors import (
-    DuplicateIdentityError,
-    InvalidCredentialsError,
-    InvalidSessionError,
-)
+from app.identity.application.errors import DuplicateIdentityError, InvalidCredentialsError
 from app.identity.application.services import IdentityService
 from app.identity.domain.models import Identity
 
@@ -77,12 +72,10 @@ def me(identity: Annotated[Identity, Depends(get_current_identity)]) -> Identity
 )
 def logout(
     response: Response,
-    token: Annotated[str, Depends(get_session_token)],
     service: Annotated[IdentityService, Depends(get_identity_service)],
+    token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
 ) -> LogoutResponse:
-    try:
+    if token:
         service.logout(token)
-    except InvalidSessionError as error:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Authentication required") from error
     response.delete_cookie(SESSION_COOKIE_NAME, path="/")
     return LogoutResponse()
