@@ -19,3 +19,11 @@ Checks:
 ruff check .
 pytest
 ```
+
+## Database migrations
+
+Apply the identity schema before starting the API outside Docker Compose:
+
+```bash
+alembic upgrade head
+```
