@@ -1,4 +1,4 @@
-"""SQLAlchemy Educational Environment repository."""
+"""SQLAlchemy Education repositories."""
 
 from uuid import UUID
 
@@ -7,8 +7,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.education.application.errors import EnvironmentAlreadyExistsError
-from app.education.domain.models import EducationalEnvironment
-from app.education.infrastructure.models import EducationalEnvironmentModel
+from app.education.domain.models import Course, EducationalEnvironment
+from app.education.infrastructure.models import CourseModel, EducationalEnvironmentModel
 
 
 def _to_domain(model: EducationalEnvironmentModel) -> EducationalEnvironment:
@@ -57,3 +57,57 @@ class SqlAlchemyEnvironmentRepository:
         model.updated_at = environment.updated_at
         self.db.flush()
         return _to_domain(model)
+
+
+
+def _course_to_domain(model: CourseModel) -> Course:
+    return Course(
+        id=model.id,
+        educational_environment_id=model.educational_environment_id,
+        title=model.title,
+        created_at=model.created_at,
+        updated_at=model.updated_at,
+    )
+
+
+class SqlAlchemyCourseRepository:
+    def __init__(self, db: Session) -> None:
+        self.db = db
+
+    def add(self, course: Course) -> Course:
+        model = CourseModel(
+            id=course.id,
+            educational_environment_id=course.educational_environment_id,
+            title=course.title,
+            created_at=course.created_at,
+            updated_at=course.updated_at,
+        )
+        self.db.add(model)
+        self.db.flush()
+        return _course_to_domain(model)
+
+    def list_by_environment(self, environment_id: UUID) -> list[Course]:
+        models = self.db.scalars(
+            select(CourseModel)
+            .where(CourseModel.educational_environment_id == environment_id)
+            .order_by(CourseModel.created_at, CourseModel.id)
+        ).all()
+        return [_course_to_domain(model) for model in models]
+
+    def get_in_environment(self, course_id: UUID, environment_id: UUID) -> Course | None:
+        model = self.db.scalar(
+            select(CourseModel).where(
+                CourseModel.id == course_id,
+                CourseModel.educational_environment_id == environment_id,
+            )
+        )
+        return _course_to_domain(model) if model else None
+
+    def update(self, course: Course) -> Course:
+        model = self.db.get(CourseModel, course.id)
+        if model is None:
+            raise RuntimeError("Course disappeared during the transaction")
+        model.title = course.title
+        model.updated_at = course.updated_at
+        self.db.flush()
+        return _course_to_domain(model)

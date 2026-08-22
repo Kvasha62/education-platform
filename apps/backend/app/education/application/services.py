@@ -1,13 +1,14 @@
-"""Educational Environment use cases."""
+"""Education use cases."""
 
 from uuid import UUID
 
 from app.education.application.errors import (
+    CourseNotFoundError,
     EnvironmentAlreadyExistsError,
     EnvironmentNotFoundError,
 )
-from app.education.application.ports import EnvironmentRepository
-from app.education.domain.models import EducationalEnvironment
+from app.education.application.ports import CourseRepository, EnvironmentRepository
+from app.education.domain.models import Course, EducationalEnvironment
 
 
 class EducationalEnvironmentService:
@@ -27,3 +28,23 @@ class EducationalEnvironmentService:
 
     def rename(self, teacher_space_id: UUID, name: str) -> EducationalEnvironment:
         return self.repository.update(self.get(teacher_space_id).rename(name))
+
+
+class CourseService:
+    def __init__(self, repository: CourseRepository) -> None:
+        self.repository = repository
+
+    def create(self, environment_id: UUID, title: str) -> Course:
+        return self.repository.add(Course.create(environment_id, title))
+
+    def list(self, environment_id: UUID) -> list[Course]:
+        return self.repository.list_by_environment(environment_id)
+
+    def get(self, course_id: UUID, environment_id: UUID) -> Course:
+        course = self.repository.get_in_environment(course_id, environment_id)
+        if course is None:
+            raise CourseNotFoundError
+        return course
+
+    def rename(self, course_id: UUID, environment_id: UUID, title: str) -> Course:
+        return self.repository.update(self.get(course_id, environment_id).rename(title))

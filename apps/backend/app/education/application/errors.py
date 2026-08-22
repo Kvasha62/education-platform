@@ -7,3 +7,7 @@ class EnvironmentAlreadyExistsError(Exception):
 
 class EnvironmentNotFoundError(Exception):
     pass
+
+
+class CourseNotFoundError(Exception):
+    pass
