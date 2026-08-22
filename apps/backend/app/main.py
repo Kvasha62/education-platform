@@ -1,6 +1,7 @@
 """FastAPI application entry point."""
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.identity.api import router as identity_router
@@ -9,6 +10,13 @@ from app.teacher_space.api.environment_router import router as environment_route
 
 settings = get_settings()
 app = FastAPI(title="Education Platform API", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.frontend_origin],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PATCH"],
+    allow_headers=["Content-Type"],
+)
 app.include_router(identity_router)
 app.include_router(teacher_space_router)
 app.include_router(environment_router)

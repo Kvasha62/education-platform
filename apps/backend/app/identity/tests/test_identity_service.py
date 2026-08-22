@@ -76,3 +76,28 @@ def test_invalid_credentials_are_rejected(service: IdentityService) -> None:
     service.register("person@example.com", "a secure password")
     with pytest.raises(InvalidCredentialsError):
         service.login("person@example.com", "wrong password")
+
+
+def test_unknown_identity_still_performs_password_verification() -> None:
+    class RecordingPasswordService:
+        fallback_was_used = False
+
+        def hash(self, password: str) -> str:
+            return password
+
+        def verify(self, password: str, password_hash: str) -> bool:
+            return False
+
+        def verify_or_dummy(self, password: str, password_hash: str | None) -> bool:
+            self.fallback_was_used = password_hash is None
+            return False
+
+    passwords = RecordingPasswordService()
+    service = IdentityService(
+        IdentityMemoryRepository(), passwords, SessionMemoryRepository(), timedelta(hours=1)
+    )
+
+    with pytest.raises(InvalidCredentialsError):
+        service.login("missing@example.com", "wrong password")
+
+    assert passwords.fallback_was_used

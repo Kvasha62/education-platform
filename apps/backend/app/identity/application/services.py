@@ -49,11 +49,10 @@ class IdentityService:
 
     def login(self, email: str, password: str) -> tuple[Identity, str]:
         identity = self.identities.get_by_email(normalize_email(email))
-        if (
-            identity is None
-            or identity.status is not IdentityStatus.ACTIVE
-            or not self.passwords.verify(password, identity.password_hash)
-        ):
+        password_valid = self.passwords.verify_or_dummy(
+            password, identity.password_hash if identity else None
+        )
+        if identity is None or identity.status is not IdentityStatus.ACTIVE or not password_valid:
             raise InvalidCredentialsError
         token = secrets.token_urlsafe(32)
         now = datetime.now(UTC)

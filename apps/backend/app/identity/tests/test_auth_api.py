@@ -37,6 +37,9 @@ def override_settings() -> Settings:
         frontend_origin=TEST_ORIGIN,
         auth_cookie_secure=False,
         auth_session_ttl_seconds=3600,
+        auth_login_rate_limit=100,
+        auth_register_rate_limit=100,
+        auth_rate_limit_window_seconds=60,
     )
 
 
