@@ -228,6 +228,20 @@ Activity answers **what does the learner do?** Content answers **what material d
 
 Large files must use object storage rather than PostgreSQL.
 
+### Education / Content integration boundary
+
+`education` owns `EducationalEnvironment`, `Course`, `Section`, and `LearningUnit`, including their persistence. The future `content` module will own its own domain entities and persistence. Neither module may directly access or modify the other module's private persistence.
+
+The permitted future dependency direction is:
+
+```text
+Education → public Content interfaces
+```
+
+The runtime integration mechanism is intentionally deferred until a scoped issue requires it. Until then, do not add speculative Content ports, entities, tables, APIs, storage, or integration infrastructure.
+
+Cross-module database foreign keys are not part of this boundary. Future Content persistence must not add foreign keys to `teacher_spaces`, `educational_environments`, `courses`, `sections`, or `learning_units`. References across the boundary require an explicitly approved integration contract rather than direct persistence coupling.
+
 ## 12. Learning Engine
 
 Learning owns enrollment, progress, completion and learning state. Teacher Space must not become the owner of student progress.
