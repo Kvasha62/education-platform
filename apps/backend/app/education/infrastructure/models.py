@@ -47,3 +47,16 @@ class SectionModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (Index("ix_sections_course_position", "course_id", "position"),)
+
+
+class LearningUnitModel(Base):
+    __tablename__ = "learning_units"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    section_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("sections.id", ondelete="CASCADE"))
+    title: Mapped[str] = mapped_column(String(120))
+    position: Mapped[int]
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (Index("ix_learning_units_section_position", "section_id", "position"),)

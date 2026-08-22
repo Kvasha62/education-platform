@@ -6,14 +6,16 @@ from app.education.application.errors import (
     CourseNotFoundError,
     EnvironmentAlreadyExistsError,
     EnvironmentNotFoundError,
+    LearningUnitNotFoundError,
     SectionNotFoundError,
 )
 from app.education.application.ports import (
     CourseRepository,
     EnvironmentRepository,
+    LearningUnitRepository,
     SectionRepository,
 )
-from app.education.domain.models import Course, EducationalEnvironment, Section
+from app.education.domain.models import Course, EducationalEnvironment, LearningUnit, Section
 
 
 class EducationalEnvironmentService:
@@ -84,3 +86,29 @@ class SectionService:
 
     def delete(self, section_id: UUID, course_id: UUID) -> None:
         self.repository.delete(self.get(section_id, course_id))
+
+
+class LearningUnitService:
+    def __init__(self, repository: LearningUnitRepository) -> None:
+        self.repository = repository
+
+    def create(self, section_id: UUID, title: str, position: int) -> LearningUnit:
+        return self.repository.add(LearningUnit.create(section_id, title, position))
+
+    def list(self, section_id: UUID) -> list[LearningUnit]:
+        return self.repository.list_by_section(section_id)
+
+    def get(self, unit_id: UUID, section_id: UUID) -> LearningUnit:
+        unit = self.repository.get_in_section(unit_id, section_id)
+        if unit is None:
+            raise LearningUnitNotFoundError
+        return unit
+
+    def update(
+        self, unit_id: UUID, section_id: UUID, *, title: str | None, position: int | None
+    ) -> LearningUnit:
+        unit = self.get(unit_id, section_id)
+        return self.repository.update(unit.update(title=title, position=position))
+
+    def delete(self, unit_id: UUID, section_id: UUID) -> None:
+        self.repository.delete(self.get(unit_id, section_id))

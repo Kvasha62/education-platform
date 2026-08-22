@@ -15,3 +15,7 @@ class CourseNotFoundError(Exception):
 
 class SectionNotFoundError(Exception):
     pass
+
+
+class LearningUnitNotFoundError(Exception):
+    pass
