@@ -119,6 +119,11 @@ def test_all_cookie_authenticated_mutations_reject_untrusted_origin(
         json={"email": "person@example.com", "password": "a secure password"},
         headers=TRUSTED_HEADERS,
     ).status_code == 200
+    content = client.post(
+        "/api/v1/contents",
+        json={"title": "Content", "type": "article"},
+        headers=TRUSTED_HEADERS,
+    ).json()
     teacher = client.post(
         "/api/v1/teacher-spaces", json={"name": "Space"}, headers=TRUSTED_HEADERS
     ).json()
@@ -151,6 +156,9 @@ def test_all_cookie_authenticated_mutations_reject_untrusted_origin(
 
     cases = [
         ("post", "/api/v1/auth/logout", None),
+        ("post", "/api/v1/contents", {"title": "Other", "type": "resource"}),
+        ("patch", f"/api/v1/contents/{content['id']}", {"title": "Changed"}),
+        ("delete", f"/api/v1/contents/{content['id']}", None),
         ("post", "/api/v1/teacher-spaces", {"name": "Another"}),
         ("patch", f"/api/v1/teacher-spaces/{teacher['id']}", {"name": "Changed"}),
         ("post", f"/api/v1/teacher-spaces/{teacher['id']}/disable", None),

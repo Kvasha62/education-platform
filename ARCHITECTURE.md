@@ -228,9 +228,11 @@ Activity answers **what does the learner do?** Content answers **what material d
 
 Large files must use object storage rather than PostgreSQL.
 
+The Content bounded context owns the user-owned `Content` entity and its persistence. Content ownership is derived from authenticated Identity through `owner_user_id`; clients never control ownership. The initial Content types are `ARTICLE` and `RESOURCE`, and the minimal statuses are `DRAFT` and `PUBLISHED`. EDU-011 creates Content as `DRAFT` and does not implement status transitions or publishing workflows.
+
 ### Education / Content integration boundary
 
-`education` owns `EducationalEnvironment`, `Course`, `Section`, `LearningUnit`, and `Activity`, including their persistence. The future `content` module will own its own domain entities and persistence. Neither module may directly access or modify the other module's private persistence.
+`education` owns `EducationalEnvironment`, `Course`, `Section`, `LearningUnit`, and `Activity`, including their persistence. The `content` module owns its own domain entities and persistence. Neither module may directly access or modify the other module's private persistence.
 
 The permitted future dependency direction is:
 
@@ -240,7 +242,7 @@ Education
     └──→ public Content interface
 ```
 
-`Activity` remains an Education entity and its persistence is owned exclusively by Education. Content is a separate future bounded context. Activity may use a future public Content interface, but Education must not access Content persistence and Content persistence must not add foreign keys to Activity or other Education tables.
+`Activity` remains an Education entity and its persistence is owned exclusively by Education. Content is a separate bounded context. Activity may use a future public Content interface, but Education must not access Content persistence and Content persistence must not add foreign keys to Activity or other Education tables.
 
 The runtime integration mechanism is intentionally deferred until a scoped issue requires it. Until then, do not add speculative Content ports, entities, tables, APIs, storage, or integration infrastructure.
 

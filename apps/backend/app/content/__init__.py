@@ -1,0 +1,1 @@
+"""Independent Content bounded context."""
