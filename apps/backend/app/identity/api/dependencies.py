@@ -18,6 +18,7 @@ from app.identity.infrastructure.repositories import (
 )
 
 SESSION_COOKIE_NAME = "education_session"
+password_service = Argon2PasswordService()
 
 
 def get_identity_service(
@@ -25,7 +26,7 @@ def get_identity_service(
 ) -> IdentityService:
     return IdentityService(
         SqlAlchemyIdentityRepository(db),
-        Argon2PasswordService(),
+        password_service,
         SqlAlchemySessionRepository(db),
         timedelta(seconds=settings.auth_session_ttl_seconds),
     )

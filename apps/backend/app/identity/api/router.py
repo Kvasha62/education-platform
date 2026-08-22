@@ -11,6 +11,10 @@ from app.identity.api.dependencies import (
     get_identity_service,
     require_trusted_origin,
 )
+from app.identity.api.rate_limit import (
+    enforce_login_rate_limit,
+    enforce_register_rate_limit,
+)
 from app.identity.api.schemas import (
     IdentityResponse,
     LoginRequest,
@@ -25,7 +29,12 @@ from app.identity.domain.models import Identity
 router = APIRouter(prefix="/api/v1/auth", tags=["authentication"])
 
 
-@router.post("/register", response_model=IdentityResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=IdentityResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(enforce_register_rate_limit)],
+)
 def register(
     payload: RegistrationRequest,
     service: Annotated[IdentityService, Depends(get_identity_service)],
@@ -37,7 +46,11 @@ def register(
     return IdentityResponse.from_identity(identity)
 
 
-@router.post("/login", response_model=LoginResponse)
+@router.post(
+    "/login",
+    response_model=LoginResponse,
+    dependencies=[Depends(enforce_login_rate_limit)],
+)
 def login(
     payload: LoginRequest,
     response: Response,
