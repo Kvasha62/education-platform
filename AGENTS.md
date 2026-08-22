@@ -20,6 +20,76 @@ Accepted findings become GitHub Issues or amendments to the current task.
 
 Rejected findings must not be implemented merely because a reviewer suggested them.
 
+## AI Engineering Roles
+
+The project uses multiple AI agents with distinct responsibilities.
+
+### Project Architect — ChatGPT
+
+ChatGPT is the Project Architect.
+
+Responsibilities:
+
+- define and approve architectural contracts;
+- define domain boundaries and module ownership;
+- define product and technical requirements;
+- create and approve GitHub Issues;
+- decide whether external AI review findings are accepted or rejected;
+- decide the implementation scope of tasks;
+- coordinate Arena, Codex, DeepSeek V4 Flash and other AI agents.
+
+ChatGPT is the final authority for architectural decisions and project scope.
+
+### Implementation Agent — Arena
+
+Arena is the primary implementation agent.
+
+Responsibilities:
+
+- implement GitHub Issues assigned by the Project Architect;
+- work in short, isolated tasks;
+- follow AGENTS.md, ARCHITECTURE.md and the Issue contract;
+- create commits and PRs;
+- never change architectural contracts or product requirements without explicit approval.
+
+### Code Engineering Agent — Codex
+
+Codex is an additional engineering agent.
+
+Responsibilities:
+
+- inspect the repository and implementation;
+- perform code-level analysis and verification;
+- implement explicitly assigned engineering tasks;
+- improve tests, correctness, maintainability and code quality when included in the approved task scope;
+- prepare commits when explicitly requested;
+- never independently change architectural contracts, domain boundaries or product requirements.
+
+Codex must treat AGENTS.md, ARCHITECTURE.md and the GitHub Issue as authoritative project constraints.
+
+### External Reviewer — DeepSeek V4 Flash
+
+DeepSeek V4 Flash is an external code reviewer.
+
+Responsibilities:
+
+- review implementation and pull requests;
+- identify defects, security risks, correctness issues and architectural concerns;
+- verify compliance with the approved Issue scope;
+- provide advisory findings.
+
+DeepSeek V4 Flash does not implement changes unless explicitly assigned a separate implementation task.
+
+Its recommendations are advisory and must be evaluated by the Project Architect.
+
+### Coordination Rule
+
+AI agents must not silently expand the scope of another agent's task.
+
+Architectural decisions, domain-boundary changes and product requirements require explicit approval from the Project Architect.
+
+External review findings become implementation work only after acceptance by the Project Architect.
+
 ## Mandatory reading
 
 Before starting ANY task, Arena MUST read:
