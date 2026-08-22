@@ -6,7 +6,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.education.application.errors import EnvironmentAlreadyExistsError
+from app.education.application.errors import (
+    CourseNotFoundError,
+    EnvironmentAlreadyExistsError,
+    EnvironmentNotFoundError,
+)
 from app.education.domain.models import Course, EducationalEnvironment
 from app.education.infrastructure.models import CourseModel, EducationalEnvironmentModel
 
@@ -82,8 +86,12 @@ class SqlAlchemyCourseRepository:
             created_at=course.created_at,
             updated_at=course.updated_at,
         )
-        self.db.add(model)
-        self.db.flush()
+        try:
+            with self.db.begin_nested():
+                self.db.add(model)
+                self.db.flush()
+        except IntegrityError as error:
+            raise EnvironmentNotFoundError from error
         return _course_to_domain(model)
 
     def list_by_environment(self, environment_id: UUID) -> list[Course]:
@@ -106,7 +114,7 @@ class SqlAlchemyCourseRepository:
     def update(self, course: Course) -> Course:
         model = self.db.get(CourseModel, course.id)
         if model is None:
-            raise RuntimeError("Course disappeared during the transaction")
+            raise CourseNotFoundError
         model.title = course.title
         model.updated_at = course.updated_at
         self.db.flush()

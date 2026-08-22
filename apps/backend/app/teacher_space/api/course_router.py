@@ -75,7 +75,13 @@ def create_course(
         teacher_space_id, identity, teacher_spaces, environments
     )
     require_writable(teacher_space)
-    return CourseResponse.from_course(courses.create(environment.id, payload.title))
+    try:
+        course = courses.create(environment.id, payload.title)
+    except EnvironmentNotFoundError as error:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "Educational Environment not found"
+        ) from error
+    return CourseResponse.from_course(course)
 
 
 @router.get("", response_model=list[CourseResponse])

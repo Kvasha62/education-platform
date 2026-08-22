@@ -136,6 +136,48 @@ def test_owner_can_create_list_get_and_update_multiple_courses(client: TestClien
     assert updated.json()["educational_environment_id"] == environment_id
 
 
+def test_existing_empty_environment_returns_empty_course_list(client: TestClient) -> None:
+    authenticate(client, "owner@example.com")
+    teacher_space_id = create_teacher_space(client, "Empty Space")
+    create_environment(client, teacher_space_id)
+
+    response = client.get(courses_path(teacher_space_id))
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_missing_course_get_returns_404(client: TestClient) -> None:
+    authenticate(client, "owner@example.com")
+    teacher_space_id = create_teacher_space(client, "Space")
+    create_environment(client, teacher_space_id)
+
+    response = client.get(
+        f"{courses_path(teacher_space_id)}/00000000-0000-0000-0000-000000000000"
+    )
+    assert response.status_code == 404
+
+
+def test_missing_course_patch_returns_404(client: TestClient) -> None:
+    authenticate(client, "owner@example.com")
+    teacher_space_id = create_teacher_space(client, "Space")
+    create_environment(client, teacher_space_id)
+
+    response = client.patch(
+        f"{courses_path(teacher_space_id)}/00000000-0000-0000-0000-000000000000",
+        json={"title": "Missing"},
+        headers=MUTATION_HEADERS,
+    )
+    assert response.status_code == 404
+
+
+def test_create_course_without_environment_returns_404(client: TestClient) -> None:
+    authenticate(client, "owner@example.com")
+    teacher_space_id = create_teacher_space(client, "No Environment")
+
+    response = create_course(client, teacher_space_id, "Missing Environment")
+    assert response.status_code == 404
+
+
 def test_non_owner_cannot_access_courses(client: TestClient) -> None:
     owner_token = authenticate(client, "owner@example.com")
     teacher_space_id = create_teacher_space(client, "Owner Space")
