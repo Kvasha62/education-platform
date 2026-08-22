@@ -24,5 +24,10 @@ class ContentService:
     def rename(self, content_id: UUID, owner_user_id: UUID, title: str) -> Content:
         return self.repository.update(self.get_owned(content_id, owner_user_id).rename(title))
 
+    def publish(self, content_id: UUID, owner_user_id: UUID) -> Content:
+        content = self.get_owned(content_id, owner_user_id)
+        published = content.publish()
+        return content if published is content else self.repository.update(published)
+
     def delete(self, content_id: UUID, owner_user_id: UUID) -> None:
         self.repository.delete(self.get_owned(content_id, owner_user_id))

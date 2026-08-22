@@ -159,6 +159,7 @@ def test_all_cookie_authenticated_mutations_reject_untrusted_origin(
         ("post", "/api/v1/contents", {"title": "Other", "type": "resource"}),
         ("patch", f"/api/v1/contents/{content['id']}", {"title": "Changed"}),
         ("delete", f"/api/v1/contents/{content['id']}", None),
+        ("post", f"/api/v1/contents/{content['id']}/publish", None),
         ("post", "/api/v1/teacher-spaces", {"name": "Another"}),
         ("patch", f"/api/v1/teacher-spaces/{teacher['id']}", {"name": "Changed"}),
         ("post", f"/api/v1/teacher-spaces/{teacher['id']}/disable", None),

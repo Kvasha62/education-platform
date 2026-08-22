@@ -63,6 +63,21 @@ def update_content(
     return ContentResponse.from_content(content)
 
 
+@router.post(
+    "/{content_id}/publish",
+    response_model=ContentResponse,
+    dependencies=[Depends(require_trusted_origin)],
+)
+def publish_content(
+    content_id: UUID, identity: CurrentIdentity, service: Contents
+) -> ContentResponse:
+    try:
+        content = service.publish(content_id, identity.id)
+    except ContentNotFoundError as error:
+        raise not_found(error) from error
+    return ContentResponse.from_content(content)
+
+
 @router.delete(
     "/{content_id}",
     status_code=status.HTTP_204_NO_CONTENT,
