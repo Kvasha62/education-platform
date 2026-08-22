@@ -228,7 +228,7 @@ Activity answers **what does the learner do?** Content answers **what material d
 
 Large files must use object storage rather than PostgreSQL.
 
-The Content bounded context owns the user-owned `Content` entity and its persistence. Content ownership is derived from authenticated Identity through `owner_user_id`; clients never control ownership. The initial Content types are `ARTICLE` and `RESOURCE`, and the minimal statuses are `DRAFT` and `PUBLISHED`. EDU-011 creates Content as `DRAFT` and does not implement status transitions or publishing workflows.
+The Content bounded context owns the user-owned `Content` entity and its persistence. Content ownership is derived from authenticated Identity through `owner_user_id`; clients never control ownership. The initial Content types are `ARTICLE` and `RESOURCE`, and the minimal statuses are `DRAFT` and `PUBLISHED`. Content is created as `DRAFT`. The explicit publish operation performs the only approved transition, `DRAFT → PUBLISHED`, and repeated publication is idempotent. Clients cannot mutate status through the general update contract.
 
 ### Education / Content integration boundary
 

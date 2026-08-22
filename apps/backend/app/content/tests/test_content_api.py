@@ -112,6 +112,34 @@ def test_owner_crud_and_default_contract(client: TestClient) -> None:
     assert client.get(item).status_code == 404
 
 
+def test_publish_is_owner_scoped_and_idempotent(client: TestClient) -> None:
+    first_token = auth(client, "owner@example.com")
+    content = create(client, "Publishable").json()
+    publish_path = f"/api/v1/contents/{content['id']}/publish"
+
+    first = client.post(publish_path, headers=HEADERS)
+    repeated = client.post(publish_path, headers=HEADERS)
+    assert first.status_code == repeated.status_code == 200
+    assert first.json()["status"] == repeated.json()["status"] == "published"
+    assert first.json()["updated_at"].removesuffix("Z") == repeated.json()[
+        "updated_at"
+    ].removesuffix("Z")
+
+    auth(client, "other@example.com")
+    assert client.post(publish_path, headers=HEADERS).status_code == 404
+    use(client, first_token)
+
+
+def test_publish_requires_authentication_and_csrf(client: TestClient) -> None:
+    missing = "/api/v1/contents/00000000-0000-0000-0000-000000000000/publish"
+    assert client.post(missing, headers=HEADERS).status_code == 401
+
+    auth(client, "owner@example.com")
+    content = create(client).json()
+    publish_path = f"/api/v1/contents/{content['id']}/publish"
+    assert client.post(publish_path, headers={"Origin": "https://evil.test"}).status_code == 403
+
+
 def test_cross_owner_isolation_and_owned_list(client: TestClient) -> None:
     first_token = auth(client, "first@example.com")
     private = create(client, "Private").json()
@@ -169,10 +197,9 @@ def test_validation_nonexistent_and_csrf(client: TestClient) -> None:
         )
 
 
-def test_openapi_content_crud_only(client: TestClient) -> None:
+def test_openapi_content_lifecycle_contract(client: TestClient) -> None:
     paths = client.get("/openapi.json").json()["paths"]
     assert {"post", "get"} <= paths["/api/v1/contents"].keys()
     assert {"get", "patch", "delete"} <= paths["/api/v1/contents/{content_id}"].keys()
-    assert all(
-        "publish" not in path and "attachment" not in path for path in paths if "content" in path
-    )
+    assert "post" in paths["/api/v1/contents/{content_id}/publish"]
+    assert all("attachment" not in path for path in paths if "content" in path)

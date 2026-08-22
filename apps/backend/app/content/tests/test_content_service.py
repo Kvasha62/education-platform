@@ -72,6 +72,24 @@ def test_cross_owner_is_not_found(service: ContentService) -> None:
         service.get_owned(item.id, uuid4())
 
 
+def test_publish_draft_and_repeat_idempotently(service: ContentService) -> None:
+    owner = uuid4()
+    draft = service.create(owner, ContentType.ARTICLE, "Publishable")
+
+    published = service.publish(draft.id, owner)
+    repeated = service.publish(draft.id, owner)
+
+    assert published.status is ContentStatus.PUBLISHED
+    assert repeated == published
+    assert repeated.updated_at == published.updated_at
+
+
+def test_publish_cross_owner_is_not_found(service: ContentService) -> None:
+    item = service.create(uuid4(), ContentType.ARTICLE, "Private")
+    with pytest.raises(ContentNotFoundError):
+        service.publish(item.id, uuid4())
+
+
 def test_delete(service: ContentService) -> None:
     owner = uuid4()
     item = service.create(owner, ContentType.ARTICLE, "Temporary")

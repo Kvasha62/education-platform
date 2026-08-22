@@ -60,6 +60,7 @@ class SqlAlchemyContentRepository:
         if model is None:
             raise ContentNotFoundError
         model.title = content.title
+        model.status = content.status
         model.updated_at = content.updated_at
         self.db.flush()
         return _to_domain(model)

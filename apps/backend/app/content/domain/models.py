@@ -52,3 +52,13 @@ class Content:
 
     def rename(self, title: str) -> "Content":
         return replace(self, title=normalize_title(title), updated_at=datetime.now(UTC))
+
+    def publish(self) -> "Content":
+        """Publish draft Content; repeated publication is idempotent."""
+        if self.status is ContentStatus.PUBLISHED:
+            return self
+        return replace(
+            self,
+            status=ContentStatus.PUBLISHED,
+            updated_at=datetime.now(UTC),
+        )
