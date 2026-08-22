@@ -27,3 +27,9 @@ Apply the identity schema before starting the API outside Docker Compose:
 ```bash
 alembic upgrade head
 ```
+
+## Authentication rate-limit limitations
+
+Authentication rate limiting is process-local and keyed by the direct client IP. Users behind
+shared NAT therefore share one limit. Trusted proxy and forwarded-header handling will be
+addressed separately if a reverse proxy is introduced; forwarded headers are not trusted today.

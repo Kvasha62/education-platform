@@ -22,9 +22,12 @@ class InMemoryRateLimiter:
             attempts = self._attempts[key]
             while attempts and attempts[0] <= cutoff:
                 attempts.popleft()
+            if not attempts:
+                del self._attempts[key]
             if len(attempts) >= limit:
                 return max(1, ceil(attempts[0] + window_seconds - now))
             attempts.append(now)
+            self._attempts[key] = attempts
             return None
 
     def reset(self) -> None:

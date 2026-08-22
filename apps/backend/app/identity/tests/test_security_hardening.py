@@ -178,3 +178,9 @@ def test_cookie_defaults_insecure_for_http_local_development(
     monkeypatch.setenv("APP_ENV", "development")
     monkeypatch.delenv("AUTH_COOKIE_SECURE", raising=False)
     assert get_settings().auth_cookie_secure is False
+
+
+def test_non_positive_session_ttl_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AUTH_SESSION_TTL_SECONDS", "0")
+    with pytest.raises(ValueError, match="AUTH_SESSION_TTL_SECONDS"):
+        get_settings()

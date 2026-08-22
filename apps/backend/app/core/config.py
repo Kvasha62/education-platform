@@ -41,7 +41,7 @@ def get_settings() -> Settings:
         minio_endpoint=os.getenv("MINIO_ENDPOINT", "http://localhost:9000"),
         frontend_origin=os.getenv("FRONTEND_ORIGIN", "http://localhost:5173").rstrip("/"),
         auth_cookie_secure=_bool_env("AUTH_COOKIE_SECURE", app_env != "development"),
-        auth_session_ttl_seconds=int(os.getenv("AUTH_SESSION_TTL_SECONDS", "86400")),
+        auth_session_ttl_seconds=_positive_int_env("AUTH_SESSION_TTL_SECONDS", 86400),
         auth_login_rate_limit=_positive_int_env("AUTH_LOGIN_RATE_LIMIT", 10),
         auth_register_rate_limit=_positive_int_env("AUTH_REGISTER_RATE_LIMIT", 5),
         auth_rate_limit_window_seconds=_positive_int_env("AUTH_RATE_LIMIT_WINDOW_SECONDS", 60),
