@@ -19,3 +19,7 @@ class SectionNotFoundError(Exception):
 
 class LearningUnitNotFoundError(Exception):
     pass
+
+
+class ActivityNotFoundError(Exception):
+    pass

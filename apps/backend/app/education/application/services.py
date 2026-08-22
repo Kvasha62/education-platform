@@ -3,6 +3,7 @@
 from uuid import UUID
 
 from app.education.application.errors import (
+    ActivityNotFoundError,
     CourseNotFoundError,
     EnvironmentAlreadyExistsError,
     EnvironmentNotFoundError,
@@ -10,12 +11,20 @@ from app.education.application.errors import (
     SectionNotFoundError,
 )
 from app.education.application.ports import (
+    ActivityRepository,
     CourseRepository,
     EnvironmentRepository,
     LearningUnitRepository,
     SectionRepository,
 )
-from app.education.domain.models import Course, EducationalEnvironment, LearningUnit, Section
+from app.education.domain.models import (
+    Activity,
+    ActivityType,
+    Course,
+    EducationalEnvironment,
+    LearningUnit,
+    Section,
+)
 
 
 class EducationalEnvironmentService:
@@ -112,3 +121,31 @@ class LearningUnitService:
 
     def delete(self, unit_id: UUID, section_id: UUID) -> None:
         self.repository.delete(self.get(unit_id, section_id))
+
+
+class ActivityService:
+    def __init__(self, repository: ActivityRepository) -> None:
+        self.repository = repository
+
+    def create(
+        self, unit_id: UUID, title: str, activity_type: ActivityType, position: int
+    ) -> Activity:
+        return self.repository.add(Activity.create(unit_id, title, activity_type, position))
+
+    def list(self, unit_id: UUID) -> list[Activity]:
+        return self.repository.list_by_unit(unit_id)
+
+    def get(self, activity_id: UUID, unit_id: UUID) -> Activity:
+        activity = self.repository.get_in_unit(activity_id, unit_id)
+        if activity is None:
+            raise ActivityNotFoundError
+        return activity
+
+    def update(
+        self, activity_id: UUID, unit_id: UUID, *, title: str | None, position: int | None
+    ) -> Activity:
+        activity = self.get(activity_id, unit_id)
+        return self.repository.update(activity.update(title=title, position=position))
+
+    def delete(self, activity_id: UUID, unit_id: UUID) -> None:
+        self.repository.delete(self.get(activity_id, unit_id))

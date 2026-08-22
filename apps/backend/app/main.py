@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.identity.api import router as identity_router
 from app.teacher_space.api import router as teacher_space_router
+from app.teacher_space.api.activity_router import router as activity_router
 from app.teacher_space.api.course_router import router as course_router
 from app.teacher_space.api.environment_router import router as environment_router
 from app.teacher_space.api.learning_unit_router import router as learning_unit_router
@@ -22,6 +23,7 @@ app.add_middleware(
 )
 app.include_router(identity_router)
 app.include_router(teacher_space_router)
+app.include_router(activity_router)
 app.include_router(course_router)
 app.include_router(environment_router)
 app.include_router(section_router)

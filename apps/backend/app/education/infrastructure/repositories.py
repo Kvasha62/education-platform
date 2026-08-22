@@ -7,14 +7,22 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.education.application.errors import (
+    ActivityNotFoundError,
     CourseNotFoundError,
     EnvironmentAlreadyExistsError,
     EnvironmentNotFoundError,
     LearningUnitNotFoundError,
     SectionNotFoundError,
 )
-from app.education.domain.models import Course, EducationalEnvironment, LearningUnit, Section
+from app.education.domain.models import (
+    Activity,
+    Course,
+    EducationalEnvironment,
+    LearningUnit,
+    Section,
+)
 from app.education.infrastructure.models import (
+    ActivityModel,
     CourseModel,
     EducationalEnvironmentModel,
     LearningUnitModel,
@@ -255,5 +263,76 @@ class SqlAlchemyLearningUnitRepository:
         model = self.db.get(LearningUnitModel, unit.id)
         if model is None:
             raise LearningUnitNotFoundError
+        self.db.delete(model)
+        self.db.flush()
+
+
+def _activity_to_domain(model: ActivityModel) -> Activity:
+    return Activity(
+        id=model.id,
+        learning_unit_id=model.learning_unit_id,
+        title=model.title,
+        type=model.type,
+        position=model.position,
+        created_at=model.created_at,
+        updated_at=model.updated_at,
+    )
+
+
+class SqlAlchemyActivityRepository:
+    def __init__(self, db: Session) -> None:
+        self.db = db
+
+    def add(self, activity: Activity) -> Activity:
+        model = ActivityModel(
+            id=activity.id,
+            learning_unit_id=activity.learning_unit_id,
+            title=activity.title,
+            type=activity.type,
+            position=activity.position,
+            created_at=activity.created_at,
+            updated_at=activity.updated_at,
+        )
+        try:
+            with self.db.begin_nested():
+                self.db.add(model)
+                self.db.flush()
+        except IntegrityError as error:
+            raise LearningUnitNotFoundError from error
+        return _activity_to_domain(model)
+
+    def list_by_unit(self, unit_id: UUID) -> list[Activity]:
+        models = self.db.scalars(
+            select(ActivityModel)
+            .where(ActivityModel.learning_unit_id == unit_id)
+            .order_by(ActivityModel.position, ActivityModel.id)
+        ).all()
+        return [_activity_to_domain(model) for model in models]
+
+    def get_in_unit(self, activity_id: UUID, unit_id: UUID) -> Activity | None:
+        model = self.db.scalar(
+            select(ActivityModel).where(
+                ActivityModel.id == activity_id,
+                ActivityModel.learning_unit_id == unit_id,
+            )
+        )
+        return _activity_to_domain(model) if model else None
+
+    def update(self, activity: Activity) -> Activity:
+        model = self.db.get(ActivityModel, activity.id)
+        if model is None:
+            raise ActivityNotFoundError
+        model.title, model.position, model.updated_at = (
+            activity.title,
+            activity.position,
+            activity.updated_at,
+        )
+        self.db.flush()
+        return _activity_to_domain(model)
+
+    def delete(self, activity: Activity) -> None:
+        model = self.db.get(ActivityModel, activity.id)
+        if model is None:
+            raise ActivityNotFoundError
         self.db.delete(model)
         self.db.flush()

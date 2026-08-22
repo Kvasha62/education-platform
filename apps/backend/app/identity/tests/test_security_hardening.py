@@ -142,6 +142,12 @@ def test_all_cookie_authenticated_mutations_reject_untrusted_origin(
         json={"title": "Unit", "position": 0},
         headers=TRUSTED_HEADERS,
     ).json()
+    activities_path = f"{units_path}/{unit['id']}/activities"
+    activity = client.post(
+        activities_path,
+        json={"title": "Activity", "type": "lecture", "position": 0},
+        headers=TRUSTED_HEADERS,
+    ).json()
 
     cases = [
         ("post", "/api/v1/auth/logout", None),
@@ -158,6 +164,9 @@ def test_all_cookie_authenticated_mutations_reject_untrusted_origin(
         ("post", units_path, {"title": "Second", "position": 1}),
         ("patch", f"{units_path}/{unit['id']}", {"title": "Changed"}),
         ("delete", f"{units_path}/{unit['id']}", None),
+        ("post", activities_path, {"title": "Second", "type": "video", "position": 1}),
+        ("patch", f"{activities_path}/{activity['id']}", {"title": "Changed"}),
+        ("delete", f"{activities_path}/{activity['id']}", None),
     ]
     for method, path, payload in cases:
         response = client.request(method, path, json=payload, headers={"Origin": "https://evil.test"})
