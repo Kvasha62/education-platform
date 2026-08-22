@@ -11,10 +11,19 @@ Issue
 → Tests
 → Pull Request
 → Review
+→ Project Architect approval
 → Merge
 ```
 
 The `main` branch is the stable integration branch.
+
+The Human Project Owner is the human owner of the project and final merge authority.
+
+The Project Architect is ChatGPT and is responsible for architecture, scope, requirements and acceptance or rejection of external review findings.
+
+Human Project Owner merges PRs after the Project Architect has approved the implementation and all required checks/reviews have passed.
+
+AI agents do not merge their own PRs. The Project Architect approves architectural and scope decisions; the Human Project Owner performs the final merge.
 
 ## Branches
 
@@ -38,6 +47,8 @@ A normal development unit is:
 ```
 
 Keep PRs focused and reviewable.
+
+The Human Project Owner performs the final merge only after Project Architect approval and all required checks/reviews have passed.
 
 ## Issue requirements
 
@@ -72,6 +83,8 @@ STOP
 → Update architecture / ADR if approved
 → Implement
 ```
+
+Architectural and scope decisions require Project Architect approval and do not bypass the Human Project Owner merge gate.
 
 ## Quality
 
