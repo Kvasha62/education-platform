@@ -230,17 +230,21 @@ Large files must use object storage rather than PostgreSQL.
 
 ### Education / Content integration boundary
 
-`education` owns `EducationalEnvironment`, `Course`, `Section`, and `LearningUnit`, including their persistence. The future `content` module will own its own domain entities and persistence. Neither module may directly access or modify the other module's private persistence.
+`education` owns `EducationalEnvironment`, `Course`, `Section`, `LearningUnit`, and `Activity`, including their persistence. The future `content` module will own its own domain entities and persistence. Neither module may directly access or modify the other module's private persistence.
 
 The permitted future dependency direction is:
 
 ```text
-Education → public Content interfaces
+Education
+└── Activity
+    └──→ public Content interface
 ```
+
+`Activity` remains an Education entity and its persistence is owned exclusively by Education. Content is a separate future bounded context. Activity may use a future public Content interface, but Education must not access Content persistence and Content persistence must not add foreign keys to Activity or other Education tables.
 
 The runtime integration mechanism is intentionally deferred until a scoped issue requires it. Until then, do not add speculative Content ports, entities, tables, APIs, storage, or integration infrastructure.
 
-Cross-module database foreign keys are not part of this boundary. Future Content persistence must not add foreign keys to `teacher_spaces`, `educational_environments`, `courses`, `sections`, or `learning_units`. References across the boundary require an explicitly approved integration contract rather than direct persistence coupling.
+Cross-module database foreign keys are not part of this boundary. Future Content persistence must not add foreign keys to `teacher_spaces`, `educational_environments`, `courses`, `sections`, `learning_units`, or `activities`. References across the boundary require an explicitly approved integration contract rather than direct persistence coupling.
 
 ## 12. Learning Engine
 

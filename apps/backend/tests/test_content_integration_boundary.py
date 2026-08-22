@@ -16,6 +16,8 @@ EDUCATION_TABLES = {
 
 
 def test_education_persistence_has_no_content_coupling() -> None:
+    assert all("content" not in name.casefold() for name in Base.metadata.tables)
+
     education_tables = {
         name: table
         for name, table in Base.metadata.tables.items()
@@ -41,3 +43,12 @@ def test_no_content_persistence_migration_exists() -> None:
 
 def test_no_content_api_is_exposed() -> None:
     assert all("/content" not in path.casefold() for path in app.openapi()["paths"])
+
+
+def test_activity_persistence_boundary_is_learning_unit_only() -> None:
+    activity_table = Base.metadata.tables["activities"]
+
+    assert all("content" not in column.name.casefold() for column in activity_table.columns)
+    assert {foreign_key.target_fullname for foreign_key in activity_table.foreign_keys} == {
+        "learning_units.id"
+    }
