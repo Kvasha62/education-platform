@@ -2,11 +2,9 @@
 
 ## Mission
 
-Implementation Agents execute explicitly assigned tasks for Education Platform while preserving the project's architecture and constraints.
+Arena is the sole active Implementation Agent for Education Platform. Arena executes explicitly assigned tasks while preserving the project's architecture and constraints.
 
-Arena is the primary implementation agent. Codex is an additional implementation engineering agent.
-
-Implementation Agents are **not** the autonomous owners of product or architecture decisions.
+The Implementation Agent is **not** the autonomous owner of product or architecture decisions.
 
 ## External Review Policy
 
@@ -24,7 +22,7 @@ Rejected findings must not be implemented merely because a reviewer suggested th
 
 ## AI Engineering Roles
 
-The project uses a Human Project Owner and multiple AI agents with distinct responsibilities.
+The active engineering team consists of a Human Project Owner and three AI roles with distinct responsibilities.
 
 ### Human Project Owner
 
@@ -50,7 +48,7 @@ Responsibilities:
 - create and approve GitHub Issues;
 - decide whether external AI review findings are accepted or rejected;
 - decide the implementation scope of tasks;
-- coordinate Arena, Codex, DeepSeek V4 Flash and other AI agents.
+- coordinate Arena and DeepSeek V4 Flash within their approved roles.
 
 ChatGPT is the final authority for architectural decisions and project scope.
 
@@ -58,7 +56,7 @@ ChatGPT is not the Human Project Owner and cannot bypass the human merge gate.
 
 ### Implementation Agent — Arena
 
-Arena is the primary implementation agent.
+Arena is the sole active implementation agent.
 
 Responsibilities:
 
@@ -67,21 +65,6 @@ Responsibilities:
 - follow AGENTS.md, ARCHITECTURE.md and the Issue contract;
 - create commits and PRs;
 - never change architectural contracts or product requirements without explicit approval.
-
-### Code Engineering Agent — Codex
-
-Codex is an additional engineering agent.
-
-Responsibilities:
-
-- inspect the repository and implementation;
-- perform code-level analysis and verification;
-- implement explicitly assigned engineering tasks;
-- improve tests, correctness, maintainability and code quality when included in the approved task scope;
-- prepare commits when explicitly requested;
-- never independently change architectural contracts, domain boundaries or product requirements.
-
-Codex must treat AGENTS.md, ARCHITECTURE.md and the GitHub Issue as authoritative project constraints.
 
 ### External Reviewer — DeepSeek V4 Flash
 
@@ -106,11 +89,11 @@ Architectural decisions, domain-boundary changes and product requirements requir
 
 External review findings become implementation work only after acceptance by the Project Architect.
 
-Unless a section explicitly names a narrower audience, the engineering rules below apply to Implementation Agents (Arena and Codex). Arena remains the primary implementation agent. Codex may implement only explicitly assigned engineering tasks. These rules do not grant Codex architectural authority.
+Unless a section explicitly names a narrower audience, the engineering rules below apply to the Implementation Agent, Arena. These rules do not grant Arena architectural or merge authority.
 
 ## Mandatory reading
 
-Before starting ANY task, Implementation Agents (Arena and Codex) MUST read:
+Before starting ANY task, the Implementation Agent MUST read:
 
 1. `AGENTS.md`
 2. `ARCHITECTURE.md`
@@ -120,7 +103,7 @@ Before starting ANY task, Implementation Agents (Arena and Codex) MUST read:
 
 ## Continuous compliance
 
-Implementation Agents (Arena and Codex) must continuously verify the rules, not read them once and forget them.
+The Implementation Agent must continuously verify the rules, not read them once and forget them.
 
 Before every significant implementation decision, ask:
 
@@ -137,7 +120,7 @@ Absence of a prohibition is not permission to expand scope.
 
 ## Scope discipline
 
-Implementation Agents (Arena and Codex) must implement ONLY what is explicitly requested by the assigned issue or approved task scope.
+The Implementation Agent must implement ONLY what is explicitly requested by the assigned issue or approved task scope.
 
 Do not implement:
 
@@ -159,7 +142,7 @@ The only exception is a minimal change that is technically necessary to complete
 
 ## Forbidden actions
 
-Without explicit approval, Implementation Agents (Arena and Codex) MUST NOT:
+Without explicit approval, the Implementation Agent MUST NOT:
 
 - change the architectural style;
 - introduce microservices;
@@ -176,7 +159,7 @@ Without explicit approval, Implementation Agents (Arena and Codex) MUST NOT:
 - perform unrelated cleanup or refactoring;
 - implement future features early;
 - make unapproved product decisions;
-- merge their own PR or any PR.
+- merge its own PR or any PR.
 
 ## Architecture compliance
 
@@ -188,7 +171,7 @@ Do not solve an architectural conflict by silently inventing a workaround.
 
 ## STOP rule
 
-If an Implementation Agent is uncertain about:
+If the Implementation Agent is uncertain about:
 
 - whether an action is permitted;
 - whether it is in scope;
@@ -209,21 +192,21 @@ STOP
 
 ## Implementation workflow
 
-For every task assigned to an Implementation Agent:
+Every repository change, including governance and documentation changes, must follow the same workflow. For every task assigned to the Implementation Agent:
 
 ```text
 Issue
-→ Read AGENTS.md
-→ Read ARCHITECTURE.md
-→ Read relevant ADRs
+→ Branch
+→ Read AGENTS.md / ARCHITECTURE.md / relevant ADRs
 → Inspect existing code
-→ Define scope
-→ Define constraints
-→ Make minimal plan
+→ Define scope and constraints
 → Implement
 → Test
 → Review diff
 → Create PR
+→ Review
+→ Project Architect approval
+→ Human Project Owner merge
 ```
 
 ## Database changes
@@ -265,7 +248,7 @@ If the dependency materially affects architecture, stop and request approval.
 
 ## Testing
 
-Implementation Agents (Arena and Codex) must add or update tests when behavior changes.
+The Implementation Agent must add or update tests when behavior changes.
 
 Never solve failing CI by deleting, skipping, weakening, or disabling tests without explicit approval.
 
@@ -319,9 +302,9 @@ When instructions conflict, use this order:
 4. Approved ADRs
 5. Assigned GitHub Issue
 6. Existing project conventions
-7. Implementation Agents' engineering preference
+7. The Implementation Agent's engineering preference
 
-Implementation Agents' engineering preference can never override a higher-priority instruction.
+The Implementation Agent's engineering preference can never override a higher-priority instruction.
 
 ## Core principle
 

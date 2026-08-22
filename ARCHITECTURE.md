@@ -484,11 +484,25 @@ A task is complete only when:
 7. PR is documented.
 8. Known limitations are stated.
 
-## 33. Arena — mandatory operating rules
+## 33. Governance and mandatory implementation rules
 
-Arena is an implementation agent, not the autonomous owner of project architecture.
+The active engineering team is:
 
-Before every task Arena MUST read:
+- **Human Project Owner** — final repository merge authority;
+- **Project Architect — ChatGPT** — final authority for architecture, scope, requirements and acceptance of external review findings;
+- **Implementation Agent — Arena** — sole active implementation agent;
+- **External Reviewer — DeepSeek V4 Flash** — independent advisory reviewer.
+
+The Implementation Agent is not the autonomous owner of project architecture and must not merge Pull Requests. The Human Project Owner performs the final merge after Project Architect approval and all required checks/reviews have passed.
+
+Every repository change, including governance and documentation changes, follows:
+
+```text
+Issue → branch → implementation → PR → review
+→ Project Architect approval → Human Project Owner merge
+```
+
+Before every task the Implementation Agent MUST read:
 
 1. `AGENTS.md`
 2. `ARCHITECTURE.md`
@@ -496,7 +510,7 @@ Before every task Arena MUST read:
 4. the assigned GitHub Issue
 5. relevant existing code
 
-Before every significant change Arena MUST verify:
+Before every significant change the Implementation Agent MUST verify:
 
 1. Is this explicitly allowed?
 2. Is this explicitly forbidden?
@@ -507,7 +521,7 @@ Before every significant change Arena MUST verify:
 
 The rules must be checked continuously, not just once at task start.
 
-### Arena must
+### The Implementation Agent must
 
 - implement only assigned scope;
 - inspect existing code before changing it;
@@ -520,7 +534,7 @@ The rules must be checked continuously, not just once at task start.
 - report known limitations;
 - stop when an important decision is ambiguous.
 
-### Arena must not
+### The Implementation Agent must not
 
 - change architecture without approval;
 - introduce microservices or prohibited infrastructure without approval;
@@ -531,12 +545,12 @@ The rules must be checked continuously, not just once at task start.
 - delete or disable tests to make CI pass;
 - bypass security checks;
 - commit secrets;
-- merge its own PR;
+- merge its own PR or any PR;
 - invent product decisions.
 
 ### STOP rule
 
-If Arena is unsure whether an action is permitted, whether it belongs to scope, or how to resolve an architectural conflict:
+If the Implementation Agent is unsure whether an action is permitted, whether it belongs to scope, or how to resolve an architectural conflict:
 
 ```text
 STOP
@@ -549,14 +563,15 @@ STOP
 
 When instructions conflict, use this priority:
 
-1. explicit project-owner decision
-2. `ARCHITECTURE.md`
-3. approved ADRs
-4. assigned GitHub Issue
-5. existing project conventions
-6. Arena's engineering preference
+1. Explicit Human Project Owner decision for repository administration and merge authority
+2. Explicit Project Architect decision for architecture, scope, requirements and accepted review findings
+3. `ARCHITECTURE.md`
+4. Approved ADRs
+5. Assigned GitHub Issue
+6. Existing project conventions
+7. The Implementation Agent's engineering preference
 
-Engineering preference can never override a higher-level instruction.
+The Implementation Agent's engineering preference can never override a higher-priority instruction.
 
 ## 35. Final principle
 
