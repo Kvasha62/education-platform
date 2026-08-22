@@ -1,0 +1,182 @@
+from typing import cast
+from uuid import UUID, uuid4
+
+import pytest
+
+from app.content.public import (
+    ContentLookupUnavailable,
+    ContentReference,
+    ContentReferenceNotFound,
+    ContentStatus,
+    ContentType,
+)
+from app.education.application.content_links import ActivityContentService
+from app.education.application.errors import ActivityNotFoundError
+from app.education.application.ports import ActivityRepository
+from app.education.domain.content_links import ActivityContentLink
+from app.education.domain.models import Activity, ActivityType
+
+
+class MemoryActivityRepository:
+    def __init__(self, activity: Activity) -> None:
+        self.activity = activity
+
+    def get_in_unit(self, activity_id: UUID, unit_id: UUID) -> Activity | None:
+        if self.activity.id == activity_id and self.activity.learning_unit_id == unit_id:
+            return self.activity
+        return None
+
+
+class MemoryLinkRepository:
+    def __init__(self) -> None:
+        self.links: set[ActivityContentLink] = set()
+
+    def attach(self, link: ActivityContentLink) -> ActivityContentLink:
+        self.links.add(link)
+        return link
+
+    def detach(self, activity_id: UUID, content_id: UUID) -> None:
+        self.links.discard(ActivityContentLink(activity_id, content_id))
+
+    def list_for_activity(self, activity_id: UUID) -> list[ActivityContentLink]:
+        return sorted(
+            (link for link in self.links if link.activity_id == activity_id),
+            key=lambda link: link.content_id,
+        )
+
+    def list_for_content(self, content_id: UUID) -> list[ActivityContentLink]:
+        return sorted(
+            (link for link in self.links if link.content_id == content_id),
+            key=lambda link: link.activity_id,
+        )
+
+    def exists(self, activity_id: UUID, content_id: UUID) -> bool:
+        return ActivityContentLink(activity_id, content_id) in self.links
+
+
+class FakeContentLookup:
+    def __init__(self) -> None:
+        self.references: dict[tuple[UUID, UUID], ContentReference] = {}
+        self.unavailable = False
+
+    def add(self, owner_id: UUID, content_id: UUID, status: ContentStatus) -> None:
+        self.references[(owner_id, content_id)] = ContentReference(
+            id=content_id,
+            type=ContentType.ARTICLE,
+            status=status,
+            available_for_student=status is ContentStatus.PUBLISHED,
+        )
+
+    def lookup_owned(self, content_id: UUID, owner_user_id: UUID) -> ContentReference:
+        if self.unavailable:
+            raise ContentLookupUnavailable
+        try:
+            return self.references[(owner_user_id, content_id)]
+        except KeyError as error:
+            raise ContentReferenceNotFound from error
+
+
+def build_service() -> tuple[
+    ActivityContentService,
+    Activity,
+    MemoryLinkRepository,
+    FakeContentLookup,
+]:
+    activity = Activity.create(uuid4(), "Activity", ActivityType.LECTURE, 0)
+    links = MemoryLinkRepository()
+    lookup = FakeContentLookup()
+    service = ActivityContentService(
+        cast(ActivityRepository, MemoryActivityRepository(activity)), links, lookup
+    )
+    return service, activity, links, lookup
+
+
+@pytest.mark.parametrize("status", [ContentStatus.DRAFT, ContentStatus.PUBLISHED])
+def test_attach_owned_draft_or_published_content(status: ContentStatus) -> None:
+    service, activity, links, lookup = build_service()
+    owner_id, content_id = uuid4(), uuid4()
+    lookup.add(owner_id, content_id, status)
+
+    link = service.attach(activity.id, activity.learning_unit_id, content_id, owner_id)
+
+    assert link == ActivityContentLink(activity.id, content_id)
+    assert links.exists(activity.id, content_id)
+
+
+def test_repeated_attach_is_idempotent() -> None:
+    service, activity, links, lookup = build_service()
+    owner_id, content_id = uuid4(), uuid4()
+    lookup.add(owner_id, content_id, ContentStatus.DRAFT)
+
+    first = service.attach(activity.id, activity.learning_unit_id, content_id, owner_id)
+    second = service.attach(activity.id, activity.learning_unit_id, content_id, owner_id)
+
+    assert first == second
+    assert links.list_for_activity(activity.id) == [first]
+
+
+def test_attach_validates_activity_scope() -> None:
+    service, activity, _, lookup = build_service()
+    owner_id, content_id = uuid4(), uuid4()
+    lookup.add(owner_id, content_id, ContentStatus.PUBLISHED)
+
+    with pytest.raises(ActivityNotFoundError):
+        service.attach(activity.id, uuid4(), content_id, owner_id)
+
+
+def test_missing_and_cross_owner_content_are_isolated() -> None:
+    service, activity, _, lookup = build_service()
+    actual_owner, other_owner, content_id = uuid4(), uuid4(), uuid4()
+    lookup.add(actual_owner, content_id, ContentStatus.PUBLISHED)
+
+    with pytest.raises(ContentReferenceNotFound):
+        service.attach(activity.id, activity.learning_unit_id, content_id, other_owner)
+    with pytest.raises(ContentReferenceNotFound):
+        service.attach(activity.id, activity.learning_unit_id, uuid4(), actual_owner)
+
+
+def test_detach_is_idempotent() -> None:
+    service, activity, links, lookup = build_service()
+    owner_id, content_id = uuid4(), uuid4()
+    lookup.add(owner_id, content_id, ContentStatus.PUBLISHED)
+    service.attach(activity.id, activity.learning_unit_id, content_id, owner_id)
+
+    service.detach(activity.id, activity.learning_unit_id, content_id)
+    service.detach(activity.id, activity.learning_unit_id, content_id)
+
+    assert not links.exists(activity.id, content_id)
+
+
+def test_stale_content_is_resolved_as_unavailable() -> None:
+    service, activity, links, _ = build_service()
+    stale_id = uuid4()
+    links.attach(ActivityContentLink(activity.id, stale_id))
+
+    resolved = service.resolve_for_activity(activity.id, activity.learning_unit_id, uuid4())
+
+    assert len(resolved) == 1
+    assert resolved[0].link.content_id == stale_id
+    assert resolved[0].reference is None
+    assert not resolved[0].available
+
+
+def test_technical_lookup_failure_remains_distinct() -> None:
+    service, activity, links, lookup = build_service()
+    links.attach(ActivityContentLink(activity.id, uuid4()))
+    lookup.unavailable = True
+
+    with pytest.raises(ContentLookupUnavailable):
+        service.resolve_for_activity(activity.id, activity.learning_unit_id, uuid4())
+
+
+def test_student_availability_includes_only_published_content() -> None:
+    service, activity, _, lookup = build_service()
+    owner_id, draft_id, published_id = uuid4(), uuid4(), uuid4()
+    lookup.add(owner_id, draft_id, ContentStatus.DRAFT)
+    lookup.add(owner_id, published_id, ContentStatus.PUBLISHED)
+    service.attach(activity.id, activity.learning_unit_id, draft_id, owner_id)
+    service.attach(activity.id, activity.learning_unit_id, published_id, owner_id)
+
+    available = service.list_student_available(activity.id, activity.learning_unit_id, owner_id)
+
+    assert [reference.id for reference in available] == [published_id]
