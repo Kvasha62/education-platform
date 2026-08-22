@@ -11,3 +11,7 @@ class EnvironmentNotFoundError(Exception):
 
 class CourseNotFoundError(Exception):
     pass
+
+
+class SectionNotFoundError(Exception):
+    pass

@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, String, Uuid
+from sqlalchemy import DateTime, ForeignKey, Index, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -31,3 +31,19 @@ class CourseModel(Base):
     title: Mapped[str] = mapped_column(String(120))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class SectionModel(Base):
+    __tablename__ = "sections"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    course_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("courses.id", ondelete="CASCADE"),
+    )
+    title: Mapped[str] = mapped_column(String(120))
+    position: Mapped[int]
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (Index("ix_sections_course_position", "course_id", "position"),)
