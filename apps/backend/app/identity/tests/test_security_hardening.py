@@ -126,6 +126,10 @@ def test_all_cookie_authenticated_mutations_reject_untrusted_origin(
     assert client.post(
         environment_path, json={"name": "Environment"}, headers=TRUSTED_HEADERS
     ).status_code == 201
+    courses_path = f"{environment_path}/courses"
+    course = client.post(
+        courses_path, json={"title": "Course"}, headers=TRUSTED_HEADERS
+    ).json()
 
     cases = [
         ("post", "/api/v1/auth/logout", None),
@@ -134,6 +138,8 @@ def test_all_cookie_authenticated_mutations_reject_untrusted_origin(
         ("post", f"/api/v1/teacher-spaces/{teacher['id']}/disable", None),
         ("post", environment_path, {"name": "Second"}),
         ("patch", environment_path, {"name": "Changed"}),
+        ("post", courses_path, {"title": "Second"}),
+        ("patch", f"{courses_path}/{course['id']}", {"title": "Changed"}),
     ]
     for method, path, payload in cases:
         response = client.request(method, path, json=payload, headers={"Origin": "https://evil.test"})

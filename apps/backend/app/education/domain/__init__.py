@@ -1,3 +1,3 @@
-from app.education.domain.models import EducationalEnvironment
+from app.education.domain.models import Course, EducationalEnvironment
 
-__all__ = ["EducationalEnvironment"]
+__all__ = ["Course", "EducationalEnvironment"]

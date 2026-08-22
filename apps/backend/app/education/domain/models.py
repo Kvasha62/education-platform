@@ -1,4 +1,4 @@
-"""Educational Environment domain model."""
+"""Education domain models."""
 
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
@@ -37,3 +37,37 @@ class EducationalEnvironment:
 
     def rename(self, name: str) -> "EducationalEnvironment":
         return replace(self, name=normalize_name(name), updated_at=datetime.now(UTC))
+
+
+class InvalidCourseTitleError(ValueError):
+    pass
+
+
+def normalize_title(title: str) -> str:
+    normalized = title.strip()
+    if not normalized or len(normalized) > 120:
+        raise InvalidCourseTitleError
+    return normalized
+
+
+@dataclass(frozen=True, slots=True)
+class Course:
+    id: UUID
+    educational_environment_id: UUID
+    title: str
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def create(cls, educational_environment_id: UUID, title: str) -> "Course":
+        now = datetime.now(UTC)
+        return cls(
+            id=uuid4(),
+            educational_environment_id=educational_environment_id,
+            title=normalize_title(title),
+            created_at=now,
+            updated_at=now,
+        )
+
+    def rename(self, title: str) -> "Course":
+        return replace(self, title=normalize_title(title), updated_at=datetime.now(UTC))

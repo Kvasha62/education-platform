@@ -1,3 +1,3 @@
-from app.education.application.services import EducationalEnvironmentService
+from app.education.application.services import CourseService, EducationalEnvironmentService
 
-__all__ = ["EducationalEnvironmentService"]
+__all__ = ["CourseService", "EducationalEnvironmentService"]
