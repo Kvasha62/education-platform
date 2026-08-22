@@ -10,9 +10,14 @@ from app.education.application.errors import (
     CourseNotFoundError,
     EnvironmentAlreadyExistsError,
     EnvironmentNotFoundError,
+    SectionNotFoundError,
 )
-from app.education.domain.models import Course, EducationalEnvironment
-from app.education.infrastructure.models import CourseModel, EducationalEnvironmentModel
+from app.education.domain.models import Course, EducationalEnvironment, Section
+from app.education.infrastructure.models import (
+    CourseModel,
+    EducationalEnvironmentModel,
+    SectionModel,
+)
 
 
 def _to_domain(model: EducationalEnvironmentModel) -> EducationalEnvironment:
@@ -119,3 +124,71 @@ class SqlAlchemyCourseRepository:
         model.updated_at = course.updated_at
         self.db.flush()
         return _course_to_domain(model)
+
+
+
+def _section_to_domain(model: SectionModel) -> Section:
+    return Section(
+        id=model.id,
+        course_id=model.course_id,
+        title=model.title,
+        position=model.position,
+        created_at=model.created_at,
+        updated_at=model.updated_at,
+    )
+
+
+class SqlAlchemySectionRepository:
+    def __init__(self, db: Session) -> None:
+        self.db = db
+
+    def add(self, section: Section) -> Section:
+        model = SectionModel(
+            id=section.id,
+            course_id=section.course_id,
+            title=section.title,
+            position=section.position,
+            created_at=section.created_at,
+            updated_at=section.updated_at,
+        )
+        try:
+            with self.db.begin_nested():
+                self.db.add(model)
+                self.db.flush()
+        except IntegrityError as error:
+            raise CourseNotFoundError from error
+        return _section_to_domain(model)
+
+    def list_by_course(self, course_id: UUID) -> list[Section]:
+        models = self.db.scalars(
+            select(SectionModel)
+            .where(SectionModel.course_id == course_id)
+            .order_by(SectionModel.position, SectionModel.id)
+        ).all()
+        return [_section_to_domain(model) for model in models]
+
+    def get_in_course(self, section_id: UUID, course_id: UUID) -> Section | None:
+        model = self.db.scalar(
+            select(SectionModel).where(
+                SectionModel.id == section_id,
+                SectionModel.course_id == course_id,
+            )
+        )
+        return _section_to_domain(model) if model else None
+
+    def update(self, section: Section) -> Section:
+        model = self.db.get(SectionModel, section.id)
+        if model is None:
+            raise SectionNotFoundError
+        model.title = section.title
+        model.position = section.position
+        model.updated_at = section.updated_at
+        self.db.flush()
+        return _section_to_domain(model)
+
+    def delete(self, section: Section) -> None:
+        model = self.db.get(SectionModel, section.id)
+        if model is None:
+            raise SectionNotFoundError
+        self.db.delete(model)
+        self.db.flush()

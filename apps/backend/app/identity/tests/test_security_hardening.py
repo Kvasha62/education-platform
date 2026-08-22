@@ -130,6 +130,12 @@ def test_all_cookie_authenticated_mutations_reject_untrusted_origin(
     course = client.post(
         courses_path, json={"title": "Course"}, headers=TRUSTED_HEADERS
     ).json()
+    sections_path = f"{courses_path}/{course['id']}/sections"
+    section = client.post(
+        sections_path,
+        json={"title": "Section", "position": 0},
+        headers=TRUSTED_HEADERS,
+    ).json()
 
     cases = [
         ("post", "/api/v1/auth/logout", None),
@@ -140,6 +146,9 @@ def test_all_cookie_authenticated_mutations_reject_untrusted_origin(
         ("patch", environment_path, {"name": "Changed"}),
         ("post", courses_path, {"title": "Second"}),
         ("patch", f"{courses_path}/{course['id']}", {"title": "Changed"}),
+        ("post", sections_path, {"title": "Second", "position": 1}),
+        ("patch", f"{sections_path}/{section['id']}", {"title": "Changed"}),
+        ("delete", f"{sections_path}/{section['id']}", None),
     ]
     for method, path, payload in cases:
         response = client.request(method, path, json=payload, headers={"Origin": "https://evil.test"})
@@ -159,6 +168,16 @@ def test_cors_allows_configured_frontend_with_credentials(client: TestClient) ->
     assert response.headers["access-control-allow-origin"] == TRUSTED_ORIGIN
     assert response.headers["access-control-allow-credentials"] == "true"
     assert "content-type" in response.headers["access-control-allow-headers"].casefold()
+
+    delete_response = client.options(
+        "/api/v1/teacher-spaces/id/environment/courses/id/sections/id",
+        headers={
+            "Origin": TRUSTED_ORIGIN,
+            "Access-Control-Request-Method": "DELETE",
+        },
+    )
+    assert delete_response.status_code == 200
+    assert delete_response.headers["access-control-allow-origin"] == TRUSTED_ORIGIN
 
 
 def test_cors_does_not_allow_unknown_origin(client: TestClient) -> None:

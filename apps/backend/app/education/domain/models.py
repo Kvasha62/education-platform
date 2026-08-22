@@ -71,3 +71,58 @@ class Course:
 
     def rename(self, title: str) -> "Course":
         return replace(self, title=normalize_title(title), updated_at=datetime.now(UTC))
+
+
+class InvalidSectionTitleError(ValueError):
+    pass
+
+
+class InvalidSectionPositionError(ValueError):
+    pass
+
+
+def normalize_section_title(title: str) -> str:
+    normalized = title.strip()
+    if not normalized or len(normalized) > 120:
+        raise InvalidSectionTitleError
+    return normalized
+
+
+def validate_section_position(position: int) -> int:
+    if position < 0:
+        raise InvalidSectionPositionError
+    return position
+
+
+@dataclass(frozen=True, slots=True)
+class Section:
+    id: UUID
+    course_id: UUID
+    title: str
+    position: int
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def create(cls, course_id: UUID, title: str, position: int) -> "Section":
+        now = datetime.now(UTC)
+        return cls(
+            id=uuid4(),
+            course_id=course_id,
+            title=normalize_section_title(title),
+            position=validate_section_position(position),
+            created_at=now,
+            updated_at=now,
+        )
+
+    def update(self, *, title: str | None, position: int | None) -> "Section":
+        return replace(
+            self,
+            title=self.title if title is None else normalize_section_title(title),
+            position=(
+                self.position
+                if position is None
+                else validate_section_position(position)
+            ),
+            updated_at=datetime.now(UTC),
+        )
