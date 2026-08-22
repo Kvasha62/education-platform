@@ -83,3 +83,16 @@ class ActivityModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (Index("ix_activities_unit_position", "learning_unit_id", "position"),)
+
+
+class ActivityContentLinkModel(Base):
+    __tablename__ = "activity_content_links"
+
+    activity_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("activities.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    content_id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+
+    __table_args__ = (Index("ix_activity_content_links_content_id", "content_id"),)
