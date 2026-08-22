@@ -29,7 +29,7 @@ dev = [
 packages = ["app"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "app/identity/tests", "app/teacher_space/tests", "app/education/tests"]
+testpaths = ["tests", "app/identity/tests", "app/teacher_space/tests", "app/education/tests", "app/content/tests"]
 
 [tool.ruff]
 target-version = "py312"
