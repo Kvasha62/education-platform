@@ -1,0 +1,13 @@
+"""Application-owned Teacher Space repository interface."""
+
+from typing import Protocol
+from uuid import UUID
+
+from app.teacher_space.domain.models import TeacherSpace
+
+
+class TeacherSpaceRepository(Protocol):
+    def add(self, teacher_space: TeacherSpace) -> TeacherSpace: ...
+    def list_owned(self, owner_user_id: UUID) -> list[TeacherSpace]: ...
+    def get_owned(self, teacher_space_id: UUID, owner_user_id: UUID) -> TeacherSpace | None: ...
+    def update(self, teacher_space: TeacherSpace) -> TeacherSpace: ...
