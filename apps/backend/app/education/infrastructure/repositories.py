@@ -10,12 +10,14 @@ from app.education.application.errors import (
     CourseNotFoundError,
     EnvironmentAlreadyExistsError,
     EnvironmentNotFoundError,
+    LearningUnitNotFoundError,
     SectionNotFoundError,
 )
-from app.education.domain.models import Course, EducationalEnvironment, Section
+from app.education.domain.models import Course, EducationalEnvironment, LearningUnit, Section
 from app.education.infrastructure.models import (
     CourseModel,
     EducationalEnvironmentModel,
+    LearningUnitModel,
     SectionModel,
 )
 
@@ -66,7 +68,6 @@ class SqlAlchemyEnvironmentRepository:
         model.updated_at = environment.updated_at
         self.db.flush()
         return _to_domain(model)
-
 
 
 def _course_to_domain(model: CourseModel) -> Course:
@@ -124,7 +125,6 @@ class SqlAlchemyCourseRepository:
         model.updated_at = course.updated_at
         self.db.flush()
         return _course_to_domain(model)
-
 
 
 def _section_to_domain(model: SectionModel) -> Section:
@@ -190,5 +190,70 @@ class SqlAlchemySectionRepository:
         model = self.db.get(SectionModel, section.id)
         if model is None:
             raise SectionNotFoundError
+        self.db.delete(model)
+        self.db.flush()
+
+
+def _unit_to_domain(model: LearningUnitModel) -> LearningUnit:
+    return LearningUnit(
+        id=model.id,
+        section_id=model.section_id,
+        title=model.title,
+        position=model.position,
+        created_at=model.created_at,
+        updated_at=model.updated_at,
+    )
+
+
+class SqlAlchemyLearningUnitRepository:
+    def __init__(self, db: Session) -> None:
+        self.db = db
+
+    def add(self, unit: LearningUnit) -> LearningUnit:
+        model = LearningUnitModel(
+            id=unit.id,
+            section_id=unit.section_id,
+            title=unit.title,
+            position=unit.position,
+            created_at=unit.created_at,
+            updated_at=unit.updated_at,
+        )
+        try:
+            with self.db.begin_nested():
+                self.db.add(model)
+                self.db.flush()
+        except IntegrityError as error:
+            raise SectionNotFoundError from error
+        return _unit_to_domain(model)
+
+    def list_by_section(self, section_id: UUID) -> list[LearningUnit]:
+        models = self.db.scalars(
+            select(LearningUnitModel)
+            .where(LearningUnitModel.section_id == section_id)
+            .order_by(LearningUnitModel.position, LearningUnitModel.id)
+        ).all()
+        return [_unit_to_domain(model) for model in models]
+
+    def get_in_section(self, unit_id: UUID, section_id: UUID) -> LearningUnit | None:
+        model = self.db.scalar(
+            select(LearningUnitModel).where(
+                LearningUnitModel.id == unit_id,
+                LearningUnitModel.section_id == section_id,
+            )
+        )
+        return _unit_to_domain(model) if model else None
+
+    def update(self, unit: LearningUnit) -> LearningUnit:
+        model = self.db.get(LearningUnitModel, unit.id)
+        if model is None:
+            raise LearningUnitNotFoundError
+        model.title, model.position, model.updated_at = unit.title, unit.position, unit.updated_at
+        self.db.flush()
+        return _unit_to_domain(model)
+
+    def delete(self, unit: LearningUnit) -> None:
+        model = self.db.get(LearningUnitModel, unit.id)
+        if model is None:
+            raise LearningUnitNotFoundError
         self.db.delete(model)
         self.db.flush()

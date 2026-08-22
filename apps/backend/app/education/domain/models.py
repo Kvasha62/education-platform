@@ -119,10 +119,59 @@ class Section:
         return replace(
             self,
             title=self.title if title is None else normalize_section_title(title),
-            position=(
-                self.position
-                if position is None
-                else validate_section_position(position)
-            ),
+            position=(self.position if position is None else validate_section_position(position)),
+            updated_at=datetime.now(UTC),
+        )
+
+
+class InvalidLearningUnitTitleError(ValueError):
+    pass
+
+
+class InvalidLearningUnitPositionError(ValueError):
+    pass
+
+
+def normalize_learning_unit_title(title: str) -> str:
+    normalized = title.strip()
+    if not normalized or len(normalized) > 120:
+        raise InvalidLearningUnitTitleError
+    return normalized
+
+
+def validate_learning_unit_position(position: int) -> int:
+    if position < 0:
+        raise InvalidLearningUnitPositionError
+    return position
+
+
+@dataclass(frozen=True, slots=True)
+class LearningUnit:
+    id: UUID
+    section_id: UUID
+    title: str
+    position: int
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def create(cls, section_id: UUID, title: str, position: int) -> "LearningUnit":
+        now = datetime.now(UTC)
+        return cls(
+            id=uuid4(),
+            section_id=section_id,
+            title=normalize_learning_unit_title(title),
+            position=validate_learning_unit_position(position),
+            created_at=now,
+            updated_at=now,
+        )
+
+    def update(self, *, title: str | None, position: int | None) -> "LearningUnit":
+        return replace(
+            self,
+            title=self.title if title is None else normalize_learning_unit_title(title),
+            position=self.position
+            if position is None
+            else validate_learning_unit_position(position),
             updated_at=datetime.now(UTC),
         )
