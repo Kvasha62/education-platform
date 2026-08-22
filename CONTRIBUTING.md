@@ -2,7 +2,7 @@
 
 ## Development model
 
-The project uses GitHub Issues and Pull Requests.
+The project uses GitHub Issues and Pull Requests. This workflow applies to every repository change, including governance and documentation changes.
 
 ```text
 Issue
