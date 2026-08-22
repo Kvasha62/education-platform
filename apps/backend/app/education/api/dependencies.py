@@ -7,12 +7,14 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.education.application.services import (
+    ActivityService,
     CourseService,
     EducationalEnvironmentService,
     LearningUnitService,
     SectionService,
 )
 from app.education.infrastructure.repositories import (
+    SqlAlchemyActivityRepository,
     SqlAlchemyCourseRepository,
     SqlAlchemyEnvironmentRepository,
     SqlAlchemyLearningUnitRepository,
@@ -42,3 +44,7 @@ def get_learning_unit_service(
     db: Annotated[Session, Depends(get_db)],
 ) -> LearningUnitService:
     return LearningUnitService(SqlAlchemyLearningUnitRepository(db))
+
+
+def get_activity_service(db: Annotated[Session, Depends(get_db)]) -> ActivityService:
+    return ActivityService(SqlAlchemyActivityRepository(db))

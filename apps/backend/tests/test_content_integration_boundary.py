@@ -11,6 +11,7 @@ EDUCATION_TABLES = {
     "courses",
     "sections",
     "learning_units",
+    "activities",
 }
 
 

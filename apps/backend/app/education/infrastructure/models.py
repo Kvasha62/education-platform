@@ -3,10 +3,11 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Uuid
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.education.domain.models import ActivityType
 
 
 class EducationalEnvironmentModel(Base):
@@ -60,3 +61,25 @@ class LearningUnitModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (Index("ix_learning_units_section_position", "section_id", "position"),)
+
+
+class ActivityModel(Base):
+    __tablename__ = "activities"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    learning_unit_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("learning_units.id", ondelete="CASCADE")
+    )
+    title: Mapped[str] = mapped_column(String(120))
+    type: Mapped[ActivityType] = mapped_column(
+        Enum(
+            ActivityType,
+            name="activity_type",
+            values_callable=lambda types: [item.value for item in types],
+        )
+    )
+    position: Mapped[int]
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (Index("ix_activities_unit_position", "learning_unit_id", "position"),)

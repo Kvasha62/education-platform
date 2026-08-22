@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
+from enum import StrEnum
 from uuid import UUID, uuid4
 
 
@@ -173,5 +174,72 @@ class LearningUnit:
             position=self.position
             if position is None
             else validate_learning_unit_position(position),
+            updated_at=datetime.now(UTC),
+        )
+
+
+class ActivityType(StrEnum):
+    LECTURE = "lecture"
+    VIDEO = "video"
+    HOMEWORK = "homework"
+
+
+class InvalidActivityTitleError(ValueError):
+    pass
+
+
+class InvalidActivityPositionError(ValueError):
+    pass
+
+
+class InvalidActivityTypeError(ValueError):
+    pass
+
+
+def normalize_activity_title(title: str) -> str:
+    normalized = title.strip()
+    if not normalized or len(normalized) > 120:
+        raise InvalidActivityTitleError
+    return normalized
+
+
+def validate_activity_position(position: int) -> int:
+    if position < 0:
+        raise InvalidActivityPositionError
+    return position
+
+
+@dataclass(frozen=True, slots=True)
+class Activity:
+    id: UUID
+    learning_unit_id: UUID
+    title: str
+    type: ActivityType
+    position: int
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def create(
+        cls, learning_unit_id: UUID, title: str, activity_type: ActivityType, position: int
+    ) -> "Activity":
+        if not isinstance(activity_type, ActivityType):
+            raise InvalidActivityTypeError
+        now = datetime.now(UTC)
+        return cls(
+            id=uuid4(),
+            learning_unit_id=learning_unit_id,
+            title=normalize_activity_title(title),
+            type=activity_type,
+            position=validate_activity_position(position),
+            created_at=now,
+            updated_at=now,
+        )
+
+    def update(self, *, title: str | None, position: int | None) -> "Activity":
+        return replace(
+            self,
+            title=self.title if title is None else normalize_activity_title(title),
+            position=self.position if position is None else validate_activity_position(position),
             updated_at=datetime.now(UTC),
         )

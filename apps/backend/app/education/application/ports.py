@@ -3,7 +3,13 @@
 from typing import Protocol
 from uuid import UUID
 
-from app.education.domain.models import Course, EducationalEnvironment, LearningUnit, Section
+from app.education.domain.models import (
+    Activity,
+    Course,
+    EducationalEnvironment,
+    LearningUnit,
+    Section,
+)
 
 
 class EnvironmentRepository(Protocol):
@@ -33,3 +39,11 @@ class LearningUnitRepository(Protocol):
     def get_in_section(self, unit_id: UUID, section_id: UUID) -> LearningUnit | None: ...
     def update(self, unit: LearningUnit) -> LearningUnit: ...
     def delete(self, unit: LearningUnit) -> None: ...
+
+
+class ActivityRepository(Protocol):
+    def add(self, activity: Activity) -> Activity: ...
+    def list_by_unit(self, unit_id: UUID) -> list[Activity]: ...
+    def get_in_unit(self, activity_id: UUID, unit_id: UUID) -> Activity | None: ...
+    def update(self, activity: Activity) -> Activity: ...
+    def delete(self, activity: Activity) -> None: ...

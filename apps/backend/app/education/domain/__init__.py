@@ -1,3 +1,17 @@
-from app.education.domain.models import Course, EducationalEnvironment, LearningUnit, Section
+from app.education.domain.models import (
+    Activity,
+    ActivityType,
+    Course,
+    EducationalEnvironment,
+    LearningUnit,
+    Section,
+)
 
-__all__ = ["Course", "EducationalEnvironment", "LearningUnit", "Section"]
+__all__ = [
+    "Activity",
+    "ActivityType",
+    "Course",
+    "EducationalEnvironment",
+    "LearningUnit",
+    "Section",
+]
