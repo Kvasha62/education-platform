@@ -234,19 +234,25 @@ The Content bounded context owns the user-owned `Content` entity and its persist
 
 `education` owns `EducationalEnvironment`, `Course`, `Section`, `LearningUnit`, and `Activity`, including their persistence. The `content` module owns its own domain entities and persistence. Neither module may directly access or modify the other module's private persistence.
 
-The permitted future dependency direction is:
+The approved dependency direction is:
 
 ```text
-Education
-└── Activity
-    └──→ public Content interface
+Education application
+        ↓
+Content public interface
+        ↓
+Content implementation
 ```
 
-`Activity` remains an Education entity and its persistence is owned exclusively by Education. Content is a separate bounded context. Activity may use a future public Content interface, but Education must not access Content persistence and Content persistence must not add foreign keys to Activity or other Education tables.
+`Activity` remains an Education entity and its persistence is owned exclusively by Education. Content is a separate bounded context. Content must not depend on Education, and Education must not access Content ORM models, repositories, infrastructure, or private implementation.
 
-The runtime integration mechanism is intentionally deferred until a scoped issue requires it. Until then, do not add speculative Content ports, entities, tables, APIs, storage, or integration infrastructure.
+Education owns the approved N:M Activity/Content relationship. A later implementation will use an Education-owned `activity_content_links` association with an internal FK to Activity and an opaque, non-null `content_id` without a Content FK. Content persistence must not add foreign keys to `teacher_spaces`, `educational_environments`, `courses`, `sections`, `learning_units`, or `activities`.
 
-Cross-module database foreign keys are not part of this boundary. Future Content persistence must not add foreign keys to `teacher_spaces`, `educational_environments`, `courses`, `sections`, `learning_units`, or `activities`. References across the boundary require an explicitly approved integration contract rather than direct persistence coupling.
+The Content public interface is read-only: Education may look up owner-scoped safe Content reference data (`id`, type, status, and Student availability). Education cannot create, update, publish, or delete Content through this interface. Student Space consumes the Education application boundary and never Content persistence directly.
+
+DRAFT Content may be associated, but only PUBLISHED Content is available to Student Space. Content deletion leaves a stale/unavailable association; Activity deletion removes its Education-owned association rows. No public attach/detach HTTP API is approved by this decision.
+
+The complete contract, lifecycle/failure semantics, persistence details, alternatives, and required guards are recorded in [`ADR-0001`](docs/decisions/0001-activity-content-integration-contract.md). Runtime integration remains deferred to a separate implementation Issue.
 
 ## 12. Learning Engine
 
