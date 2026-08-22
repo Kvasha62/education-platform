@@ -1,0 +1,1 @@
+"""Education API integration interfaces."""
