@@ -18,6 +18,8 @@ jobs:
           cache-dependency-path: apps/backend/pyproject.toml
       - run: pip install ".[dev]"
       - run: ruff check .
+      - run: mypy app tests
+      - run: alembic upgrade head --sql > /tmp/migration.sql
       - run: pytest
 
   frontend:
