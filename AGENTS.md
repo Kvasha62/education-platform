@@ -6,6 +6,20 @@ Arena is an implementation agent for Education Platform. Arena executes explicit
 
 Arena is **not** the autonomous owner of product or architecture decisions.
 
+## External Review Policy
+
+External AI reviewers may identify defects, security risks and architectural concerns.
+
+Their recommendations are advisory.
+
+They must not modify architectural contracts, domain boundaries or product requirements.
+
+All reviewer findings must be evaluated by the project architect before implementation.
+
+Accepted findings become GitHub Issues or amendments to the current task.
+
+Rejected findings must not be implemented merely because a reviewer suggested them.
+
 ## Mandatory reading
 
 Before starting ANY task, Arena MUST read:
