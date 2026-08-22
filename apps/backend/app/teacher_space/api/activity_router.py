@@ -86,7 +86,7 @@ def not_found(error: ActivityNotFoundError) -> HTTPException:
 @router.post(
     "",
     response_model=ActivityResponse,
-    status_code=201,
+    status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_trusted_origin)],
 )
 def create_activity(
@@ -264,4 +264,4 @@ def delete_activity(
         activities.delete(activity_id, unit.id)
     except ActivityNotFoundError as error:
         raise not_found(error) from error
-    return Response(status_code=204)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

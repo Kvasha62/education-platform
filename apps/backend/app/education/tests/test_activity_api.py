@@ -128,6 +128,34 @@ def test_crud_types_order_and_empty(client: TestClient) -> None:
     assert client.get(item).status_code == 404
 
 
+def test_activity_lists_are_isolated_between_units_in_same_section(
+    client: TestClient,
+) -> None:
+    auth(client, "owner@example.com")
+    space, course, section, first_unit = setup(client)
+    first_path = path((space, course, section, first_unit))
+    first_activity = create(client, first_path, "lecture", "First Activity", 0).json()
+
+    units_path = (
+        f"/api/v1/teacher-spaces/{space}/environment/courses/{course}"
+        f"/sections/{section}/units"
+    )
+    second_unit = client.post(
+        units_path,
+        json={"title": "Second Unit", "position": 1},
+        headers=HEADERS,
+    ).json()
+    second_path = path((space, course, section, second_unit["id"]))
+    second_activity = create(client, second_path, "video", "Second Activity", 0).json()
+
+    first_list = client.get(first_path).json()
+    second_list = client.get(second_path).json()
+    assert [item["id"] for item in first_list] == [first_activity["id"]]
+    assert [item["id"] for item in second_list] == [second_activity["id"]]
+    assert second_activity["id"] not in {item["id"] for item in first_list}
+    assert first_activity["id"] not in {item["id"] for item in second_list}
+
+
 def test_patch_and_create_validation(client: TestClient) -> None:
     auth(client, "owner@example.com")
     base = path(setup(client))
