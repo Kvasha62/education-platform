@@ -13,6 +13,7 @@ from app.education.application.student_course import (
     StudentLearningUnit,
     StudentSection,
 )
+from app.learning.application.enrollment_read import EnrollmentReference
 from app.learning.domain.models import Enrollment, EnrollmentStatus
 
 
@@ -115,3 +116,23 @@ class EnrollmentResponse(BaseModel):
             status=enrollment.status,
             created_at=enrollment.created_at,
         )
+
+
+class EnrollmentReferenceResponse(BaseModel):
+    id: UUID
+    course_id: UUID
+    status: EnrollmentStatus
+    created_at: datetime
+
+    @classmethod
+    def from_reference(cls, reference: EnrollmentReference) -> "EnrollmentReferenceResponse":
+        return cls(
+            id=reference.id,
+            course_id=reference.course_id,
+            status=reference.status,
+            created_at=reference.created_at,
+        )
+
+
+class StudentEnrollmentListResponse(BaseModel):
+    items: list[EnrollmentReferenceResponse]

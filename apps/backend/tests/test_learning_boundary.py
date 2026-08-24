@@ -6,6 +6,7 @@ from pathlib import Path
 from sqlalchemy import UniqueConstraint
 
 from app.core.database import Base
+from app.learning.application.enrollment_read import StudentEnrollmentReader
 from app.learning.infrastructure import models as learning_models  # noqa: F401
 
 
@@ -56,3 +57,12 @@ def test_student_space_does_not_access_learning_persistence() -> None:
     imports = _imports(student)
     assert not {name for name in imports if name.startswith("app.learning.infrastructure")}
     assert not {name for name in imports if name.startswith("app.teacher_space.infrastructure")}
+
+
+def test_student_enrollment_reader_is_minimal_read_only_contract() -> None:
+    methods = {
+        name
+        for name, member in StudentEnrollmentReader.__dict__.items()
+        if callable(member) and not name.startswith("_")
+    }
+    assert methods == {"list_for_student"}

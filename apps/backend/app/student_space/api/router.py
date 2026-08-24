@@ -5,10 +5,19 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.identity.api.dependencies import get_current_identity, require_trusted_origin
 from app.identity.domain.models import Identity
-from app.learning.api.dependencies import get_enrollment_service
+from app.learning.api.dependencies import (
+    get_enrollment_service,
+    get_student_enrollment_reader,
+)
+from app.learning.application.enrollment_read import StudentEnrollmentReader
 from app.learning.application.services import EnrollmentCourseNotFoundError, EnrollmentService
 from app.student_space.api.dependencies import get_student_course_service
-from app.student_space.api.schemas import EnrollmentResponse, StudentCourseResponse
+from app.student_space.api.schemas import (
+    EnrollmentReferenceResponse,
+    EnrollmentResponse,
+    StudentCourseResponse,
+    StudentEnrollmentListResponse,
+)
 from app.student_space.application.services import (
     StudentContentUnavailableError,
     StudentCourseNotFoundError,
@@ -19,6 +28,9 @@ router = APIRouter(prefix="/api/v1/student", tags=["student-courses"])
 CurrentIdentity = Annotated[Identity, Depends(get_current_identity)]
 StudentCourses = Annotated[StudentCourseService, Depends(get_student_course_service)]
 Enrollments = Annotated[EnrollmentService, Depends(get_enrollment_service)]
+StudentEnrollments = Annotated[
+    StudentEnrollmentReader, Depends(get_student_enrollment_reader)
+]
 
 
 @router.get("/courses/{course_id}", response_model=StudentCourseResponse)
@@ -59,3 +71,16 @@ def enroll_in_course(
     if not result.created:
         response.status_code = status.HTTP_200_OK
     return EnrollmentResponse.from_enrollment(result.enrollment)
+
+
+@router.get("/enrollments", response_model=StudentEnrollmentListResponse)
+def list_enrollments(
+    identity: CurrentIdentity,
+    enrollments: StudentEnrollments,
+) -> StudentEnrollmentListResponse:
+    return StudentEnrollmentListResponse(
+        items=[
+            EnrollmentReferenceResponse.from_reference(item)
+            for item in enrollments.list_for_student(identity.id)
+        ]
+    )
