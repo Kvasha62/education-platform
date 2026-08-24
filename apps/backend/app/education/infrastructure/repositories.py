@@ -118,6 +118,10 @@ class SqlAlchemyCourseRepository:
         ).all()
         return [_course_to_domain(model) for model in models]
 
+    def get_by_id(self, course_id: UUID) -> Course | None:
+        model = self.db.get(CourseModel, course_id)
+        return _course_to_domain(model) if model else None
+
     def get_in_environment(self, course_id: UUID, environment_id: UUID) -> Course | None:
         model = self.db.scalar(
             select(CourseModel).where(

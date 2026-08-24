@@ -5,7 +5,7 @@ from typing import Protocol
 from uuid import UUID
 
 from app.content.application.ports import ContentRepository
-from app.content.domain.models import ContentStatus, ContentType
+from app.content.domain.models import Content, ContentStatus, ContentType
 
 
 class ContentReferenceNotFound(Exception):
@@ -26,6 +26,7 @@ class ContentReference:
 
 class ContentLookup(Protocol):
     def lookup_owned(self, content_id: UUID, owner_user_id: UUID) -> ContentReference: ...
+    def lookup_published(self, content_id: UUID) -> ContentReference: ...
 
 
 class ContentLookupService:
@@ -34,6 +35,15 @@ class ContentLookupService:
     def __init__(self, repository: ContentRepository) -> None:
         self.repository = repository
 
+    @staticmethod
+    def _reference(content: Content) -> ContentReference:
+        return ContentReference(
+            id=content.id,
+            type=content.type,
+            status=content.status,
+            available_for_student=content.status is ContentStatus.PUBLISHED,
+        )
+
     def lookup_owned(self, content_id: UUID, owner_user_id: UUID) -> ContentReference:
         try:
             content = self.repository.get_owned(content_id, owner_user_id)
@@ -41,9 +51,13 @@ class ContentLookupService:
             raise ContentLookupUnavailable from error
         if content is None:
             raise ContentReferenceNotFound
-        return ContentReference(
-            id=content.id,
-            type=content.type,
-            status=content.status,
-            available_for_student=content.status is ContentStatus.PUBLISHED,
-        )
+        return self._reference(content)
+
+    def lookup_published(self, content_id: UUID) -> ContentReference:
+        try:
+            content = self.repository.get_by_id(content_id)
+        except Exception as error:
+            raise ContentLookupUnavailable from error
+        if content is None or content.status is not ContentStatus.PUBLISHED:
+            raise ContentReferenceNotFound
+        return self._reference(content)

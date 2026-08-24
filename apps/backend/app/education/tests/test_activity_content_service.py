@@ -80,6 +80,21 @@ class FakeContentLookup:
         except KeyError as error:
             raise ContentReferenceNotFound from error
 
+    def lookup_published(self, content_id: UUID) -> ContentReference:
+        if self.unavailable:
+            raise ContentLookupUnavailable
+        reference = next(
+            (
+                item
+                for (_owner_id, item_id), item in self.references.items()
+                if item_id == content_id
+            ),
+            None,
+        )
+        if reference is None or reference.status is not ContentStatus.PUBLISHED:
+            raise ContentReferenceNotFound
+        return reference
+
 
 def build_service() -> tuple[
     ActivityContentService,
@@ -185,7 +200,7 @@ def test_student_availability_includes_only_published_content() -> None:
     service.attach(activity.id, activity.learning_unit_id, draft_id, owner_id, course)
     service.attach(activity.id, activity.learning_unit_id, published_id, owner_id, course)
 
-    available = service.list_student_available(activity.id, activity.learning_unit_id, owner_id)
+    available = service.list_student_available(activity.id, activity.learning_unit_id)
 
     assert [item.link.content_id for item in available] == [published_id]
     assert all(item.available_for_student for item in available)

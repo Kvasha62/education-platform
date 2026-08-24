@@ -28,6 +28,9 @@ class MemoryCourseRepository:
             if course.educational_environment_id == environment_id
         ]
 
+    def get_by_id(self, course_id):
+        return self.items.get(course_id)
+
     def get_in_environment(self, course_id, environment_id):
         course = self.items.get(course_id)
         return course if course and course.educational_environment_id == environment_id else None

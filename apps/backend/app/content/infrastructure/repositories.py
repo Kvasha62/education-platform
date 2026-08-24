@@ -46,6 +46,10 @@ class SqlAlchemyContentRepository:
         ).all()
         return [_to_domain(model) for model in models]
 
+    def get_by_id(self, content_id: UUID) -> Content | None:
+        model = self.db.get(ContentModel, content_id)
+        return _to_domain(model) if model else None
+
     def get_owned(self, content_id: UUID, owner_user_id: UUID) -> Content | None:
         model = self.db.scalar(
             select(ContentModel).where(

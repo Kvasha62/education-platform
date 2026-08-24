@@ -148,7 +148,7 @@ def test_content_public_interface_is_read_only() -> None:
         for name, member in ContentLookup.__dict__.items()
         if callable(member) and not name.startswith("_")
     }
-    assert methods == {"lookup_owned"}
+    assert methods == {"lookup_owned", "lookup_published"}
 
 
 def test_teacher_space_receives_composed_education_service_only() -> None:
@@ -157,3 +157,26 @@ def test_teacher_space_receives_composed_education_service_only() -> None:
 
     assert not {name for name in teacher_imports if name.startswith("app.content")}
     assert "app.education.composition" in teacher_imports
+
+
+def test_student_space_uses_only_education_application_boundary() -> None:
+    student_package = Path(__file__).parents[1] / "app" / "student_space"
+    imports = _imports(student_package)
+
+    assert not {name for name in imports if name.startswith("app.content")}
+    assert not {
+        name
+        for name in imports
+        if name.startswith(
+            (
+                "app.teacher_space.infrastructure",
+                "app.education.infrastructure",
+            )
+        )
+    }
+    education_imports = {name for name in imports if name.startswith("app.education")}
+    assert education_imports <= {
+        "app.education.application.errors",
+        "app.education.application.student_course",
+        "app.education.composition",
+    }
