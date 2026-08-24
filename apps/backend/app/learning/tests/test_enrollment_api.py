@@ -192,3 +192,79 @@ def test_openapi_contains_enrollment_list_contract(client: TestClient) -> None:
     assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/StudentEnrollmentListResponse"
     }
+
+
+def create_activity(client: TestClient, course_path: str) -> str:
+    sections = f"{course_path}/sections"
+    section = client.post(
+        sections, json={"title": "Section", "position": 0}, headers=HEADERS
+    ).json()
+    units = f"{sections}/{section['id']}/units"
+    unit = client.post(units, json={"title": "Unit", "position": 0}, headers=HEADERS).json()
+    activity = client.post(
+        f"{units}/{unit['id']}/activities",
+        json={"title": "Activity", "type": "lecture", "position": 0},
+        headers=HEADERS,
+    ).json()
+    return activity["id"]
+
+
+def test_activity_progress_lifecycle_access_and_isolation(client: TestClient) -> None:
+    teacher = auth(client, "progress-teacher@example.com")
+    course_path, course_id = create_course(client, "Progress")
+    activity_id = create_activity(client, course_path)
+    base = f"/api/v1/student/activities/{activity_id}/progress"
+    client.cookies.clear()
+    assert client.post(f"{base}/start", headers=HEADERS).status_code == 401
+
+    student = auth(client, "progress-student@example.com")
+    assert client.post(f"{base}/start", headers=HEADERS).status_code == 404
+
+    client.cookies.set(SESSION_COOKIE_NAME, teacher)
+    client.post(f"{course_path}/publish", headers=HEADERS)
+    client.cookies.set(SESSION_COOKIE_NAME, student)
+    assert client.post(f"{base}/start", headers=HEADERS).status_code == 404
+    client.post(enrollment_path(course_id), headers=HEADERS)
+
+    assert client.post(f"{base}/complete", headers=HEADERS).status_code == 409
+    started = client.post(f"{base}/start", headers=HEADERS)
+    repeated_start = client.post(f"{base}/start", headers=HEADERS)
+    assert started.status_code == repeated_start.status_code == 200
+    assert (
+        started.json()
+        == repeated_start.json()
+        == {
+            "activity_id": activity_id,
+            "status": "in_progress",
+        }
+    )
+    completed = client.post(f"{base}/complete", headers=HEADERS)
+    repeated_complete = client.post(f"{base}/complete", headers=HEADERS)
+    assert (
+        completed.json()
+        == repeated_complete.json()
+        == {
+            "activity_id": activity_id,
+            "status": "completed",
+        }
+    )
+    assert client.get(base).json() == completed.json()
+
+    client.cookies.set(SESSION_COOKIE_NAME, teacher)
+    client.post(f"{course_path}/archive", headers=HEADERS)
+    client.cookies.set(SESSION_COOKIE_NAME, student)
+    assert client.post(f"{base}/start", headers=HEADERS).status_code == 404
+
+    auth(client, "progress-other@example.com")
+    assert client.get(base).status_code == 404
+    unknown = "/api/v1/student/activities/00000000-0000-0000-0000-000000000000/progress"
+    assert client.post(f"{unknown}/start", headers=HEADERS).status_code == 404
+
+
+def test_activity_progress_openapi_contract(client: TestClient) -> None:
+    openapi = client.get("/openapi.json").json()
+    base = "/api/v1/student/activities/{activity_id}/progress"
+    assert set(openapi["paths"][base]) == {"get"}
+    assert set(openapi["paths"][f"{base}/start"]) == {"post"}
+    assert set(openapi["paths"][f"{base}/complete"]) == {"post"}
+    assert "ActivityProgressResponse" in openapi["components"]["schemas"]

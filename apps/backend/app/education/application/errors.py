@@ -35,3 +35,7 @@ class LinkedContentNotFoundError(Exception):
 
 class LinkedContentUnavailableError(Exception):
     pass
+
+
+class PublishedActivityNotFoundError(Exception):
+    pass
