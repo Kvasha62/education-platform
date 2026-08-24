@@ -492,20 +492,28 @@ A task is complete only when:
 
 ## 33. Governance and mandatory implementation rules
 
-The active engineering team is:
+The active governance roles are:
 
 - **Human Project Owner** — final repository merge authority;
-- **Project Architect — ChatGPT** — final authority for architecture, scope, requirements and acceptance of external review findings;
-- **Implementation Agent — Arena** — sole active implementation agent;
-- **External Reviewer — DeepSeek V4 Flash** — independent advisory reviewer.
+- **Project Architect — ChatGPT 5.6 Luna** — final authority for architecture, scope, requirements and acceptance of external review findings;
+- **Implementation Agent — Arena** — sole active implementation agent.
 
-The Implementation Agent is not the autonomous owner of project architecture and must not merge Pull Requests. The Human Project Owner performs the final merge after Project Architect approval and all required checks/reviews have passed.
+DeepSeek Flash and DeepSeek Pro are execution/review models operating under these roles, not autonomous governance authorities. DeepSeek Flash is the default execution-assistance model for routine implementation tasks (configured as DeepSeek V4 Flash). DeepSeek Pro is the escalation model for unusually complex, security-sensitive, architecture-heavy or ambiguous tasks (configured as DeepSeek V4 Pro).
+
+DeepSeek execution assistance does not create independent scope or architectural authority. Arena remains responsible for implementation, tests, commits and Pull Requests. DeepSeek output and recommendations remain advisory unless accepted by ChatGPT 5.6 Luna. Arena validates implementation assistance only within the approved Issue scope; architecture, scope, requirements and PR acceptance remain under ChatGPT 5.6 Luna, and final merge authority remains with the Human Project Owner.
+
+DeepSeek V4 Flash and DeepSeek V4 Pro may participate in external review when explicitly assigned. External review is separate from execution assistance and remains advisory. Review recommendations must be evaluated and accepted or rejected by ChatGPT 5.6 Luna.
+
+The Implementation Agent is not the autonomous owner of project architecture and must not merge Pull Requests. DeepSeek execution/review models have no architecture, scope or merge authority. ChatGPT 5.6 Luna accepts PRs from the architecture and scope perspective. The Human Project Owner performs the final merge after Project Architect approval and all required checks/reviews have passed.
 
 Every repository change, including governance and documentation changes, follows:
 
 ```text
-Issue → branch → implementation → PR → review
-→ Project Architect approval → Human Project Owner merge
+Issue → branch → Arena implementation
+→ DeepSeek Flash by default / Pro escalation when required
+→ tests → PR → review
+→ Project Architect / ChatGPT approval (ChatGPT 5.6 Luna)
+→ Human Project Owner merge
 ```
 
 Before every task the Implementation Agent MUST read:

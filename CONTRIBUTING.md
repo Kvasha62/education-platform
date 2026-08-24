@@ -7,23 +7,28 @@ The project uses GitHub Issues and Pull Requests. This workflow applies to every
 ```text
 Issue
 → Branch
-→ Implementation
+→ Arena implementation
+  (DeepSeek Flash by default; Pro escalation when required)
 → Tests
 → Pull Request
 → Review
-→ Project Architect approval
-→ Merge
+→ Project Architect / ChatGPT approval
+→ Human Project Owner merge
 ```
 
 The `main` branch is the stable integration branch.
 
 The Human Project Owner is the human owner of the project and final merge authority.
 
-The Project Architect is ChatGPT and is responsible for architecture, scope, requirements and acceptance or rejection of external review findings.
+The Project Architect is ChatGPT 5.6 Luna and is responsible for architecture, scope, requirements and acceptance or rejection of external review findings.
+
+DeepSeek Flash is the default execution-assistance model for Arena (configured as DeepSeek V4 Flash). DeepSeek Pro is used as an escalation model for unusually complex, security-sensitive, architecture-heavy or ambiguous tasks (configured as DeepSeek V4 Pro). Neither model has authority over architecture, scope, requirements, PR acceptance or merge decisions.
+
+Execution assistance and external review are distinct activities. DeepSeek execution output and review findings remain advisory until evaluated and accepted by ChatGPT 5.6 Luna.
 
 Human Project Owner merges PRs after the Project Architect has approved the implementation and all required checks/reviews have passed.
 
-AI agents do not merge their own PRs. The Project Architect approves architectural and scope decisions; the Human Project Owner performs the final merge.
+AI agents and DeepSeek execution models do not merge their own PRs. The Project Architect / ChatGPT 5.6 Luna accepts PRs from the architecture and scope perspective; the Human Project Owner performs the final merge.
 
 ## Branches
 
