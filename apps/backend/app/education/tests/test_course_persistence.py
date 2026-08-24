@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import String, Table
+from sqlalchemy import Enum, String, Table
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -29,10 +29,16 @@ def test_course_persistence_has_required_fields() -> None:
         "id",
         "educational_environment_id",
         "title",
+        "status",
         "created_at",
         "updated_at",
     }
     assert cast(String, table.c.title.type).length == 120
+    assert set(cast(Enum, table.c.status.type).enums) == {
+        "draft",
+        "published",
+        "archived",
+    }
 
 
 def test_add_translates_integrity_error_to_environment_not_found() -> None:

@@ -51,11 +51,22 @@ def normalize_title(title: str) -> str:
     return normalized
 
 
+class CourseStatus(StrEnum):
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    ARCHIVED = "archived"
+
+
+class InvalidCourseTransitionError(Exception):
+    pass
+
+
 @dataclass(frozen=True, slots=True)
 class Course:
     id: UUID
     educational_environment_id: UUID
     title: str
+    status: CourseStatus
     created_at: datetime
     updated_at: datetime
 
@@ -66,12 +77,35 @@ class Course:
             id=uuid4(),
             educational_environment_id=educational_environment_id,
             title=normalize_title(title),
+            status=CourseStatus.DRAFT,
             created_at=now,
             updated_at=now,
         )
 
     def rename(self, title: str) -> "Course":
         return replace(self, title=normalize_title(title), updated_at=datetime.now(UTC))
+
+    def publish(self) -> "Course":
+        if self.status is CourseStatus.PUBLISHED:
+            return self
+        if self.status is CourseStatus.ARCHIVED:
+            raise InvalidCourseTransitionError
+        return replace(
+            self,
+            status=CourseStatus.PUBLISHED,
+            updated_at=datetime.now(UTC),
+        )
+
+    def archive(self) -> "Course":
+        if self.status is CourseStatus.ARCHIVED:
+            return self
+        if self.status is CourseStatus.DRAFT:
+            raise InvalidCourseTransitionError
+        return replace(
+            self,
+            status=CourseStatus.ARCHIVED,
+            updated_at=datetime.now(UTC),
+        )
 
 
 class InvalidSectionTitleError(ValueError):

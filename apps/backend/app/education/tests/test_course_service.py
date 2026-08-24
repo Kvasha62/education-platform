@@ -5,7 +5,11 @@ import pytest
 
 from app.education.application.errors import CourseNotFoundError
 from app.education.application.services import CourseService
-from app.education.domain.models import InvalidCourseTitleError
+from app.education.domain.models import (
+    CourseStatus,
+    InvalidCourseTitleError,
+    InvalidCourseTransitionError,
+)
 
 
 class MemoryCourseRepository:
@@ -25,11 +29,7 @@ class MemoryCourseRepository:
 
     def get_in_environment(self, course_id, environment_id):
         course = self.items.get(course_id)
-        return (
-            course
-            if course and course.educational_environment_id == environment_id
-            else None
-        )
+        return course if course and course.educational_environment_id == environment_id else None
 
     def update(self, course):
         self.items[course.id] = course
@@ -46,6 +46,7 @@ def test_create_course_in_environment(service: CourseService) -> None:
     course = service.create(environment_id, "  Mathematics  ")
     assert course.educational_environment_id == environment_id
     assert course.title == "Mathematics"
+    assert course.status is CourseStatus.DRAFT
 
 
 @pytest.mark.parametrize("title", ["", "   ", "x" * 121])
@@ -73,3 +74,41 @@ def test_rename_course(service: CourseService) -> None:
     updated = service.rename(course.id, environment_id, "Updated")
     assert updated.title == "Updated"
     assert updated.educational_environment_id == environment_id
+    assert updated.status is CourseStatus.DRAFT
+
+
+def test_publish_and_archive_lifecycle(service: CourseService) -> None:
+    environment_id = uuid4()
+    draft = service.create(environment_id, "Course")
+
+    published = service.publish(draft.id, environment_id)
+    archived = service.archive(draft.id, environment_id)
+
+    assert published.status is CourseStatus.PUBLISHED
+    assert archived.status is CourseStatus.ARCHIVED
+
+
+def test_publish_and_archive_are_idempotent(service: CourseService) -> None:
+    environment_id = uuid4()
+    draft = service.create(environment_id, "Course")
+    published = service.publish(draft.id, environment_id)
+    published_again = service.publish(draft.id, environment_id)
+    archived = service.archive(draft.id, environment_id)
+    archived_again = service.archive(draft.id, environment_id)
+
+    assert published_again == published
+    assert published_again.updated_at == published.updated_at
+    assert archived_again == archived
+    assert archived_again.updated_at == archived.updated_at
+
+
+def test_invalid_course_transitions_are_deterministic(service: CourseService) -> None:
+    environment_id = uuid4()
+    draft = service.create(environment_id, "Course")
+    with pytest.raises(InvalidCourseTransitionError):
+        service.archive(draft.id, environment_id)
+
+    service.publish(draft.id, environment_id)
+    service.archive(draft.id, environment_id)
+    with pytest.raises(InvalidCourseTransitionError):
+        service.publish(draft.id, environment_id)

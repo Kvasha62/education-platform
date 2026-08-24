@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import Base
 from app.education.domain.content_links import ActivityContentLink
-from app.education.domain.models import ActivityType
+from app.education.domain.models import ActivityType, CourseStatus
 from app.education.infrastructure.content_links import (
     SqlAlchemyActivityContentLinkRepository,
 )
@@ -85,6 +85,7 @@ def test_activity_delete_cascades_association_rows() -> None:
                 id=course_id,
                 educational_environment_id=environment_id,
                 title="Course",
+                status=CourseStatus.DRAFT,
                 created_at=now,
                 updated_at=now,
             )

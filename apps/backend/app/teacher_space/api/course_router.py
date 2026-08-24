@@ -13,7 +13,7 @@ from app.education.api.course_schemas import (
 from app.education.api.dependencies import get_course_service, get_environment_service
 from app.education.application.errors import CourseNotFoundError, EnvironmentNotFoundError
 from app.education.application.services import CourseService, EducationalEnvironmentService
-from app.education.domain.models import EducationalEnvironment
+from app.education.domain.models import EducationalEnvironment, InvalidCourseTransitionError
 from app.identity.api.dependencies import get_current_identity, require_trusted_origin
 from app.identity.domain.models import Identity
 from app.teacher_space.api.dependencies import get_teacher_space_service
@@ -31,9 +31,7 @@ router = APIRouter(
 
 CurrentIdentity = Annotated[Identity, Depends(get_current_identity)]
 TeacherSpaces = Annotated[TeacherSpaceService, Depends(get_teacher_space_service)]
-Environments = Annotated[
-    EducationalEnvironmentService, Depends(get_environment_service)
-]
+Environments = Annotated[EducationalEnvironmentService, Depends(get_environment_service)]
 Courses = Annotated[CourseService, Depends(get_course_service)]
 
 
@@ -92,9 +90,7 @@ def list_courses(
     environments: Environments,
     courses: Courses,
 ) -> list[CourseResponse]:
-    environment, _ = resolve_environment(
-        teacher_space_id, identity, teacher_spaces, environments
-    )
+    environment, _ = resolve_environment(teacher_space_id, identity, teacher_spaces, environments)
     return [CourseResponse.from_course(course) for course in courses.list(environment.id)]
 
 
@@ -107,9 +103,7 @@ def get_course(
     environments: Environments,
     courses: Courses,
 ) -> CourseResponse:
-    environment, _ = resolve_environment(
-        teacher_space_id, identity, teacher_spaces, environments
-    )
+    environment, _ = resolve_environment(teacher_space_id, identity, teacher_spaces, environments)
     try:
         course = courses.get(course_id, environment.id)
     except CourseNotFoundError as error:
@@ -139,4 +133,62 @@ def update_course(
         course = courses.rename(course_id, environment.id, payload.title)
     except CourseNotFoundError as error:
         raise course_not_found(error) from error
+    return CourseResponse.from_course(course)
+
+
+@router.post(
+    "/{course_id}/publish",
+    response_model=CourseResponse,
+    dependencies=[Depends(require_trusted_origin)],
+)
+def publish_course(
+    teacher_space_id: UUID,
+    course_id: UUID,
+    identity: CurrentIdentity,
+    teacher_spaces: TeacherSpaces,
+    environments: Environments,
+    courses: Courses,
+) -> CourseResponse:
+    environment, teacher_space = resolve_environment(
+        teacher_space_id, identity, teacher_spaces, environments
+    )
+    require_writable(teacher_space)
+    try:
+        course = courses.publish(course_id, environment.id)
+    except CourseNotFoundError as error:
+        raise course_not_found(error) from error
+    except InvalidCourseTransitionError as error:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Course cannot be published from its current status",
+        ) from error
+    return CourseResponse.from_course(course)
+
+
+@router.post(
+    "/{course_id}/archive",
+    response_model=CourseResponse,
+    dependencies=[Depends(require_trusted_origin)],
+)
+def archive_course(
+    teacher_space_id: UUID,
+    course_id: UUID,
+    identity: CurrentIdentity,
+    teacher_spaces: TeacherSpaces,
+    environments: Environments,
+    courses: Courses,
+) -> CourseResponse:
+    environment, teacher_space = resolve_environment(
+        teacher_space_id, identity, teacher_spaces, environments
+    )
+    require_writable(teacher_space)
+    try:
+        course = courses.archive(course_id, environment.id)
+    except CourseNotFoundError as error:
+        raise course_not_found(error) from error
+    except InvalidCourseTransitionError as error:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Course cannot be archived from its current status",
+        ) from error
     return CourseResponse.from_course(course)

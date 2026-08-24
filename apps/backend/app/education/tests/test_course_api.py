@@ -122,6 +122,7 @@ def test_owner_can_create_list_get_and_update_multiple_courses(client: TestClien
     second = create_course(client, teacher_space_id, "Second")
     assert first.status_code == second.status_code == 201
     assert first.json()["educational_environment_id"] == environment_id
+    assert first.json()["status"] == second.json()["status"] == "draft"
 
     listed = client.get(courses_path(teacher_space_id))
     assert [course["title"] for course in listed.json()] == ["First", "Second"]
@@ -178,6 +179,62 @@ def test_create_course_without_environment_returns_404(client: TestClient) -> No
     assert response.status_code == 404
 
 
+def test_owner_publish_archive_and_idempotency(client: TestClient) -> None:
+    authenticate(client, "owner@example.com")
+    teacher_space_id = create_teacher_space(client, "Space")
+    create_environment(client, teacher_space_id)
+    course = create_course(client, teacher_space_id, "Lifecycle").json()
+    base = f"{courses_path(teacher_space_id)}/{course['id']}"
+
+    published = client.post(f"{base}/publish", headers=MUTATION_HEADERS)
+    published_again = client.post(f"{base}/publish", headers=MUTATION_HEADERS)
+    assert published.status_code == published_again.status_code == 200
+    assert published.json()["status"] == published_again.json()["status"] == "published"
+    assert published.json()["updated_at"].removesuffix("Z") == published_again.json()[
+        "updated_at"
+    ].removesuffix("Z")
+
+    archived = client.post(f"{base}/archive", headers=MUTATION_HEADERS)
+    archived_again = client.post(f"{base}/archive", headers=MUTATION_HEADERS)
+    assert archived.status_code == archived_again.status_code == 200
+    assert archived.json()["status"] == archived_again.json()["status"] == "archived"
+
+
+def test_invalid_lifecycle_transitions_return_conflict(client: TestClient) -> None:
+    authenticate(client, "owner@example.com")
+    teacher_space_id = create_teacher_space(client, "Space")
+    create_environment(client, teacher_space_id)
+    course = create_course(client, teacher_space_id, "Lifecycle").json()
+    base = f"{courses_path(teacher_space_id)}/{course['id']}"
+
+    assert client.post(f"{base}/archive", headers=MUTATION_HEADERS).status_code == 409
+    assert client.post(f"{base}/publish", headers=MUTATION_HEADERS).status_code == 200
+    assert client.post(f"{base}/archive", headers=MUTATION_HEADERS).status_code == 200
+    assert client.post(f"{base}/publish", headers=MUTATION_HEADERS).status_code == 409
+
+
+def test_lifecycle_requires_authentication_and_csrf(client: TestClient) -> None:
+    missing = "00000000-0000-0000-0000-000000000000"
+    base = f"{courses_path(missing)}/{missing}"
+    assert client.post(f"{base}/publish", headers=MUTATION_HEADERS).status_code == 401
+    assert client.post(f"{base}/archive", headers=MUTATION_HEADERS).status_code == 401
+
+    authenticate(client, "owner@example.com")
+    teacher_space_id = create_teacher_space(client, "Space")
+    create_environment(client, teacher_space_id)
+    course = create_course(client, teacher_space_id, "Lifecycle").json()
+    base = f"{courses_path(teacher_space_id)}/{course['id']}"
+    evil = {"Origin": "https://evil.test"}
+    assert client.post(f"{base}/publish", headers=evil).status_code == 403
+    assert client.post(f"{base}/archive", headers=evil).status_code == 403
+    assert client.post(
+        f"{courses_path(teacher_space_id)}/bad/publish", headers=MUTATION_HEADERS
+    ).status_code == 422
+    assert client.post(
+        f"{courses_path(teacher_space_id)}/bad/archive", headers=MUTATION_HEADERS
+    ).status_code == 422
+
+
 def test_non_owner_cannot_access_courses(client: TestClient) -> None:
     owner_token = authenticate(client, "owner@example.com")
     teacher_space_id = create_teacher_space(client, "Owner Space")
@@ -192,6 +249,8 @@ def test_non_owner_cannot_access_courses(client: TestClient) -> None:
     assert client.patch(
         f"{base}/{course['id']}", json={"title": "Stolen"}, headers=MUTATION_HEADERS
     ).status_code == 404
+    assert client.post(f"{base}/{course['id']}/publish", headers=MUTATION_HEADERS).status_code == 404
+    assert client.post(f"{base}/{course['id']}/archive", headers=MUTATION_HEADERS).status_code == 404
     use_session(client, owner_token)
 
 
@@ -210,6 +269,8 @@ def test_course_cannot_be_accessed_through_another_owned_environment(
     assert client.patch(
         wrong_path, json={"title": "Moved"}, headers=MUTATION_HEADERS
     ).status_code == 404
+    assert client.post(f"{wrong_path}/publish", headers=MUTATION_HEADERS).status_code == 404
+    assert client.post(f"{wrong_path}/archive", headers=MUTATION_HEADERS).status_code == 404
 
 
 def test_client_cannot_control_environment_or_ownership(client: TestClient) -> None:
@@ -223,6 +284,9 @@ def test_client_cannot_control_environment_or_ownership(client: TestClient) -> N
         headers=MUTATION_HEADERS,
     ).status_code == 422
     assert client.post(
+        base, json={"title": "Course", "status": "published"}, headers=MUTATION_HEADERS
+    ).status_code == 422
+    assert client.post(
         base,
         json={
             "title": "Course",
@@ -234,6 +298,11 @@ def test_client_cannot_control_environment_or_ownership(client: TestClient) -> N
     assert client.patch(
         f"{base}/{course['id']}",
         json={"title": "Changed", "educational_environment_id": str(course["id"])},
+        headers=MUTATION_HEADERS,
+    ).status_code == 422
+    assert client.patch(
+        f"{base}/{course['id']}",
+        json={"title": "Changed", "status": "published"},
         headers=MUTATION_HEADERS,
     ).status_code == 422
 
@@ -265,6 +334,8 @@ def test_disabled_teacher_space_courses_are_read_only(client: TestClient) -> Non
         json={"title": "Forbidden"},
         headers=MUTATION_HEADERS,
     ).status_code == 409
+    assert client.post(f"{base}/{course['id']}/publish", headers=MUTATION_HEADERS).status_code == 409
+    assert client.post(f"{base}/{course['id']}/archive", headers=MUTATION_HEADERS).status_code == 409
 
 
 def test_openapi_contains_course_contract(client: TestClient) -> None:
@@ -273,4 +344,8 @@ def test_openapi_contains_course_contract(client: TestClient) -> None:
     item = f"{collection}/{{course_id}}"
     assert {"post", "get"} <= paths[collection].keys()
     assert {"get", "patch"} <= paths[item].keys()
+    assert "post" in paths[f"{item}/publish"]
+    assert "post" in paths[f"{item}/archive"]
+    course_schema = client.get("/openapi.json").json()["components"]["schemas"]["CourseResponse"]
+    assert "status" in course_schema["properties"]
     assert "delete" not in paths[item]
