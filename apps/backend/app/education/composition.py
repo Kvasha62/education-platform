@@ -15,6 +15,10 @@ from app.education.api.dependencies import (
 )
 from app.education.application.content_links import ActivityContentService
 from app.education.application.ports import ActivityContentLinkRepository
+from app.education.application.publication import (
+    CoursePublicationLookupService,
+    PublishedCourseLookup,
+)
 from app.education.application.services import (
     ActivityService,
     CourseService,
@@ -55,3 +59,9 @@ def get_published_course_reader(
         activities,
         activity_contents,
     )
+
+
+def get_published_course_lookup(
+    courses: Annotated[CourseService, Depends(get_course_service)],
+) -> "PublishedCourseLookup":
+    return CoursePublicationLookupService(courses)

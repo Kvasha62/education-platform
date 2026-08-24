@@ -1,12 +1,14 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from app.identity.api.dependencies import get_current_identity
+from app.identity.api.dependencies import get_current_identity, require_trusted_origin
 from app.identity.domain.models import Identity
+from app.learning.api.dependencies import get_enrollment_service
+from app.learning.application.services import EnrollmentCourseNotFoundError, EnrollmentService
 from app.student_space.api.dependencies import get_student_course_service
-from app.student_space.api.schemas import StudentCourseResponse
+from app.student_space.api.schemas import EnrollmentResponse, StudentCourseResponse
 from app.student_space.application.services import (
     StudentContentUnavailableError,
     StudentCourseNotFoundError,
@@ -16,6 +18,7 @@ from app.student_space.application.services import (
 router = APIRouter(prefix="/api/v1/student", tags=["student-courses"])
 CurrentIdentity = Annotated[Identity, Depends(get_current_identity)]
 StudentCourses = Annotated[StudentCourseService, Depends(get_student_course_service)]
+Enrollments = Annotated[EnrollmentService, Depends(get_enrollment_service)]
 
 
 @router.get("/courses/{course_id}", response_model=StudentCourseResponse)
@@ -34,3 +37,25 @@ def get_published_course(
             "Content lookup unavailable",
         ) from error
     return StudentCourseResponse.from_course(course)
+
+
+@router.post(
+    "/courses/{course_id}/enrollment",
+    response_model=EnrollmentResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={status.HTTP_200_OK: {"model": EnrollmentResponse}},
+    dependencies=[Depends(require_trusted_origin)],
+)
+def enroll_in_course(
+    course_id: UUID,
+    identity: CurrentIdentity,
+    enrollments: Enrollments,
+    response: Response,
+) -> EnrollmentResponse:
+    try:
+        result = enrollments.enroll(identity.id, course_id)
+    except EnrollmentCourseNotFoundError as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Course not found") from error
+    if not result.created:
+        response.status_code = status.HTTP_200_OK
+    return EnrollmentResponse.from_enrollment(result.enrollment)
