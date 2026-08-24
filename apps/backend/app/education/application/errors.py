@@ -13,6 +13,10 @@ class CourseNotFoundError(Exception):
     pass
 
 
+class PublishedCourseNotFoundError(Exception):
+    pass
+
+
 class SectionNotFoundError(Exception):
     pass
 

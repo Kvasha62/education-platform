@@ -62,6 +62,12 @@ class CourseService:
             raise CourseNotFoundError
         return course
 
+    def get_by_id(self, course_id: UUID) -> Course:
+        course = self.repository.get_by_id(course_id)
+        if course is None:
+            raise CourseNotFoundError
+        return course
+
     def rename(self, course_id: UUID, environment_id: UUID, title: str) -> Course:
         return self.repository.update(self.get(course_id, environment_id).rename(title))
 

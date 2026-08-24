@@ -109,10 +109,22 @@ class ActivityContentService:
         self,
         activity_id: UUID,
         unit_id: UUID,
-        owner_user_id: UUID,
     ) -> list[ResolvedActivityContent]:
-        return [
-            item
-            for item in self.resolve_for_activity(activity_id, unit_id, owner_user_id)
-            if item.available_for_student
-        ]
+        self._require_activity(activity_id, unit_id)
+        available: list[ResolvedActivityContent] = []
+        for link in self.links.list_for_activity(activity_id):
+            try:
+                reference = self.content.lookup_published(link.content_id)
+            except ContentReferenceNotFound:
+                continue
+            except ContentLookupUnavailable as error:
+                raise LinkedContentUnavailableError from error
+            available.append(
+                ResolvedActivityContent(
+                    link=link,
+                    type=cast(ContentTypeValue, reference.type.value),
+                    status=cast(ContentStatusValue, reference.status.value),
+                    available_for_student=True,
+                )
+            )
+        return available

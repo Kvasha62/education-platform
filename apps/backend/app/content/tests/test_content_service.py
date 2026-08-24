@@ -19,6 +19,9 @@ class MemoryRepository:
     def list_owned(self, owner):
         return [item for item in self.items.values() if item.owner_user_id == owner]
 
+    def get_by_id(self, item_id):
+        return self.items.get(item_id)
+
     def get_owned(self, item_id, owner):
         item = self.items.get(item_id)
         return item if item and item.owner_user_id == owner else None
