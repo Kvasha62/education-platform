@@ -14,7 +14,9 @@ from app.education.application.student_course import (
     StudentSection,
 )
 from app.learning.application.enrollment_read import EnrollmentReference
+from app.learning.application.progress import ActivityProgressReference
 from app.learning.domain.models import Enrollment, EnrollmentStatus
+from app.learning.domain.progress import ProgressStatus
 
 
 class StudentContentReferenceResponse(BaseModel):
@@ -136,3 +138,12 @@ class EnrollmentReferenceResponse(BaseModel):
 
 class StudentEnrollmentListResponse(BaseModel):
     items: list[EnrollmentReferenceResponse]
+
+
+class ActivityProgressResponse(BaseModel):
+    activity_id: UUID
+    status: "ProgressStatus"
+
+    @classmethod
+    def from_reference(cls, reference: "ActivityProgressReference") -> "ActivityProgressResponse":
+        return cls(activity_id=reference.activity_id, status=reference.status)
