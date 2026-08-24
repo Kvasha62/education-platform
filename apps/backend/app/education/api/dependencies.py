@@ -6,12 +6,16 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.education.application.ports import ActivityContentLinkRepository
 from app.education.application.services import (
     ActivityService,
     CourseService,
     EducationalEnvironmentService,
     LearningUnitService,
     SectionService,
+)
+from app.education.infrastructure.content_links import (
+    SqlAlchemyActivityContentLinkRepository,
 )
 from app.education.infrastructure.repositories import (
     SqlAlchemyActivityRepository,
@@ -48,3 +52,9 @@ def get_learning_unit_service(
 
 def get_activity_service(db: Annotated[Session, Depends(get_db)]) -> ActivityService:
     return ActivityService(SqlAlchemyActivityRepository(db))
+
+
+def get_activity_content_link_repository(
+    db: Annotated[Session, Depends(get_db)],
+) -> ActivityContentLinkRepository:
+    return SqlAlchemyActivityContentLinkRepository(db)

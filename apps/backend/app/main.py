@@ -7,6 +7,7 @@ from app.content.api import router as content_router
 from app.core.config import get_settings
 from app.identity.api import router as identity_router
 from app.teacher_space.api import router as teacher_space_router
+from app.teacher_space.api.activity_content_router import router as activity_content_router
 from app.teacher_space.api.activity_router import router as activity_router
 from app.teacher_space.api.course_router import router as course_router
 from app.teacher_space.api.environment_router import router as environment_router
@@ -26,6 +27,7 @@ app.include_router(identity_router)
 app.include_router(content_router)
 app.include_router(teacher_space_router)
 app.include_router(activity_router)
+app.include_router(activity_content_router)
 app.include_router(course_router)
 app.include_router(environment_router)
 app.include_router(section_router)

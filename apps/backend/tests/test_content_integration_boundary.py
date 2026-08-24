@@ -126,3 +126,20 @@ def test_content_public_interface_is_read_only() -> None:
         if callable(member) and not name.startswith("_")
     }
     assert methods == {"lookup_owned"}
+
+
+def test_teacher_space_does_not_import_content_private_implementation() -> None:
+    teacher_package = Path(__file__).parents[1] / "app" / "teacher_space"
+    content_imports = {name for name in _imports(teacher_package) if name.startswith("app.content")}
+    assert content_imports <= {"app.content.public", "app.content.api.dependencies"}
+    assert not {
+        name
+        for name in content_imports
+        if name.startswith(
+            (
+                "app.content.infrastructure",
+                "app.content.application",
+                "app.content.domain",
+            )
+        )
+    }

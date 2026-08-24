@@ -8,8 +8,8 @@ from app.content.public import (
     ContentReference,
     ContentReferenceNotFound,
 )
-from app.education.application.errors import ActivityNotFoundError
-from app.education.application.ports import ActivityContentLinkRepository, ActivityRepository
+from app.education.application.ports import ActivityContentLinkRepository
+from app.education.application.services import ActivityService
 from app.education.domain.content_links import ActivityContentLink
 
 
@@ -28,7 +28,7 @@ class ActivityContentService:
 
     def __init__(
         self,
-        activities: ActivityRepository,
+        activities: ActivityService,
         links: ActivityContentLinkRepository,
         content: ContentLookup,
     ) -> None:
@@ -37,8 +37,7 @@ class ActivityContentService:
         self.content = content
 
     def _require_activity(self, activity_id: UUID, unit_id: UUID) -> None:
-        if self.activities.get_in_unit(activity_id, unit_id) is None:
-            raise ActivityNotFoundError
+        self.activities.get(activity_id, unit_id)
 
     def attach(
         self,

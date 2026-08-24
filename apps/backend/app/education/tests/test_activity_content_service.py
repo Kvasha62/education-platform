@@ -13,6 +13,7 @@ from app.content.public import (
 from app.education.application.content_links import ActivityContentService
 from app.education.application.errors import ActivityNotFoundError
 from app.education.application.ports import ActivityRepository
+from app.education.application.services import ActivityService
 from app.education.domain.content_links import ActivityContentLink
 from app.education.domain.models import Activity, ActivityType
 
@@ -85,9 +86,8 @@ def build_service() -> tuple[
     activity = Activity.create(uuid4(), "Activity", ActivityType.LECTURE, 0)
     links = MemoryLinkRepository()
     lookup = FakeContentLookup()
-    service = ActivityContentService(
-        cast(ActivityRepository, MemoryActivityRepository(activity)), links, lookup
-    )
+    activities = ActivityService(cast(ActivityRepository, MemoryActivityRepository(activity)))
+    service = ActivityContentService(activities, links, lookup)
     return service, activity, links, lookup
 
 
