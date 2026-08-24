@@ -283,6 +283,84 @@ Education owns the approved N:M Activity/Content relationship. A later implement
 
 The Content public interface is read-only: Education may look up owner-scoped safe Content reference data (`id`, type, status, and Student availability). Education cannot create, update, publish, or delete Content through this interface. Student Space consumes the Education application boundary and never Content persistence directly.
 
+For student-facing published-course reads, Content additionally exposes the following approved read-only public operation:
+
+```text
+lookup_published(content_id: UUID)
+    → ContentReference
+    → ContentReferenceNotFound
+    → ContentLookupUnavailable
+```
+
+`lookup_published` is deliberately distinct from the teacher-facing owner-scoped operation:
+
+```text
+lookup_owned(content_id: UUID, owner_user_id: UUID)
+```
+
+`lookup_owned` remains unchanged. Student Space must never use student identity as `owner_user_id` to resolve teacher-owned Content. `lookup_published` performs publication/availability semantics inside the Content bounded context and does not require a teacher or student owner identifier.
+
+For `lookup_published`:
+
+- `PUBLISHED` and student-available Content returns a safe `ContentReference`;
+- DRAFT, non-public or missing Content returns `ContentReferenceNotFound`;
+- technical Content lookup failure returns `ContentLookupUnavailable`.
+
+Content ownership and persistence remain entirely inside Content. Education may consume these operations only through the public interface. Student Space never accesses Content ORM models, repositories, tables or infrastructure directly.
+
+The approved `ContentReference` exposes only safe integration data:
+
+```text
+id
+ContentType
+ContentStatus
+available_for_student
+```
+
+The operation is read-only and does not change the Content HTTP API. It does not create, update, publish, unpublish or delete Content. `lookup_owned` remains the owner-scoped interface for teacher-facing operations.
+
+### Student Space read boundary
+
+The first Student-facing read contract is:
+
+```text
+GET /api/v1/student/courses/{course_id}
+```
+
+The authenticated student identity comes from the existing authentication/session context and is not supplied as a URL owner identifier.
+
+Student Space may read any `PUBLISHED` Course in this MVP slice. `DRAFT`, `ARCHIVED` and unknown Courses are invisible through this endpoint and return `404`.
+
+The dependency direction is:
+
+```text
+Student Space API
+        ↓
+Student/application orchestration
+        ↓
+Education application/public interface
+        ↓
+Education domain/repositories
+        ↓
+Content public interface
+```
+
+Education resolves the Education-owned Activity/Content associations and uses `lookup_published` to obtain safe student-visible Content references. Student Space must not bypass Education to call Content.
+
+The minimum Student Activity representation is:
+
+```text
+id
+title
+type
+position
+contents
+```
+
+Teacher/internal fields such as `learning_unit_id`, `created_at` and `updated_at` are not part of this Student response contract unless a later architectural decision explicitly adds them.
+
+DRAFT Content may remain associated with an Activity, but only published/student-available Content may appear in the Student response. A stale or unavailable association must not expose private Content details.
+
 DRAFT Content may be associated, but only PUBLISHED Content is available to Student Space. Content deletion leaves a stale/unavailable association; Activity deletion removes its Education-owned association rows. No public attach/detach HTTP API is approved by this decision.
 
 The complete contract, lifecycle/failure semantics, persistence details, alternatives, and required guards are recorded in [`ADR-0001`](docs/decisions/0001-activity-content-integration-contract.md). Runtime integration remains deferred to a separate implementation Issue.
@@ -617,9 +695,3 @@ When instructions conflict, use this priority:
 5. Assigned GitHub Issue
 6. Existing project conventions
 7. The Implementation Agent's engineering preference
-
-The Implementation Agent's engineering preference can never override a higher-priority instruction.
-
-## 35. Final principle
-
-Build small, preserve boundaries, test continuously, and extend through independent modules rather than turning the platform into a single tightly coupled application.
