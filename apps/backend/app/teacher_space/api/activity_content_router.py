@@ -26,7 +26,7 @@ from app.education.application.services import (
     SectionService,
 )
 from app.education.composition import get_activity_content_service
-from app.education.domain.models import Activity, Course
+from app.education.domain.models import Activity, Course, CourseImmutableError
 from app.identity.api.dependencies import get_current_identity, require_trusted_origin
 from app.identity.domain.models import Identity
 from app.teacher_space.api.activity_content_schemas import (
@@ -35,8 +35,9 @@ from app.teacher_space.api.activity_content_schemas import (
     AttachActivityContentRequest,
 )
 from app.teacher_space.api.activity_router import resolve_unit
-from app.teacher_space.api.course_router import require_course_writable
+from app.teacher_space.api.course_router import course_immutable
 from app.teacher_space.api.dependencies import get_teacher_space_service
+from app.teacher_space.api.environment_router import require_writable
 from app.teacher_space.application.services import TeacherSpaceService
 from app.teacher_space.domain.models import TeacherSpace
 
@@ -136,13 +137,21 @@ def attach_content(
         units,
         activities,
     )
-    require_course_writable(course, teacher_space)
+    require_writable(teacher_space)
     try:
-        link = activity_contents.attach(activity.id, unit_id, payload.content_id, identity.id)
+        link = activity_contents.attach(
+            activity.id,
+            unit_id,
+            payload.content_id,
+            identity.id,
+            course,
+        )
     except LinkedContentNotFoundError as error:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Content not found") from error
     except LinkedContentUnavailableError as error:
         raise dependency_unavailable(error) from error
+    except CourseImmutableError as error:
+        raise course_immutable(error) from error
     return ActivityContentLinkResponse(
         activity_id=link.activity_id,
         content_id=link.content_id,
@@ -221,6 +230,9 @@ def detach_content(
         units,
         activities,
     )
-    require_course_writable(course, teacher_space)
-    activity_contents.detach(activity.id, unit_id, content_id)
+    require_writable(teacher_space)
+    try:
+        activity_contents.detach(activity.id, unit_id, content_id, course)
+    except CourseImmutableError as error:
+        raise course_immutable(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)

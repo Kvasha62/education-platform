@@ -25,11 +25,12 @@ from app.education.application.services import (
     LearningUnitService,
     SectionService,
 )
-from app.education.domain.models import Course, LearningUnit
+from app.education.domain.models import Course, CourseImmutableError, LearningUnit
 from app.identity.api.dependencies import get_current_identity, require_trusted_origin
 from app.identity.domain.models import Identity
-from app.teacher_space.api.course_router import require_course_writable
+from app.teacher_space.api.course_router import course_immutable
 from app.teacher_space.api.dependencies import get_teacher_space_service
+from app.teacher_space.api.environment_router import require_writable
 from app.teacher_space.api.learning_unit_router import resolve_section
 from app.teacher_space.application.services import TeacherSpaceService
 from app.teacher_space.domain.models import TeacherSpace
@@ -115,11 +116,19 @@ def create_activity(
         sections,
         units,
     )
-    require_course_writable(course, teacher_space)
+    require_writable(teacher_space)
     try:
-        activity = activities.create(unit.id, payload.title, payload.type, payload.position)
+        activity = activities.create(
+            unit.id,
+            course,
+            payload.title,
+            payload.type,
+            payload.position,
+        )
     except LearningUnitNotFoundError as error:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Learning Unit not found") from error
+    except CourseImmutableError as error:
+        raise course_immutable(error) from error
     return ActivityResponse.from_activity(activity)
 
 
@@ -222,13 +231,19 @@ def update_activity(
         activities.get(activity_id, unit.id)
     except ActivityNotFoundError as error:
         raise not_found(error) from error
-    require_course_writable(course, teacher_space)
+    require_writable(teacher_space)
     try:
         activity = activities.update(
-            activity_id, unit.id, title=payload.title, position=payload.position
+            activity_id,
+            unit.id,
+            course,
+            title=payload.title,
+            position=payload.position,
         )
     except ActivityNotFoundError as error:
         raise not_found(error) from error
+    except CourseImmutableError as error:
+        raise course_immutable(error) from error
     return ActivityResponse.from_activity(activity)
 
 
@@ -267,9 +282,11 @@ def delete_activity(
         activities.get(activity_id, unit.id)
     except ActivityNotFoundError as error:
         raise not_found(error) from error
-    require_course_writable(course, teacher_space)
+    require_writable(teacher_space)
     try:
-        activities.delete(activity_id, unit.id)
+        activities.delete(activity_id, unit.id, course)
     except ActivityNotFoundError as error:
         raise not_found(error) from error
+    except CourseImmutableError as error:
+        raise course_immutable(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)
