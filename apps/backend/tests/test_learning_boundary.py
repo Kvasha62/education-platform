@@ -3,6 +3,8 @@
 import ast
 from pathlib import Path
 
+from sqlalchemy import UniqueConstraint
+
 from app.core.database import Base
 from app.learning.infrastructure import models as learning_models  # noqa: F401
 
@@ -27,7 +29,8 @@ def test_learning_owns_enrollment_persistence_without_course_foreign_key() -> No
     assert {key.target_fullname for key in table.foreign_keys} == {"identities.id"}
     assert not table.c.course_id.foreign_keys
     assert any(
-        set(constraint.columns.keys()) == {"student_user_id", "course_id"}
+        isinstance(constraint, UniqueConstraint)
+        and set(constraint.columns.keys()) == {"student_user_id", "course_id"}
         for constraint in table.constraints
     )
 
