@@ -24,16 +24,13 @@ class FakeEnrollments:
     def __init__(self) -> None:
         self.rows: dict[tuple[UUID, UUID], Enrollment] = {}
 
-    def add(self, enrollment: Enrollment) -> Enrollment:
+    def get_or_create(self, enrollment: Enrollment) -> tuple[Enrollment, bool]:
         key = (enrollment.student_user_id, enrollment.course_id)
-        assert key not in self.rows
+        existing = self.rows.get(key)
+        if existing is not None:
+            return existing, False
         self.rows[key] = enrollment
-        return enrollment
-
-    def get_for_student_course(
-        self, student_user_id: UUID, course_id: UUID
-    ) -> Enrollment | None:
-        return self.rows.get((student_user_id, course_id))
+        return enrollment, True
 
 
 def test_enroll_uses_minimal_publication_lookup_and_is_idempotent() -> None:

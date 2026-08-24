@@ -1,8 +1,7 @@
 """Learning-owned SQLAlchemy enrollment repository."""
 
-from uuid import UUID
-
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.learning.domain.models import Enrollment
@@ -23,7 +22,7 @@ class SqlAlchemyEnrollmentRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def add(self, enrollment: Enrollment) -> Enrollment:
+    def get_or_create(self, enrollment: Enrollment) -> tuple[Enrollment, bool]:
         model = EnrollmentModel(
             id=enrollment.id,
             student_user_id=enrollment.student_user_id,
@@ -31,17 +30,18 @@ class SqlAlchemyEnrollmentRepository:
             status=enrollment.status,
             created_at=enrollment.created_at,
         )
-        self.db.add(model)
-        self.db.flush()
-        return _to_domain(model)
-
-    def get_for_student_course(
-        self, student_user_id: UUID, course_id: UUID
-    ) -> Enrollment | None:
-        model = self.db.scalar(
-            select(EnrollmentModel).where(
-                EnrollmentModel.student_user_id == student_user_id,
-                EnrollmentModel.course_id == course_id,
+        try:
+            with self.db.begin_nested():
+                self.db.add(model)
+                self.db.flush()
+        except IntegrityError:
+            existing = self.db.scalar(
+                select(EnrollmentModel).where(
+                    EnrollmentModel.student_user_id == enrollment.student_user_id,
+                    EnrollmentModel.course_id == enrollment.course_id,
+                )
             )
-        )
-        return _to_domain(model) if model else None
+            if existing is None:
+                raise
+            return _to_domain(existing), False
+        return _to_domain(model), True

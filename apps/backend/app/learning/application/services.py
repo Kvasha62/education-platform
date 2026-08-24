@@ -34,8 +34,7 @@ class EnrollmentService:
         except PublishedCourseNotFoundError as error:
             raise EnrollmentCourseNotFoundError from error
 
-        existing = self.enrollments.get_for_student_course(student_user_id, course.id)
-        if existing is not None:
-            return EnrollmentResult(existing, created=False)
-        enrollment = self.enrollments.add(Enrollment.create(student_user_id, course.id))
-        return EnrollmentResult(enrollment, created=True)
+        enrollment, created = self.enrollments.get_or_create(
+            Enrollment.create(student_user_id, course.id)
+        )
+        return EnrollmentResult(enrollment, created=created)
