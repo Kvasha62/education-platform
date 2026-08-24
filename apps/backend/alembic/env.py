@@ -8,6 +8,7 @@ from app.core.config import get_settings
 from app.core.database import Base
 from app.education.infrastructure import models as education_models  # noqa: F401
 from app.identity.infrastructure import models as identity_models  # noqa: F401
+from app.learning.infrastructure import models as learning_models  # noqa: F401
 from app.teacher_space.infrastructure import models as teacher_space_models  # noqa: F401
 
 config = context.config

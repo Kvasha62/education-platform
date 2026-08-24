@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -12,6 +13,7 @@ from app.education.application.student_course import (
     StudentLearningUnit,
     StudentSection,
 )
+from app.learning.domain.models import Enrollment, EnrollmentStatus
 
 
 class StudentContentReferenceResponse(BaseModel):
@@ -96,4 +98,20 @@ class StudentCourseResponse(BaseModel):
             id=course.id,
             title=course.title,
             sections=[StudentSectionResponse.from_section(item) for item in course.sections],
+        )
+
+
+class EnrollmentResponse(BaseModel):
+    id: UUID
+    course_id: UUID
+    status: EnrollmentStatus
+    created_at: datetime
+
+    @classmethod
+    def from_enrollment(cls, enrollment: Enrollment) -> "EnrollmentResponse":
+        return cls(
+            id=enrollment.id,
+            course_id=enrollment.course_id,
+            status=enrollment.status,
+            created_at=enrollment.created_at,
         )
