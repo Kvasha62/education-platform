@@ -191,6 +191,39 @@ Initial lifecycle:
 DRAFT → PUBLISHED → ARCHIVED
 ```
 
+#### Course Publication Immutability
+
+`PUBLISHED` is an immutable published state for teacher-facing mutation APIs. Once a Course reaches `PUBLISHED`, the Course and its educational structure are read-only through teacher-facing mutation APIs.
+
+The following policy applies:
+
+```text
+DRAFT
+  ├── Course mutation                 allowed
+  ├── Section mutation                allowed
+  ├── Learning Unit mutation          allowed
+  ├── Activity mutation               allowed
+  └── Activity ↔ Content attach/detach allowed
+
+PUBLISHED
+  ├── read                            allowed
+  ├── Course mutation                 forbidden
+  ├── Section mutation                forbidden
+  ├── Learning Unit mutation          forbidden
+  ├── Activity mutation               forbidden
+  └── Activity ↔ Content attach/detach forbidden
+
+ARCHIVED
+  ├── read                            allowed
+  └── all teacher-facing mutations    forbidden
+```
+
+`ARCHIVED` is permanently read-only. No reactivation or reverse lifecycle transition is introduced by this decision.
+
+This MVP contract does not introduce Course versioning, revisions, draft copies, republishing, or any other mechanism for editing an already published Course. A future requirement to modify published educational material requires a separate architecture decision and implementation scope.
+
+The immutability rule applies to teacher-facing mutation APIs and must be enforced at the appropriate Education application/domain boundary rather than by frontend behavior alone.
+
 ### Section
 Groups learning material.
 
