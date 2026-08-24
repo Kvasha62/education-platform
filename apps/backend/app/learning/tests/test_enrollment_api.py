@@ -148,3 +148,47 @@ def test_openapi_contains_exact_enrollment_contract(client: TestClient) -> None:
     assert operation["responses"]["201"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/EnrollmentResponse"
     }
+
+
+def test_student_lists_only_own_enrollments_and_empty_list(client: TestClient) -> None:
+    missing_auth = client.get("/api/v1/student/enrollments")
+    assert missing_auth.status_code == 401
+
+    teacher = auth(client, "teacher-list@example.com")
+    first_path, first_id = create_course(client, "First")
+    second_path, second_id = create_course(client, "Second")
+    client.post(f"{first_path}/publish", headers=HEADERS)
+    client.post(f"{second_path}/publish", headers=HEADERS)
+
+    first_student = auth(client, "first-list@example.com")
+    assert client.get("/api/v1/student/enrollments").json() == {"items": []}
+    client.post(enrollment_path(first_id), headers=HEADERS)
+    client.post(enrollment_path(second_id), headers=HEADERS)
+    own = client.get("/api/v1/student/enrollments")
+    assert own.status_code == 200
+    assert [item["course_id"] for item in own.json()["items"]] == [first_id, second_id]
+    assert all(
+        set(item) == {"id", "course_id", "status", "created_at"}
+        for item in own.json()["items"]
+    )
+
+    second_student = auth(client, "second-list@example.com")
+    assert client.get("/api/v1/student/enrollments").json() == {"items": []}
+    client.post(enrollment_path(second_id), headers=HEADERS)
+    second_own = client.get("/api/v1/student/enrollments").json()["items"]
+    assert len(second_own) == 1
+    assert second_own[0]["course_id"] == second_id
+
+    client.cookies.set(SESSION_COOKIE_NAME, first_student)
+    assert len(client.get("/api/v1/student/enrollments").json()["items"]) == 2
+    client.cookies.set(SESSION_COOKIE_NAME, second_student)
+    assert len(client.get("/api/v1/student/enrollments").json()["items"]) == 1
+    client.cookies.set(SESSION_COOKIE_NAME, teacher)
+
+
+def test_openapi_contains_enrollment_list_contract(client: TestClient) -> None:
+    path = "/api/v1/student/enrollments"
+    operation = client.get("/openapi.json").json()["paths"][path]["get"]
+    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/StudentEnrollmentListResponse"
+    }

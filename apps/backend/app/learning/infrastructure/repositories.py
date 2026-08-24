@@ -1,5 +1,7 @@
 """Learning-owned SQLAlchemy enrollment repository."""
 
+from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -45,3 +47,11 @@ class SqlAlchemyEnrollmentRepository:
                 raise
             return _to_domain(existing), False
         return _to_domain(model), True
+
+    def list_for_student(self, student_user_id: UUID) -> list[Enrollment]:
+        models = self.db.scalars(
+            select(EnrollmentModel)
+            .where(EnrollmentModel.student_user_id == student_user_id)
+            .order_by(EnrollmentModel.created_at, EnrollmentModel.id)
+        ).all()
+        return [_to_domain(model) for model in models]
