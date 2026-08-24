@@ -86,11 +86,27 @@ def test_content_owns_separate_user_owned_persistence() -> None:
 
 def test_runtime_dependency_uses_only_content_public_interface() -> None:
     backend = Path(__file__).parents[1] / "app"
-    education_imports = _imports(backend / "education")
+    education = backend / "education"
+    education_imports = _imports(education)
+    education_application_imports = _imports(education / "application")
     content_imports = _imports(backend / "content")
 
     content_dependencies = {name for name in education_imports if name.startswith("app.content")}
-    assert content_dependencies == {"app.content.public"}
+    assert content_dependencies == {"app.content.public", "app.content.api.dependencies"}
+    assert {name for name in education_application_imports if name.startswith("app.content")} == {
+        "app.content.public"
+    }
+    assert not {
+        name
+        for name in content_dependencies
+        if name.startswith(
+            (
+                "app.content.infrastructure",
+                "app.content.application",
+                "app.content.domain",
+            )
+        )
+    }
     assert not {name for name in content_imports if name.startswith("app.education")}
 
 
@@ -128,18 +144,9 @@ def test_content_public_interface_is_read_only() -> None:
     assert methods == {"lookup_owned"}
 
 
-def test_teacher_space_does_not_import_content_private_implementation() -> None:
+def test_teacher_space_receives_composed_education_service_only() -> None:
     teacher_package = Path(__file__).parents[1] / "app" / "teacher_space"
-    content_imports = {name for name in _imports(teacher_package) if name.startswith("app.content")}
-    assert content_imports <= {"app.content.public", "app.content.api.dependencies"}
-    assert not {
-        name
-        for name in content_imports
-        if name.startswith(
-            (
-                "app.content.infrastructure",
-                "app.content.application",
-                "app.content.domain",
-            )
-        )
-    }
+    teacher_imports = _imports(teacher_package)
+
+    assert not {name for name in teacher_imports if name.startswith("app.content")}
+    assert "app.education.composition" in teacher_imports

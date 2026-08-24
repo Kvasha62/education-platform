@@ -5,14 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from app.content.api.dependencies import get_content_lookup
-from app.content.public import (
-    ContentLookup,
-    ContentLookupUnavailable,
-    ContentReferenceNotFound,
-)
 from app.education.api.dependencies import (
-    get_activity_content_link_repository,
     get_activity_service,
     get_course_service,
     get_environment_service,
@@ -20,8 +13,11 @@ from app.education.api.dependencies import (
     get_section_service,
 )
 from app.education.application.content_links import ActivityContentService
-from app.education.application.errors import ActivityNotFoundError
-from app.education.application.ports import ActivityContentLinkRepository
+from app.education.application.errors import (
+    ActivityNotFoundError,
+    LinkedContentNotFoundError,
+    LinkedContentUnavailableError,
+)
 from app.education.application.services import (
     ActivityService,
     CourseService,
@@ -29,6 +25,7 @@ from app.education.application.services import (
     LearningUnitService,
     SectionService,
 )
+from app.education.composition import get_activity_content_service
 from app.education.domain.models import Activity
 from app.identity.api.dependencies import get_current_identity, require_trusted_origin
 from app.identity.domain.models import Identity
@@ -58,22 +55,13 @@ Courses = Annotated[CourseService, Depends(get_course_service)]
 Sections = Annotated[SectionService, Depends(get_section_service)]
 Units = Annotated[LearningUnitService, Depends(get_learning_unit_service)]
 Activities = Annotated[ActivityService, Depends(get_activity_service)]
-Links = Annotated[
-    ActivityContentLinkRepository,
-    Depends(get_activity_content_link_repository),
+ActivityContents = Annotated[
+    ActivityContentService,
+    Depends(get_activity_content_service),
 ]
-ContentReferences = Annotated[ContentLookup, Depends(get_content_lookup)]
 
 
-def integration_service(
-    activities: ActivityService,
-    links: ActivityContentLinkRepository,
-    content: ContentLookup,
-) -> ActivityContentService:
-    return ActivityContentService(activities, links, content)
-
-
-def dependency_unavailable(error: ContentLookupUnavailable) -> HTTPException:
+def dependency_unavailable(error: LinkedContentUnavailableError) -> HTTPException:
     return HTTPException(
         status.HTTP_503_SERVICE_UNAVAILABLE,
         "Content lookup unavailable",
@@ -132,8 +120,7 @@ def attach_content(
     sections: Sections,
     units: Units,
     activities: Activities,
-    links: Links,
-    content: ContentReferences,
+    activity_contents: ActivityContents,
 ) -> ActivityContentLinkResponse:
     activity, teacher_space = resolve_scoped_activity(
         teacher_space_id,
@@ -150,12 +137,11 @@ def attach_content(
         activities,
     )
     require_writable(teacher_space)
-    service = integration_service(activities, links, content)
     try:
-        link = service.attach(activity.id, unit_id, payload.content_id, identity.id)
-    except ContentReferenceNotFound as error:
+        link = activity_contents.attach(activity.id, unit_id, payload.content_id, identity.id)
+    except LinkedContentNotFoundError as error:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Content not found") from error
-    except ContentLookupUnavailable as error:
+    except LinkedContentUnavailableError as error:
         raise dependency_unavailable(error) from error
     return ActivityContentLinkResponse(
         activity_id=link.activity_id,
@@ -177,8 +163,7 @@ def list_content(
     sections: Sections,
     units: Units,
     activities: Activities,
-    links: Links,
-    content: ContentReferences,
+    activity_contents: ActivityContents,
 ) -> list[ActivityContentReferenceResponse]:
     activity, _ = resolve_scoped_activity(
         teacher_space_id,
@@ -194,18 +179,11 @@ def list_content(
         units,
         activities,
     )
-    service = integration_service(activities, links, content)
     try:
-        resolved = service.resolve_for_activity(activity.id, unit_id, identity.id)
-    except ContentLookupUnavailable as error:
+        resolved = activity_contents.resolve_for_activity(activity.id, unit_id, identity.id)
+    except LinkedContentUnavailableError as error:
         raise dependency_unavailable(error) from error
-    return [
-        ActivityContentReferenceResponse.from_reference(
-            item.link.content_id,
-            item.reference,
-        )
-        for item in resolved
-    ]
+    return [ActivityContentReferenceResponse.from_resolved(item) for item in resolved]
 
 
 @router.delete(
@@ -227,8 +205,7 @@ def detach_content(
     sections: Sections,
     units: Units,
     activities: Activities,
-    links: Links,
-    content: ContentReferences,
+    activity_contents: ActivityContents,
 ) -> Response:
     activity, teacher_space = resolve_scoped_activity(
         teacher_space_id,
@@ -245,5 +222,5 @@ def detach_content(
         activities,
     )
     require_writable(teacher_space)
-    integration_service(activities, links, content).detach(activity.id, unit_id, content_id)
+    activity_contents.detach(activity.id, unit_id, content_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

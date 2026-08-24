@@ -1,5 +1,4 @@
 from collections.abc import Generator
-from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
@@ -7,10 +6,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.content.api.dependencies import get_content_lookup
-from app.content.public import ContentLookupUnavailable
 from app.core.config import Settings, get_settings
 from app.core.database import Base, get_db
+from app.education.application.errors import LinkedContentUnavailableError
+from app.education.composition import get_activity_content_service
 from app.identity.api.dependencies import SESSION_COOKIE_NAME
 from app.main import app
 
@@ -229,9 +228,12 @@ def test_stale_content_has_safe_unavailable_representation(client: TestClient) -
     ]
 
 
-class FailingLookup:
-    def lookup_owned(self, content_id: UUID, owner_user_id: UUID):
-        raise ContentLookupUnavailable
+class FailingActivityContentService:
+    def attach(self, *args, **kwargs):
+        raise LinkedContentUnavailableError
+
+    def resolve_for_activity(self, *args, **kwargs):
+        raise LinkedContentUnavailableError
 
 
 def test_content_lookup_failure_maps_to_503(client: TestClient) -> None:
@@ -240,7 +242,7 @@ def test_content_lookup_failure_maps_to_503(client: TestClient) -> None:
     content = create_content(client, "Content")
     assert client.post(base, json={"content_id": content["id"]}, headers=HEADERS).status_code == 200
 
-    app.dependency_overrides[get_content_lookup] = FailingLookup
+    app.dependency_overrides[get_activity_content_service] = FailingActivityContentService
     try:
         assert client.get(base).status_code == 503
         assert (
@@ -248,7 +250,7 @@ def test_content_lookup_failure_maps_to_503(client: TestClient) -> None:
             == 503
         )
     finally:
-        app.dependency_overrides.pop(get_content_lookup, None)
+        app.dependency_overrides.pop(get_activity_content_service, None)
 
 
 def test_csrf_validation_and_disabled_space_policy(client: TestClient) -> None:
