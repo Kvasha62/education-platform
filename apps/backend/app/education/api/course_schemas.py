@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from app.education.domain.models import Course
+from app.education.domain.models import Course, CourseStatus
 
 
 class CourseTitleRequest(BaseModel):
@@ -36,6 +36,7 @@ class CourseResponse(BaseModel):
     id: UUID
     educational_environment_id: UUID
     title: str
+    status: CourseStatus
     created_at: datetime
     updated_at: datetime
 
@@ -45,6 +46,7 @@ class CourseResponse(BaseModel):
             id=course.id,
             educational_environment_id=course.educational_environment_id,
             title=course.title,
+            status=course.status,
             created_at=course.created_at,
             updated_at=course.updated_at,
         )

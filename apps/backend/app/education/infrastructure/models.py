@@ -7,7 +7,7 @@ from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
-from app.education.domain.models import ActivityType
+from app.education.domain.models import ActivityType, CourseStatus
 
 
 class EducationalEnvironmentModel(Base):
@@ -30,6 +30,13 @@ class CourseModel(Base):
         index=True,
     )
     title: Mapped[str] = mapped_column(String(120))
+    status: Mapped[CourseStatus] = mapped_column(
+        Enum(
+            CourseStatus,
+            name="course_status",
+            values_callable=lambda statuses: [status.value for status in statuses],
+        )
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

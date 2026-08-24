@@ -83,6 +83,7 @@ def _course_to_domain(model: CourseModel) -> Course:
         id=model.id,
         educational_environment_id=model.educational_environment_id,
         title=model.title,
+        status=model.status,
         created_at=model.created_at,
         updated_at=model.updated_at,
     )
@@ -97,6 +98,7 @@ class SqlAlchemyCourseRepository:
             id=course.id,
             educational_environment_id=course.educational_environment_id,
             title=course.title,
+            status=course.status,
             created_at=course.created_at,
             updated_at=course.updated_at,
         )
@@ -130,6 +132,7 @@ class SqlAlchemyCourseRepository:
         if model is None:
             raise CourseNotFoundError
         model.title = course.title
+        model.status = course.status
         model.updated_at = course.updated_at
         self.db.flush()
         return _course_to_domain(model)

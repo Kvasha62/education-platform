@@ -20,7 +20,14 @@ EDUCATION_TABLES = EDUCATION_ENTITY_TABLES | {"activity_content_links"}
 EDUCATION_AND_TEACHER_TABLES = EDUCATION_TABLES | {"teacher_spaces"}
 EDUCATION_COLUMNS = {
     "educational_environments": {"id", "teacher_space_id", "name", "created_at", "updated_at"},
-    "courses": {"id", "educational_environment_id", "title", "created_at", "updated_at"},
+    "courses": {
+        "id",
+        "educational_environment_id",
+        "title",
+        "status",
+        "created_at",
+        "updated_at",
+    },
     "sections": {"id", "course_id", "title", "position", "created_at", "updated_at"},
     "learning_units": {"id", "section_id", "title", "position", "created_at", "updated_at"},
     "activities": {

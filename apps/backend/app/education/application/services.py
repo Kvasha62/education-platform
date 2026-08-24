@@ -65,6 +65,16 @@ class CourseService:
     def rename(self, course_id: UUID, environment_id: UUID, title: str) -> Course:
         return self.repository.update(self.get(course_id, environment_id).rename(title))
 
+    def publish(self, course_id: UUID, environment_id: UUID) -> Course:
+        course = self.get(course_id, environment_id)
+        published = course.publish()
+        return course if published is course else self.repository.update(published)
+
+    def archive(self, course_id: UUID, environment_id: UUID) -> Course:
+        course = self.get(course_id, environment_id)
+        archived = course.archive()
+        return course if archived is course else self.repository.update(archived)
+
 
 class SectionService:
     def __init__(self, repository: SectionRepository) -> None:
