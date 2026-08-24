@@ -21,28 +21,23 @@ from app.education.application.services import (
     EducationalEnvironmentService,
     SectionService,
 )
-from app.education.domain.models import Course
+from app.education.domain.models import Course, CourseImmutableError
 from app.identity.api.dependencies import get_current_identity, require_trusted_origin
 from app.identity.domain.models import Identity
-from app.teacher_space.api.course_router import resolve_environment
+from app.teacher_space.api.course_router import course_immutable, resolve_environment
 from app.teacher_space.api.dependencies import get_teacher_space_service
 from app.teacher_space.api.environment_router import require_writable
 from app.teacher_space.application.services import TeacherSpaceService
 from app.teacher_space.domain.models import TeacherSpace
 
 router = APIRouter(
-    prefix=(
-        "/api/v1/teacher-spaces/{teacher_space_id}/environment"
-        "/courses/{course_id}/sections"
-    ),
+    prefix=("/api/v1/teacher-spaces/{teacher_space_id}/environment/courses/{course_id}/sections"),
     tags=["sections"],
 )
 
 CurrentIdentity = Annotated[Identity, Depends(get_current_identity)]
 TeacherSpaces = Annotated[TeacherSpaceService, Depends(get_teacher_space_service)]
-Environments = Annotated[
-    EducationalEnvironmentService, Depends(get_environment_service)
-]
+Environments = Annotated[EducationalEnvironmentService, Depends(get_environment_service)]
 Courses = Annotated[CourseService, Depends(get_course_service)]
 Sections = Annotated[SectionService, Depends(get_section_service)]
 
@@ -90,9 +85,11 @@ def create_section(
     )
     require_writable(teacher_space)
     try:
-        section = sections.create(course.id, payload.title, payload.position)
+        section = sections.create(course, payload.title, payload.position)
     except CourseNotFoundError as error:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Course not found") from error
+    except CourseImmutableError as error:
+        raise course_immutable(error) from error
     return SectionResponse.from_section(section)
 
 
@@ -152,16 +149,22 @@ def update_section(
     course, teacher_space = resolve_course(
         teacher_space_id, course_id, identity, teacher_spaces, environments, courses
     )
+    try:
+        sections.get(section_id, course.id)
+    except SectionNotFoundError as error:
+        raise section_not_found(error) from error
     require_writable(teacher_space)
     try:
         section = sections.update(
             section_id,
-            course.id,
+            course,
             title=payload.title,
             position=payload.position,
         )
     except SectionNotFoundError as error:
         raise section_not_found(error) from error
+    except CourseImmutableError as error:
+        raise course_immutable(error) from error
     return SectionResponse.from_section(section)
 
 
@@ -183,9 +186,15 @@ def delete_section(
     course, teacher_space = resolve_course(
         teacher_space_id, course_id, identity, teacher_spaces, environments, courses
     )
-    require_writable(teacher_space)
     try:
-        sections.delete(section_id, course.id)
+        sections.get(section_id, course.id)
     except SectionNotFoundError as error:
         raise section_not_found(error) from error
+    require_writable(teacher_space)
+    try:
+        sections.delete(section_id, course)
+    except SectionNotFoundError as error:
+        raise section_not_found(error) from error
+    except CourseImmutableError as error:
+        raise course_immutable(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -23,9 +23,10 @@ from app.education.application.services import (
     LearningUnitService,
     SectionService,
 )
-from app.education.domain.models import Section
+from app.education.domain.models import Course, CourseImmutableError, Section
 from app.identity.api.dependencies import get_current_identity, require_trusted_origin
 from app.identity.domain.models import Identity
+from app.teacher_space.api.course_router import course_immutable
 from app.teacher_space.api.dependencies import get_teacher_space_service
 from app.teacher_space.api.environment_router import require_writable
 from app.teacher_space.api.section_router import resolve_course
@@ -57,7 +58,7 @@ def resolve_section(
     environments: EducationalEnvironmentService,
     courses: CourseService,
     sections: SectionService,
-) -> tuple[Section, TeacherSpace]:
+) -> tuple[Section, Course, TeacherSpace]:
     course, teacher_space = resolve_course(
         teacher_space_id, course_id, identity, teacher_spaces, environments, courses
     )
@@ -65,7 +66,7 @@ def resolve_section(
         section = sections.get(section_id, course.id)
     except SectionNotFoundError as error:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Section not found") from error
-    return section, teacher_space
+    return section, course, teacher_space
 
 
 def unit_not_found(error: LearningUnitNotFoundError) -> HTTPException:
@@ -90,7 +91,7 @@ def create_unit(
     sections: Sections,
     units: Units,
 ) -> LearningUnitResponse:
-    section, teacher_space = resolve_section(
+    section, course, teacher_space = resolve_section(
         teacher_space_id,
         course_id,
         section_id,
@@ -102,9 +103,11 @@ def create_unit(
     )
     require_writable(teacher_space)
     try:
-        unit = units.create(section.id, payload.title, payload.position)
+        unit = units.create(section.id, course, payload.title, payload.position)
     except SectionNotFoundError as error:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Section not found") from error
+    except CourseImmutableError as error:
+        raise course_immutable(error) from error
     return LearningUnitResponse.from_unit(unit)
 
 
@@ -120,7 +123,7 @@ def list_units(
     sections: Sections,
     units: Units,
 ) -> list[LearningUnitResponse]:
-    section, _ = resolve_section(
+    section, _, _ = resolve_section(
         teacher_space_id,
         course_id,
         section_id,
@@ -146,7 +149,7 @@ def get_unit(
     sections: Sections,
     units: Units,
 ) -> LearningUnitResponse:
-    section, _ = resolve_section(
+    section, _, _ = resolve_section(
         teacher_space_id,
         course_id,
         section_id,
@@ -181,7 +184,7 @@ def update_unit(
     sections: Sections,
     units: Units,
 ) -> LearningUnitResponse:
-    section, teacher_space = resolve_section(
+    section, course, teacher_space = resolve_section(
         teacher_space_id,
         course_id,
         section_id,
@@ -191,11 +194,23 @@ def update_unit(
         courses,
         sections,
     )
-    require_writable(teacher_space)
     try:
-        unit = units.update(unit_id, section.id, title=payload.title, position=payload.position)
+        units.get(unit_id, section.id)
     except LearningUnitNotFoundError as error:
         raise unit_not_found(error) from error
+    require_writable(teacher_space)
+    try:
+        unit = units.update(
+            unit_id,
+            section.id,
+            course,
+            title=payload.title,
+            position=payload.position,
+        )
+    except LearningUnitNotFoundError as error:
+        raise unit_not_found(error) from error
+    except CourseImmutableError as error:
+        raise course_immutable(error) from error
     return LearningUnitResponse.from_unit(unit)
 
 
@@ -216,7 +231,7 @@ def delete_unit(
     sections: Sections,
     units: Units,
 ) -> Response:
-    section, teacher_space = resolve_section(
+    section, course, teacher_space = resolve_section(
         teacher_space_id,
         course_id,
         section_id,
@@ -226,9 +241,15 @@ def delete_unit(
         courses,
         sections,
     )
-    require_writable(teacher_space)
     try:
-        units.delete(unit_id, section.id)
+        units.get(unit_id, section.id)
     except LearningUnitNotFoundError as error:
         raise unit_not_found(error) from error
+    require_writable(teacher_space)
+    try:
+        units.delete(unit_id, section.id, course)
+    except LearningUnitNotFoundError as error:
+        raise unit_not_found(error) from error
+    except CourseImmutableError as error:
+        raise course_immutable(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)

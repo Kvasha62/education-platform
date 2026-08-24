@@ -7,6 +7,8 @@ from app.education.application.errors import ActivityNotFoundError
 from app.education.application.services import ActivityService
 from app.education.domain.models import (
     ActivityType,
+    Course,
+    CourseImmutableError,
     InvalidActivityPositionError,
     InvalidActivityTitleError,
     InvalidActivityTypeError,
@@ -44,10 +46,14 @@ def service() -> ActivityService:
     return ActivityService(MemoryRepository())
 
 
+def draft_course() -> Course:
+    return Course.create(uuid4(), "Course")
+
+
 @pytest.mark.parametrize("kind", list(ActivityType))
 def test_create_each_type(service: ActivityService, kind: ActivityType) -> None:
     unit_id = uuid4()
-    activity = service.create(unit_id, " Activity ", kind, 0)
+    activity = service.create(unit_id, draft_course(), " Activity ", kind, 0)
     assert (activity.learning_unit_id, activity.title, activity.type, activity.position) == (
         unit_id,
         "Activity",
@@ -59,32 +65,34 @@ def test_create_each_type(service: ActivityService, kind: ActivityType) -> None:
 @pytest.mark.parametrize("title", ["", " ", "x" * 121])
 def test_invalid_title(service: ActivityService, title: str) -> None:
     with pytest.raises(InvalidActivityTitleError):
-        service.create(uuid4(), title, ActivityType.LECTURE, 0)
+        service.create(uuid4(), draft_course(), title, ActivityType.LECTURE, 0)
 
 
 def test_negative_position(service: ActivityService) -> None:
     with pytest.raises(InvalidActivityPositionError):
-        service.create(uuid4(), "A", ActivityType.VIDEO, -1)
+        service.create(uuid4(), draft_course(), "A", ActivityType.VIDEO, -1)
 
 
 def test_invalid_activity_type(service: ActivityService) -> None:
     with pytest.raises(InvalidActivityTypeError):
-        service.create(uuid4(), "A", "quiz", 0)  # type: ignore[arg-type]
+        service.create(uuid4(), draft_course(), "A", "quiz", 0)  # type: ignore[arg-type]
 
 
 def test_update_preserves_type(service: ActivityService) -> None:
     unit_id = uuid4()
-    item = service.create(unit_id, "Old", ActivityType.HOMEWORK, 0)
-    changed = service.update(item.id, unit_id, title="New", position=10)
+    course = draft_course()
+    item = service.create(unit_id, course, "Old", ActivityType.HOMEWORK, 0)
+    changed = service.update(item.id, unit_id, course, title="New", position=10)
     assert (changed.title, changed.position, changed.type) == ("New", 10, ActivityType.HOMEWORK)
 
 
 def test_order_multiple_and_cross_unit(service: ActivityService) -> None:
     unit_id = uuid4()
-    last = service.create(unit_id, "Last", ActivityType.VIDEO, 2)
+    course = draft_course()
+    last = service.create(unit_id, course, "Last", ActivityType.VIDEO, 2)
     tied = [
-        service.create(unit_id, "A", ActivityType.LECTURE, 0),
-        service.create(unit_id, "B", ActivityType.HOMEWORK, 0),
+        service.create(unit_id, course, "A", ActivityType.LECTURE, 0),
+        service.create(unit_id, course, "B", ActivityType.HOMEWORK, 0),
     ]
     assert service.list(unit_id) == [*sorted(tied, key=lambda x: x.id), last]
     with pytest.raises(ActivityNotFoundError):
@@ -93,7 +101,22 @@ def test_order_multiple_and_cross_unit(service: ActivityService) -> None:
 
 def test_delete(service: ActivityService) -> None:
     unit_id = uuid4()
-    item = service.create(unit_id, "A", ActivityType.LECTURE, 0)
-    service.delete(item.id, unit_id)
+    course = draft_course()
+    item = service.create(unit_id, course, "A", ActivityType.LECTURE, 0)
+    service.delete(item.id, unit_id, course)
     with pytest.raises(ActivityNotFoundError):
         service.get(item.id, unit_id)
+
+
+def test_immutable_course_blocks_activity_mutations(service: ActivityService) -> None:
+    unit_id = uuid4()
+    course = draft_course()
+    activity = service.create(unit_id, course, "Activity", ActivityType.LECTURE, 0)
+    published = course.publish()
+
+    with pytest.raises(CourseImmutableError):
+        service.create(unit_id, published, "Blocked", ActivityType.VIDEO, 1)
+    with pytest.raises(CourseImmutableError):
+        service.update(activity.id, unit_id, published, title="Blocked", position=None)
+    with pytest.raises(CourseImmutableError):
+        service.delete(activity.id, unit_id, published)

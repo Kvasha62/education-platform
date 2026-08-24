@@ -25,9 +25,10 @@ from app.education.application.services import (
     LearningUnitService,
     SectionService,
 )
-from app.education.domain.models import LearningUnit
+from app.education.domain.models import Course, CourseImmutableError, LearningUnit
 from app.identity.api.dependencies import get_current_identity, require_trusted_origin
 from app.identity.domain.models import Identity
+from app.teacher_space.api.course_router import course_immutable
 from app.teacher_space.api.dependencies import get_teacher_space_service
 from app.teacher_space.api.environment_router import require_writable
 from app.teacher_space.api.learning_unit_router import resolve_section
@@ -61,8 +62,8 @@ def resolve_unit(
     courses: CourseService,
     sections: SectionService,
     units: LearningUnitService,
-) -> tuple[LearningUnit, TeacherSpace]:
-    section, teacher_space = resolve_section(
+) -> tuple[LearningUnit, Course, TeacherSpace]:
+    section, course, teacher_space = resolve_section(
         teacher_space_id,
         course_id,
         section_id,
@@ -76,7 +77,7 @@ def resolve_unit(
         unit = units.get(unit_id, section.id)
     except LearningUnitNotFoundError as error:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Learning Unit not found") from error
-    return unit, teacher_space
+    return unit, course, teacher_space
 
 
 def not_found(error: ActivityNotFoundError) -> HTTPException:
@@ -103,7 +104,7 @@ def create_activity(
     units: Units,
     activities: Activities,
 ) -> ActivityResponse:
-    unit, teacher_space = resolve_unit(
+    unit, course, teacher_space = resolve_unit(
         teacher_space_id,
         course_id,
         section_id,
@@ -117,9 +118,17 @@ def create_activity(
     )
     require_writable(teacher_space)
     try:
-        activity = activities.create(unit.id, payload.title, payload.type, payload.position)
+        activity = activities.create(
+            unit.id,
+            course,
+            payload.title,
+            payload.type,
+            payload.position,
+        )
     except LearningUnitNotFoundError as error:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Learning Unit not found") from error
+    except CourseImmutableError as error:
+        raise course_immutable(error) from error
     return ActivityResponse.from_activity(activity)
 
 
@@ -137,7 +146,7 @@ def list_activities(
     units: Units,
     activities: Activities,
 ) -> list[ActivityResponse]:
-    unit, _ = resolve_unit(
+    unit, _, _ = resolve_unit(
         teacher_space_id,
         course_id,
         section_id,
@@ -167,7 +176,7 @@ def get_activity(
     units: Units,
     activities: Activities,
 ) -> ActivityResponse:
-    unit, _ = resolve_unit(
+    unit, _, _ = resolve_unit(
         teacher_space_id,
         course_id,
         section_id,
@@ -206,7 +215,7 @@ def update_activity(
     units: Units,
     activities: Activities,
 ) -> ActivityResponse:
-    unit, teacher_space = resolve_unit(
+    unit, course, teacher_space = resolve_unit(
         teacher_space_id,
         course_id,
         section_id,
@@ -218,13 +227,23 @@ def update_activity(
         sections,
         units,
     )
+    try:
+        activities.get(activity_id, unit.id)
+    except ActivityNotFoundError as error:
+        raise not_found(error) from error
     require_writable(teacher_space)
     try:
         activity = activities.update(
-            activity_id, unit.id, title=payload.title, position=payload.position
+            activity_id,
+            unit.id,
+            course,
+            title=payload.title,
+            position=payload.position,
         )
     except ActivityNotFoundError as error:
         raise not_found(error) from error
+    except CourseImmutableError as error:
+        raise course_immutable(error) from error
     return ActivityResponse.from_activity(activity)
 
 
@@ -247,7 +266,7 @@ def delete_activity(
     units: Units,
     activities: Activities,
 ) -> Response:
-    unit, teacher_space = resolve_unit(
+    unit, course, teacher_space = resolve_unit(
         teacher_space_id,
         course_id,
         section_id,
@@ -259,9 +278,15 @@ def delete_activity(
         sections,
         units,
     )
-    require_writable(teacher_space)
     try:
-        activities.delete(activity_id, unit.id)
+        activities.get(activity_id, unit.id)
     except ActivityNotFoundError as error:
         raise not_found(error) from error
+    require_writable(teacher_space)
+    try:
+        activities.delete(activity_id, unit.id, course)
+    except ActivityNotFoundError as error:
+        raise not_found(error) from error
+    except CourseImmutableError as error:
+        raise course_immutable(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)

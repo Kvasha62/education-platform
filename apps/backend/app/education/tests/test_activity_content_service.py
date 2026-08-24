@@ -19,7 +19,7 @@ from app.education.application.errors import (
 from app.education.application.ports import ActivityRepository
 from app.education.application.services import ActivityService
 from app.education.domain.content_links import ActivityContentLink
-from app.education.domain.models import Activity, ActivityType
+from app.education.domain.models import Activity, ActivityType, Course, CourseImmutableError
 
 
 class MemoryActivityRepository:
@@ -83,76 +83,78 @@ class FakeContentLookup:
 
 def build_service() -> tuple[
     ActivityContentService,
+    Course,
     Activity,
     MemoryLinkRepository,
     FakeContentLookup,
 ]:
+    course = Course.create(uuid4(), "Course")
     activity = Activity.create(uuid4(), "Activity", ActivityType.LECTURE, 0)
     links = MemoryLinkRepository()
     lookup = FakeContentLookup()
     activities = ActivityService(cast(ActivityRepository, MemoryActivityRepository(activity)))
     service = ActivityContentService(activities, links, lookup)
-    return service, activity, links, lookup
+    return service, course, activity, links, lookup
 
 
 @pytest.mark.parametrize("status", [ContentStatus.DRAFT, ContentStatus.PUBLISHED])
 def test_attach_owned_draft_or_published_content(status: ContentStatus) -> None:
-    service, activity, links, lookup = build_service()
+    service, course, activity, links, lookup = build_service()
     owner_id, content_id = uuid4(), uuid4()
     lookup.add(owner_id, content_id, status)
 
-    link = service.attach(activity.id, activity.learning_unit_id, content_id, owner_id)
+    link = service.attach(activity.id, activity.learning_unit_id, content_id, owner_id, course)
 
     assert link == ActivityContentLink(activity.id, content_id)
     assert links.exists(activity.id, content_id)
 
 
 def test_repeated_attach_is_idempotent() -> None:
-    service, activity, links, lookup = build_service()
+    service, course, activity, links, lookup = build_service()
     owner_id, content_id = uuid4(), uuid4()
     lookup.add(owner_id, content_id, ContentStatus.DRAFT)
 
-    first = service.attach(activity.id, activity.learning_unit_id, content_id, owner_id)
-    second = service.attach(activity.id, activity.learning_unit_id, content_id, owner_id)
+    first = service.attach(activity.id, activity.learning_unit_id, content_id, owner_id, course)
+    second = service.attach(activity.id, activity.learning_unit_id, content_id, owner_id, course)
 
     assert first == second
     assert links.list_for_activity(activity.id) == [first]
 
 
 def test_attach_validates_activity_scope() -> None:
-    service, activity, _, lookup = build_service()
+    service, course, activity, _, lookup = build_service()
     owner_id, content_id = uuid4(), uuid4()
     lookup.add(owner_id, content_id, ContentStatus.PUBLISHED)
 
     with pytest.raises(ActivityNotFoundError):
-        service.attach(activity.id, uuid4(), content_id, owner_id)
+        service.attach(activity.id, uuid4(), content_id, owner_id, course)
 
 
 def test_missing_and_cross_owner_content_are_isolated() -> None:
-    service, activity, _, lookup = build_service()
+    service, course, activity, _, lookup = build_service()
     actual_owner, other_owner, content_id = uuid4(), uuid4(), uuid4()
     lookup.add(actual_owner, content_id, ContentStatus.PUBLISHED)
 
     with pytest.raises(LinkedContentNotFoundError):
-        service.attach(activity.id, activity.learning_unit_id, content_id, other_owner)
+        service.attach(activity.id, activity.learning_unit_id, content_id, other_owner, course)
     with pytest.raises(LinkedContentNotFoundError):
-        service.attach(activity.id, activity.learning_unit_id, uuid4(), actual_owner)
+        service.attach(activity.id, activity.learning_unit_id, uuid4(), actual_owner, course)
 
 
 def test_detach_is_idempotent() -> None:
-    service, activity, links, lookup = build_service()
+    service, course, activity, links, lookup = build_service()
     owner_id, content_id = uuid4(), uuid4()
     lookup.add(owner_id, content_id, ContentStatus.PUBLISHED)
-    service.attach(activity.id, activity.learning_unit_id, content_id, owner_id)
+    service.attach(activity.id, activity.learning_unit_id, content_id, owner_id, course)
 
-    service.detach(activity.id, activity.learning_unit_id, content_id)
-    service.detach(activity.id, activity.learning_unit_id, content_id)
+    service.detach(activity.id, activity.learning_unit_id, content_id, course)
+    service.detach(activity.id, activity.learning_unit_id, content_id, course)
 
     assert not links.exists(activity.id, content_id)
 
 
 def test_stale_content_is_resolved_as_unavailable() -> None:
-    service, activity, links, _ = build_service()
+    service, _, activity, links, _ = build_service()
     stale_id = uuid4()
     links.attach(ActivityContentLink(activity.id, stale_id))
 
@@ -167,7 +169,7 @@ def test_stale_content_is_resolved_as_unavailable() -> None:
 
 
 def test_technical_lookup_failure_remains_distinct() -> None:
-    service, activity, links, lookup = build_service()
+    service, _, activity, links, lookup = build_service()
     links.attach(ActivityContentLink(activity.id, uuid4()))
     lookup.unavailable = True
 
@@ -176,14 +178,33 @@ def test_technical_lookup_failure_remains_distinct() -> None:
 
 
 def test_student_availability_includes_only_published_content() -> None:
-    service, activity, _, lookup = build_service()
+    service, course, activity, _, lookup = build_service()
     owner_id, draft_id, published_id = uuid4(), uuid4(), uuid4()
     lookup.add(owner_id, draft_id, ContentStatus.DRAFT)
     lookup.add(owner_id, published_id, ContentStatus.PUBLISHED)
-    service.attach(activity.id, activity.learning_unit_id, draft_id, owner_id)
-    service.attach(activity.id, activity.learning_unit_id, published_id, owner_id)
+    service.attach(activity.id, activity.learning_unit_id, draft_id, owner_id, course)
+    service.attach(activity.id, activity.learning_unit_id, published_id, owner_id, course)
 
     available = service.list_student_available(activity.id, activity.learning_unit_id, owner_id)
 
     assert [item.link.content_id for item in available] == [published_id]
     assert all(item.available_for_student for item in available)
+
+
+def test_immutable_course_blocks_attach_and_detach_in_application() -> None:
+    service, course, activity, _, lookup = build_service()
+    owner_id, content_id = uuid4(), uuid4()
+    lookup.add(owner_id, content_id, ContentStatus.PUBLISHED)
+    service.attach(activity.id, activity.learning_unit_id, content_id, owner_id, course)
+    published = course.publish()
+
+    with pytest.raises(CourseImmutableError):
+        service.attach(
+            activity.id,
+            activity.learning_unit_id,
+            content_id,
+            owner_id,
+            published,
+        )
+    with pytest.raises(CourseImmutableError):
+        service.detach(activity.id, activity.learning_unit_id, content_id, published)

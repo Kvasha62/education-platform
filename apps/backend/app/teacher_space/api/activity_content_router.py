@@ -26,7 +26,7 @@ from app.education.application.services import (
     SectionService,
 )
 from app.education.composition import get_activity_content_service
-from app.education.domain.models import Activity
+from app.education.domain.models import Activity, Course, CourseImmutableError
 from app.identity.api.dependencies import get_current_identity, require_trusted_origin
 from app.identity.domain.models import Identity
 from app.teacher_space.api.activity_content_schemas import (
@@ -35,6 +35,7 @@ from app.teacher_space.api.activity_content_schemas import (
     AttachActivityContentRequest,
 )
 from app.teacher_space.api.activity_router import resolve_unit
+from app.teacher_space.api.course_router import course_immutable
 from app.teacher_space.api.dependencies import get_teacher_space_service
 from app.teacher_space.api.environment_router import require_writable
 from app.teacher_space.application.services import TeacherSpaceService
@@ -81,8 +82,8 @@ def resolve_scoped_activity(
     sections: SectionService,
     units: LearningUnitService,
     activities: ActivityService,
-) -> tuple[Activity, TeacherSpace]:
-    unit, teacher_space = resolve_unit(
+) -> tuple[Activity, Course, TeacherSpace]:
+    unit, course, teacher_space = resolve_unit(
         teacher_space_id,
         course_id,
         section_id,
@@ -98,7 +99,7 @@ def resolve_scoped_activity(
         activity = activities.get(activity_id, unit.id)
     except ActivityNotFoundError as error:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Activity not found") from error
-    return activity, teacher_space
+    return activity, course, teacher_space
 
 
 @router.post(
@@ -122,7 +123,7 @@ def attach_content(
     activities: Activities,
     activity_contents: ActivityContents,
 ) -> ActivityContentLinkResponse:
-    activity, teacher_space = resolve_scoped_activity(
+    activity, course, teacher_space = resolve_scoped_activity(
         teacher_space_id,
         course_id,
         section_id,
@@ -138,11 +139,19 @@ def attach_content(
     )
     require_writable(teacher_space)
     try:
-        link = activity_contents.attach(activity.id, unit_id, payload.content_id, identity.id)
+        link = activity_contents.attach(
+            activity.id,
+            unit_id,
+            payload.content_id,
+            identity.id,
+            course,
+        )
     except LinkedContentNotFoundError as error:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Content not found") from error
     except LinkedContentUnavailableError as error:
         raise dependency_unavailable(error) from error
+    except CourseImmutableError as error:
+        raise course_immutable(error) from error
     return ActivityContentLinkResponse(
         activity_id=link.activity_id,
         content_id=link.content_id,
@@ -165,7 +174,7 @@ def list_content(
     activities: Activities,
     activity_contents: ActivityContents,
 ) -> list[ActivityContentReferenceResponse]:
-    activity, _ = resolve_scoped_activity(
+    activity, _, _ = resolve_scoped_activity(
         teacher_space_id,
         course_id,
         section_id,
@@ -207,7 +216,7 @@ def detach_content(
     activities: Activities,
     activity_contents: ActivityContents,
 ) -> Response:
-    activity, teacher_space = resolve_scoped_activity(
+    activity, course, teacher_space = resolve_scoped_activity(
         teacher_space_id,
         course_id,
         section_id,
@@ -222,5 +231,8 @@ def detach_content(
         activities,
     )
     require_writable(teacher_space)
-    activity_contents.detach(activity.id, unit_id, content_id)
+    try:
+        activity_contents.detach(activity.id, unit_id, content_id, course)
+    except CourseImmutableError as error:
+        raise course_immutable(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)

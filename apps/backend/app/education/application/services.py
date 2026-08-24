@@ -80,8 +80,9 @@ class SectionService:
     def __init__(self, repository: SectionRepository) -> None:
         self.repository = repository
 
-    def create(self, course_id: UUID, title: str, position: int) -> Section:
-        return self.repository.add(Section.create(course_id, title, position))
+    def create(self, course: Course, title: str, position: int) -> Section:
+        course.require_mutable()
+        return self.repository.add(Section.create(course.id, title, position))
 
     def list(self, course_id: UUID) -> list[Section]:
         return self.repository.list_by_course(course_id)
@@ -95,23 +96,27 @@ class SectionService:
     def update(
         self,
         section_id: UUID,
-        course_id: UUID,
+        course: Course,
         *,
         title: str | None,
         position: int | None,
     ) -> Section:
-        section = self.get(section_id, course_id)
+        section = self.get(section_id, course.id)
+        course.require_mutable()
         return self.repository.update(section.update(title=title, position=position))
 
-    def delete(self, section_id: UUID, course_id: UUID) -> None:
-        self.repository.delete(self.get(section_id, course_id))
+    def delete(self, section_id: UUID, course: Course) -> None:
+        section = self.get(section_id, course.id)
+        course.require_mutable()
+        self.repository.delete(section)
 
 
 class LearningUnitService:
     def __init__(self, repository: LearningUnitRepository) -> None:
         self.repository = repository
 
-    def create(self, section_id: UUID, title: str, position: int) -> LearningUnit:
+    def create(self, section_id: UUID, course: Course, title: str, position: int) -> LearningUnit:
+        course.require_mutable()
         return self.repository.add(LearningUnit.create(section_id, title, position))
 
     def list(self, section_id: UUID) -> list[LearningUnit]:
@@ -124,13 +129,22 @@ class LearningUnitService:
         return unit
 
     def update(
-        self, unit_id: UUID, section_id: UUID, *, title: str | None, position: int | None
+        self,
+        unit_id: UUID,
+        section_id: UUID,
+        course: Course,
+        *,
+        title: str | None,
+        position: int | None,
     ) -> LearningUnit:
         unit = self.get(unit_id, section_id)
+        course.require_mutable()
         return self.repository.update(unit.update(title=title, position=position))
 
-    def delete(self, unit_id: UUID, section_id: UUID) -> None:
-        self.repository.delete(self.get(unit_id, section_id))
+    def delete(self, unit_id: UUID, section_id: UUID, course: Course) -> None:
+        unit = self.get(unit_id, section_id)
+        course.require_mutable()
+        self.repository.delete(unit)
 
 
 class ActivityService:
@@ -138,8 +152,14 @@ class ActivityService:
         self.repository = repository
 
     def create(
-        self, unit_id: UUID, title: str, activity_type: ActivityType, position: int
+        self,
+        unit_id: UUID,
+        course: Course,
+        title: str,
+        activity_type: ActivityType,
+        position: int,
     ) -> Activity:
+        course.require_mutable()
         return self.repository.add(Activity.create(unit_id, title, activity_type, position))
 
     def list(self, unit_id: UUID) -> list[Activity]:
@@ -152,10 +172,19 @@ class ActivityService:
         return activity
 
     def update(
-        self, activity_id: UUID, unit_id: UUID, *, title: str | None, position: int | None
+        self,
+        activity_id: UUID,
+        unit_id: UUID,
+        course: Course,
+        *,
+        title: str | None,
+        position: int | None,
     ) -> Activity:
         activity = self.get(activity_id, unit_id)
+        course.require_mutable()
         return self.repository.update(activity.update(title=title, position=position))
 
-    def delete(self, activity_id: UUID, unit_id: UUID) -> None:
-        self.repository.delete(self.get(activity_id, unit_id))
+    def delete(self, activity_id: UUID, unit_id: UUID, course: Course) -> None:
+        activity = self.get(activity_id, unit_id)
+        course.require_mutable()
+        self.repository.delete(activity)

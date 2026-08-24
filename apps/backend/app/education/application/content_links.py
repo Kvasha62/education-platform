@@ -16,6 +16,7 @@ from app.education.application.errors import (
 from app.education.application.ports import ActivityContentLinkRepository
 from app.education.application.services import ActivityService
 from app.education.domain.content_links import ActivityContentLink
+from app.education.domain.models import Course
 
 ContentTypeValue = Literal["article", "resource"]
 ContentStatusValue = Literal["draft", "published"]
@@ -55,8 +56,10 @@ class ActivityContentService:
         unit_id: UUID,
         content_id: UUID,
         owner_user_id: UUID,
+        course: Course,
     ) -> ActivityContentLink:
         self._require_activity(activity_id, unit_id)
+        course.require_mutable()
         try:
             self.content.lookup_owned(content_id, owner_user_id)
         except ContentReferenceNotFound as error:
@@ -65,8 +68,15 @@ class ActivityContentService:
             raise LinkedContentUnavailableError from error
         return self.links.attach(ActivityContentLink(activity_id, content_id))
 
-    def detach(self, activity_id: UUID, unit_id: UUID, content_id: UUID) -> None:
+    def detach(
+        self,
+        activity_id: UUID,
+        unit_id: UUID,
+        content_id: UUID,
+        course: Course,
+    ) -> None:
         self._require_activity(activity_id, unit_id)
+        course.require_mutable()
         self.links.detach(activity_id, content_id)
 
     def resolve_for_activity(

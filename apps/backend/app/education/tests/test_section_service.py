@@ -6,6 +6,8 @@ import pytest
 from app.education.application.errors import SectionNotFoundError
 from app.education.application.services import SectionService
 from app.education.domain.models import (
+    Course,
+    CourseImmutableError,
     InvalidSectionPositionError,
     InvalidSectionTitleError,
 )
@@ -43,8 +45,9 @@ def service() -> SectionService:
 
 
 def test_create_section_in_course(service: SectionService) -> None:
-    course_id = uuid4()
-    section = service.create(course_id, "  Introduction  ", 0)
+    course = Course.create(uuid4(), "Course")
+    course_id = course.id
+    section = service.create(course, "  Introduction  ", 0)
     assert section.course_id == course_id
     assert section.title == "Introduction"
     assert section.position == 0
@@ -53,29 +56,30 @@ def test_create_section_in_course(service: SectionService) -> None:
 @pytest.mark.parametrize("title", ["", "   ", "x" * 121])
 def test_invalid_title_is_rejected(service: SectionService, title: str) -> None:
     with pytest.raises(InvalidSectionTitleError):
-        service.create(uuid4(), title, 0)
+        service.create(Course.create(uuid4(), "Course"), title, 0)
 
 
 def test_negative_position_is_rejected(service: SectionService) -> None:
     with pytest.raises(InvalidSectionPositionError):
-        service.create(uuid4(), "Section", -1)
+        service.create(Course.create(uuid4(), "Course"), "Section", -1)
 
 
 def test_list_orders_by_position_then_id(service: SectionService) -> None:
-    course_id = uuid4()
-    last = service.create(course_id, "Last", 2)
-    first_b = service.create(course_id, "First B", 0)
-    first_a = service.create(course_id, "First A", 0)
+    course = Course.create(uuid4(), "Course")
+    course_id = course.id
+    last = service.create(course, "Last", 2)
+    first_b = service.create(course, "First B", 0)
+    first_a = service.create(course, "First A", 0)
 
     expected_first = sorted([first_a, first_b], key=lambda section: section.id)
     assert service.list(course_id) == [*expected_first, last]
 
 
 def test_partial_update_title_and_position(service: SectionService) -> None:
-    course_id = uuid4()
-    section = service.create(course_id, "Original", 0)
-    renamed = service.update(section.id, course_id, title="Updated", position=None)
-    moved = service.update(section.id, course_id, title=None, position=3)
+    course = Course.create(uuid4(), "Course")
+    section = service.create(course, "Original", 0)
+    renamed = service.update(section.id, course, title="Updated", position=None)
+    moved = service.update(section.id, course, title=None, position=3)
     assert renamed.title == "Updated"
     assert renamed.position == 0
     assert moved.title == "Updated"
@@ -83,14 +87,28 @@ def test_partial_update_title_and_position(service: SectionService) -> None:
 
 
 def test_cross_course_access_is_not_found(service: SectionService) -> None:
-    section = service.create(uuid4(), "Private", 0)
+    section = service.create(Course.create(uuid4(), "Course"), "Private", 0)
     with pytest.raises(SectionNotFoundError):
         service.get(section.id, uuid4())
 
 
 def test_delete_section(service: SectionService) -> None:
-    course_id = uuid4()
-    section = service.create(course_id, "Temporary", 0)
-    service.delete(section.id, course_id)
+    course = Course.create(uuid4(), "Course")
+    course_id = course.id
+    section = service.create(course, "Temporary", 0)
+    service.delete(section.id, course)
     with pytest.raises(SectionNotFoundError):
         service.get(section.id, course_id)
+
+
+def test_immutable_course_blocks_section_mutations(service: SectionService) -> None:
+    course = Course.create(uuid4(), "Course")
+    section = service.create(course, "Section", 0)
+    published = course.publish()
+
+    with pytest.raises(CourseImmutableError):
+        service.create(published, "Blocked", 1)
+    with pytest.raises(CourseImmutableError):
+        service.update(section.id, published, title="Blocked", position=None)
+    with pytest.raises(CourseImmutableError):
+        service.delete(section.id, published)
