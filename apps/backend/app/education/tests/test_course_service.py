@@ -6,6 +6,7 @@ import pytest
 from app.education.application.errors import CourseNotFoundError
 from app.education.application.services import CourseService
 from app.education.domain.models import (
+    CourseImmutableError,
     CourseStatus,
     InvalidCourseTitleError,
     InvalidCourseTransitionError,
@@ -75,6 +76,18 @@ def test_rename_course(service: CourseService) -> None:
     assert updated.title == "Updated"
     assert updated.educational_environment_id == environment_id
     assert updated.status is CourseStatus.DRAFT
+
+
+def test_published_and_archived_course_cannot_be_renamed(service: CourseService) -> None:
+    environment_id = uuid4()
+    draft = service.create(environment_id, "Course")
+    service.publish(draft.id, environment_id)
+    with pytest.raises(CourseImmutableError):
+        service.rename(draft.id, environment_id, "Published edit")
+
+    service.archive(draft.id, environment_id)
+    with pytest.raises(CourseImmutableError):
+        service.rename(draft.id, environment_id, "Archived edit")
 
 
 def test_publish_and_archive_lifecycle(service: CourseService) -> None:

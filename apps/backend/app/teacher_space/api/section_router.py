@@ -24,9 +24,8 @@ from app.education.application.services import (
 from app.education.domain.models import Course
 from app.identity.api.dependencies import get_current_identity, require_trusted_origin
 from app.identity.domain.models import Identity
-from app.teacher_space.api.course_router import resolve_environment
+from app.teacher_space.api.course_router import require_course_writable, resolve_environment
 from app.teacher_space.api.dependencies import get_teacher_space_service
-from app.teacher_space.api.environment_router import require_writable
 from app.teacher_space.application.services import TeacherSpaceService
 from app.teacher_space.domain.models import TeacherSpace
 
@@ -88,7 +87,7 @@ def create_section(
     course, teacher_space = resolve_course(
         teacher_space_id, course_id, identity, teacher_spaces, environments, courses
     )
-    require_writable(teacher_space)
+    require_course_writable(course, teacher_space)
     try:
         section = sections.create(course.id, payload.title, payload.position)
     except CourseNotFoundError as error:
@@ -152,7 +151,11 @@ def update_section(
     course, teacher_space = resolve_course(
         teacher_space_id, course_id, identity, teacher_spaces, environments, courses
     )
-    require_writable(teacher_space)
+    try:
+        sections.get(section_id, course.id)
+    except SectionNotFoundError as error:
+        raise section_not_found(error) from error
+    require_course_writable(course, teacher_space)
     try:
         section = sections.update(
             section_id,
@@ -183,7 +186,11 @@ def delete_section(
     course, teacher_space = resolve_course(
         teacher_space_id, course_id, identity, teacher_spaces, environments, courses
     )
-    require_writable(teacher_space)
+    try:
+        sections.get(section_id, course.id)
+    except SectionNotFoundError as error:
+        raise section_not_found(error) from error
+    require_course_writable(course, teacher_space)
     try:
         sections.delete(section_id, course.id)
     except SectionNotFoundError as error:

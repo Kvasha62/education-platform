@@ -61,6 +61,10 @@ class InvalidCourseTransitionError(Exception):
     pass
 
 
+class CourseImmutableError(Exception):
+    pass
+
+
 @dataclass(frozen=True, slots=True)
 class Course:
     id: UUID
@@ -82,7 +86,12 @@ class Course:
             updated_at=now,
         )
 
+    def require_mutable(self) -> None:
+        if self.status is not CourseStatus.DRAFT:
+            raise CourseImmutableError
+
     def rename(self, title: str) -> "Course":
+        self.require_mutable()
         return replace(self, title=normalize_title(title), updated_at=datetime.now(UTC))
 
     def publish(self) -> "Course":

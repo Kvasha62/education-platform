@@ -13,7 +13,12 @@ from app.education.api.course_schemas import (
 from app.education.api.dependencies import get_course_service, get_environment_service
 from app.education.application.errors import CourseNotFoundError, EnvironmentNotFoundError
 from app.education.application.services import CourseService, EducationalEnvironmentService
-from app.education.domain.models import EducationalEnvironment, InvalidCourseTransitionError
+from app.education.domain.models import (
+    Course,
+    CourseImmutableError,
+    EducationalEnvironment,
+    InvalidCourseTransitionError,
+)
 from app.identity.api.dependencies import get_current_identity, require_trusted_origin
 from app.identity.domain.models import Identity
 from app.teacher_space.api.dependencies import get_teacher_space_service
@@ -53,6 +58,17 @@ def resolve_environment(
 
 def course_not_found(error: CourseNotFoundError) -> HTTPException:
     return HTTPException(status.HTTP_404_NOT_FOUND, "Course not found")
+
+
+def require_course_writable(course: Course, teacher_space: TeacherSpace) -> None:
+    require_writable(teacher_space)
+    try:
+        course.require_mutable()
+    except CourseImmutableError as error:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Published or archived Course is read-only",
+        ) from error
 
 
 @router.post(
@@ -133,6 +149,11 @@ def update_course(
         course = courses.rename(course_id, environment.id, payload.title)
     except CourseNotFoundError as error:
         raise course_not_found(error) from error
+    except CourseImmutableError as error:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Published or archived Course is read-only",
+        ) from error
     return CourseResponse.from_course(course)
 
 

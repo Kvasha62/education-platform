@@ -175,6 +175,8 @@ def test_all_cookie_authenticated_mutations_reject_untrusted_origin(
         ("patch", f"{courses_path}/{course['id']}", {"title": "Changed"}),
         ("post", f"{courses_path}/{course['id']}/publish", None),
         ("post", f"{courses_path}/{course['id']}/archive", None),
+        ("post", f"{courses_path}/{course['id']}/publish", None),
+        ("post", f"{courses_path}/{course['id']}/archive", None),
         ("post", sections_path, {"title": "Second", "position": 1}),
         ("patch", f"{sections_path}/{section['id']}", {"title": "Changed"}),
         ("delete", f"{sections_path}/{section['id']}", None),
