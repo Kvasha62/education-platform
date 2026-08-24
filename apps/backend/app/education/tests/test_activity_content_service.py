@@ -11,8 +11,13 @@ from app.content.public import (
     ContentType,
 )
 from app.education.application.content_links import ActivityContentService
-from app.education.application.errors import ActivityNotFoundError
+from app.education.application.errors import (
+    ActivityNotFoundError,
+    LinkedContentNotFoundError,
+    LinkedContentUnavailableError,
+)
 from app.education.application.ports import ActivityRepository
+from app.education.application.services import ActivityService
 from app.education.domain.content_links import ActivityContentLink
 from app.education.domain.models import Activity, ActivityType
 
@@ -85,9 +90,8 @@ def build_service() -> tuple[
     activity = Activity.create(uuid4(), "Activity", ActivityType.LECTURE, 0)
     links = MemoryLinkRepository()
     lookup = FakeContentLookup()
-    service = ActivityContentService(
-        cast(ActivityRepository, MemoryActivityRepository(activity)), links, lookup
-    )
+    activities = ActivityService(cast(ActivityRepository, MemoryActivityRepository(activity)))
+    service = ActivityContentService(activities, links, lookup)
     return service, activity, links, lookup
 
 
@@ -129,9 +133,9 @@ def test_missing_and_cross_owner_content_are_isolated() -> None:
     actual_owner, other_owner, content_id = uuid4(), uuid4(), uuid4()
     lookup.add(actual_owner, content_id, ContentStatus.PUBLISHED)
 
-    with pytest.raises(ContentReferenceNotFound):
+    with pytest.raises(LinkedContentNotFoundError):
         service.attach(activity.id, activity.learning_unit_id, content_id, other_owner)
-    with pytest.raises(ContentReferenceNotFound):
+    with pytest.raises(LinkedContentNotFoundError):
         service.attach(activity.id, activity.learning_unit_id, uuid4(), actual_owner)
 
 
@@ -156,8 +160,10 @@ def test_stale_content_is_resolved_as_unavailable() -> None:
 
     assert len(resolved) == 1
     assert resolved[0].link.content_id == stale_id
-    assert resolved[0].reference is None
+    assert resolved[0].type is None
+    assert resolved[0].status is None
     assert not resolved[0].available
+    assert not resolved[0].available_for_student
 
 
 def test_technical_lookup_failure_remains_distinct() -> None:
@@ -165,7 +171,7 @@ def test_technical_lookup_failure_remains_distinct() -> None:
     links.attach(ActivityContentLink(activity.id, uuid4()))
     lookup.unavailable = True
 
-    with pytest.raises(ContentLookupUnavailable):
+    with pytest.raises(LinkedContentUnavailableError):
         service.resolve_for_activity(activity.id, activity.learning_unit_id, uuid4())
 
 
@@ -179,4 +185,5 @@ def test_student_availability_includes_only_published_content() -> None:
 
     available = service.list_student_available(activity.id, activity.learning_unit_id, owner_id)
 
-    assert [reference.id for reference in available] == [published_id]
+    assert [item.link.content_id for item in available] == [published_id]
+    assert all(item.available_for_student for item in available)

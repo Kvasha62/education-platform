@@ -1,26 +1,36 @@
 """Activity / Content association use cases."""
 
 from dataclasses import dataclass
+from typing import Literal, cast
 from uuid import UUID
 
 from app.content.public import (
     ContentLookup,
-    ContentReference,
+    ContentLookupUnavailable,
     ContentReferenceNotFound,
 )
-from app.education.application.errors import ActivityNotFoundError
-from app.education.application.ports import ActivityContentLinkRepository, ActivityRepository
+from app.education.application.errors import (
+    LinkedContentNotFoundError,
+    LinkedContentUnavailableError,
+)
+from app.education.application.ports import ActivityContentLinkRepository
+from app.education.application.services import ActivityService
 from app.education.domain.content_links import ActivityContentLink
+
+ContentTypeValue = Literal["article", "resource"]
+ContentStatusValue = Literal["draft", "published"]
 
 
 @dataclass(frozen=True, slots=True)
 class ResolvedActivityContent:
     link: ActivityContentLink
-    reference: ContentReference | None
+    type: ContentTypeValue | None
+    status: ContentStatusValue | None
+    available_for_student: bool
 
     @property
     def available(self) -> bool:
-        return self.reference is not None
+        return self.type is not None and self.status is not None
 
 
 class ActivityContentService:
@@ -28,7 +38,7 @@ class ActivityContentService:
 
     def __init__(
         self,
-        activities: ActivityRepository,
+        activities: ActivityService,
         links: ActivityContentLinkRepository,
         content: ContentLookup,
     ) -> None:
@@ -37,8 +47,7 @@ class ActivityContentService:
         self.content = content
 
     def _require_activity(self, activity_id: UUID, unit_id: UUID) -> None:
-        if self.activities.get_in_unit(activity_id, unit_id) is None:
-            raise ActivityNotFoundError
+        self.activities.get(activity_id, unit_id)
 
     def attach(
         self,
@@ -48,7 +57,12 @@ class ActivityContentService:
         owner_user_id: UUID,
     ) -> ActivityContentLink:
         self._require_activity(activity_id, unit_id)
-        self.content.lookup_owned(content_id, owner_user_id)
+        try:
+            self.content.lookup_owned(content_id, owner_user_id)
+        except ContentReferenceNotFound as error:
+            raise LinkedContentNotFoundError from error
+        except ContentLookupUnavailable as error:
+            raise LinkedContentUnavailableError from error
         return self.links.attach(ActivityContentLink(activity_id, content_id))
 
     def detach(self, activity_id: UUID, unit_id: UUID, content_id: UUID) -> None:
@@ -67,8 +81,18 @@ class ActivityContentService:
             try:
                 reference = self.content.lookup_owned(link.content_id, owner_user_id)
             except ContentReferenceNotFound:
-                reference = None
-            resolved.append(ResolvedActivityContent(link, reference))
+                resolved.append(ResolvedActivityContent(link, None, None, False))
+                continue
+            except ContentLookupUnavailable as error:
+                raise LinkedContentUnavailableError from error
+            resolved.append(
+                ResolvedActivityContent(
+                    link=link,
+                    type=cast(ContentTypeValue, reference.type.value),
+                    status=cast(ContentStatusValue, reference.status.value),
+                    available_for_student=reference.available_for_student,
+                )
+            )
         return resolved
 
     def list_student_available(
@@ -76,9 +100,9 @@ class ActivityContentService:
         activity_id: UUID,
         unit_id: UUID,
         owner_user_id: UUID,
-    ) -> list[ContentReference]:
+    ) -> list[ResolvedActivityContent]:
         return [
-            item.reference
+            item
             for item in self.resolve_for_activity(activity_id, unit_id, owner_user_id)
-            if item.reference is not None and item.reference.available_for_student
+            if item.available_for_student
         ]

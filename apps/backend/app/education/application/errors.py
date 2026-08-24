@@ -23,3 +23,11 @@ class LearningUnitNotFoundError(Exception):
 
 class ActivityNotFoundError(Exception):
     pass
+
+
+class LinkedContentNotFoundError(Exception):
+    pass
+
+
+class LinkedContentUnavailableError(Exception):
+    pass
