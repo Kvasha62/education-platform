@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
@@ -250,10 +251,22 @@ def test_activity_progress_lifecycle_access_and_isolation(client: TestClient) ->
     )
     assert client.get(base).json() == completed.json()
 
+    with Factory() as session:
+        enrollment = session.scalar(
+            select(EnrollmentModel).where(EnrollmentModel.course_id == UUID(course_id))
+        )
+        assert enrollment is not None
+        session.delete(enrollment)
+        session.commit()
+    assert client.get(base).status_code == 404
+    client.post(enrollment_path(course_id), headers=HEADERS)
+    assert client.get(base).json() == completed.json()
+
     client.cookies.set(SESSION_COOKIE_NAME, teacher)
     client.post(f"{course_path}/archive", headers=HEADERS)
     client.cookies.set(SESSION_COOKIE_NAME, student)
     assert client.post(f"{base}/start", headers=HEADERS).status_code == 404
+    assert client.get(base).status_code == 404
 
     auth(client, "progress-other@example.com")
     assert client.get(base).status_code == 404
