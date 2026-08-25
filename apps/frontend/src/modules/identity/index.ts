@@ -1,3 +1,4 @@
+export { LoginPage, PublicOnlyRoute, RegisterPage } from './AuthPages'
 export { authQueryKey, useAuthentication } from './auth'
 export { identityApi } from './api'
 export type { AuthenticationState } from './auth'

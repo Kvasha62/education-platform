@@ -1,12 +1,27 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { routes } from './router'
 
-const renderApplication = () => {
+const identity = {
+  id: 'identity-id',
+  email: 'person@example.com',
+  status: 'active',
+  created_at: '2026-08-25T00:00:00Z',
+  updated_at: '2026-08-25T00:00:00Z',
+}
+
+const jsonResponse = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+
+const renderApplication = (initialEntry: string) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const router = createMemoryRouter(routes, { initialEntries: ['/'] })
+  const router = createMemoryRouter(routes, { initialEntries: [initialEntry] })
   return render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
@@ -14,52 +29,86 @@ const renderApplication = () => {
   )
 }
 
-describe('frontend foundation', () => {
+describe('authentication UI', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('bootstraps an authenticated session and renders the application', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            id: 'identity-id',
-            email: 'student@example.com',
-            status: 'active',
-            created_at: '2026-08-25T00:00:00Z',
-            updated_at: '2026-08-25T00:00:00Z',
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        ),
-      ),
-    )
+  it('restores an authenticated session and renders the protected app', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(identity)))
+    renderApplication('/app')
 
-    renderApplication()
     expect(screen.getByRole('status')).toHaveTextContent('Loading application')
-    expect(await screen.findByText('student@example.com')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /ready for the next learning experience/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'You are signed in.' })).toBeInTheDocument()
+    expect(screen.getByText(identity.email)).toBeInTheDocument()
   })
 
-  it('handles an unauthenticated session and proves routing works', async () => {
+  it('redirects an unauthenticated visitor away from the protected app', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ detail: 'Authentication required' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
+      vi.fn().mockResolvedValue(jsonResponse({ detail: 'Authentication required' }, 401)),
     )
+    renderApplication('/app')
 
-    renderApplication()
-    expect(await screen.findByText('Not signed in')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('link', { name: 'Verify routing' }))
-    expect(await screen.findByRole('heading', { name: /application router is working/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Log in' })).toBeInTheDocument()
   })
 
-  it('renders a reusable error state when session bootstrap fails', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 503 })))
-    renderApplication()
-    expect(await screen.findByRole('alert')).toHaveTextContent(/could not check your session/i)
+  it('supports register, login, protected app, and logout', async () => {
+    let authenticated = false
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/auth/me')) {
+        return authenticated
+          ? jsonResponse(identity)
+          : jsonResponse({ detail: 'Authentication required' }, 401)
+      }
+      if (url.endsWith('/api/v1/auth/register')) return jsonResponse(identity, 201)
+      if (url.endsWith('/api/v1/auth/login')) {
+        authenticated = true
+        return jsonResponse({ user: identity })
+      }
+      if (url.endsWith('/api/v1/auth/logout')) {
+        authenticated = false
+        return jsonResponse({ status: 'logged_out' })
+      }
+      throw new Error(`Unexpected request: ${url} ${init?.method ?? 'GET'}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    renderApplication('/register')
+
+    await user.type(await screen.findByLabelText('Email'), identity.email)
+    await user.type(screen.getByLabelText('Password'), 'a secure password')
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+
+    expect(await screen.findByRole('heading', { name: 'Log in' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Email')).toHaveValue(identity.email)
+    await user.type(screen.getByLabelText('Password'), 'a secure password')
+    await user.click(screen.getByRole('button', { name: 'Log in' }))
+
+    expect(await screen.findByRole('heading', { name: 'You are signed in.' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Log out' }))
+    expect(await screen.findByRole('heading', { name: 'Log in' })).toBeInTheDocument()
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/auth/logout'),
+      expect.objectContaining({ credentials: 'include', method: 'POST' }),
+    )
+  })
+
+  it('presents normalized authentication failures', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/auth/me')) {
+        return jsonResponse({ detail: 'Authentication required' }, 401)
+      }
+      return jsonResponse({ detail: 'Invalid email or password' }, 401)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    renderApplication('/login')
+
+    await user.type(await screen.findByLabelText('Email'), identity.email)
+    await user.type(screen.getByLabelText('Password'), 'wrong password')
+    await user.click(screen.getByRole('button', { name: 'Log in' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid email or password')
   })
 })

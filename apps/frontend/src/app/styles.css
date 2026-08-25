@@ -15,3 +15,12 @@ h1 { margin: .5rem 0 1rem; font-size: clamp(2.3rem, 7vw, 5rem); line-height: .98
 .state--error { border-color: #d8a8a0; color: #842f24; }
 .spinner { width: 1rem; height: 1rem; border: 2px solid #b9c5bd; border-top-color: #1d5b43; border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+.auth-card { width: min(100%, 440px); margin: 0 auto; padding: 2rem; border: 1px solid #d9dccf; border-radius: 1rem; background: #fff; box-shadow: 0 1.5rem 4rem rgb(35 50 41 / 8%); }
+.auth-card h1 { font-size: clamp(2rem, 8vw, 3.5rem); }
+.auth-card form { display: grid; gap: 1rem; margin: 2rem 0; }
+.auth-card label { display: grid; gap: .45rem; color: #354239; font-size: .9rem; font-weight: 700; }
+.auth-card input { width: 100%; padding: .8rem .9rem; border: 1px solid #aeb8b0; border-radius: .55rem; background: #fff; color: inherit; font: inherit; }
+.auth-card input:focus { border-color: #1d5b43; outline: 3px solid rgb(29 91 67 / 16%); }
+button { width: fit-content; padding: .75rem 1.1rem; border: 0; border-radius: .55rem; background: #1d5b43; color: #fff; cursor: pointer; font: inherit; font-weight: 750; }
+button:disabled { cursor: wait; opacity: .65; }
+.form-hint { margin: -.5rem 0 0; color: #667168; font-size: .82rem; }
