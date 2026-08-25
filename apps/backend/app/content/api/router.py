@@ -151,5 +151,5 @@ def replace_content_body(
     except ContentImmutableError as error:
         raise HTTPException(status.HTTP_409_CONFLICT, "Published Content is read-only") from error
     except InvalidContentBodyError as error:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Invalid Content body") from error
+        raise HTTPException(422, "Invalid Content body") from error
     return ContentBodyPayload.model_validate(body.to_dict())
