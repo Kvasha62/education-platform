@@ -132,7 +132,9 @@ def complete_activity_progress(
 def get_activity_progress(
     activity_id: UUID, identity: CurrentIdentity, progress: ActivityProgresses
 ) -> ActivityProgressResponse:
-    reference = progress.get_for_student_activity(identity.id, activity_id)
+    reference = _progress_or_error(
+        lambda: progress.get_for_student_activity(identity.id, activity_id)
+    )
     if reference is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Progress not found")
     return ActivityProgressResponse.from_reference(reference)

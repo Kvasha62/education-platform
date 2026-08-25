@@ -76,6 +76,7 @@ class ActivityProgressService:
     def get_for_student_activity(
         self, student_user_id: UUID, activity_id: UUID
     ) -> ActivityProgressReference | None:
+        self._require_access(student_user_id, activity_id)
         progress = self.progress.get(student_user_id, activity_id)
         return None if progress is None else self._reference(progress)
 
