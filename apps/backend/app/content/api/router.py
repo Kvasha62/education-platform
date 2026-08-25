@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from app.content.api.dependencies import get_content_service
 from app.content.api.schemas import (
+    ContentBodyPayload,
     ContentPageResponse,
     ContentResponse,
     CreateContentRequest,
@@ -12,6 +13,12 @@ from app.content.api.schemas import (
 )
 from app.content.application.errors import ContentNotFoundError
 from app.content.application.services import ContentService
+from app.content.domain.body import (
+    ContentBody,
+    ContentBodyNotPublishableError,
+    InvalidContentBodyError,
+)
+from app.content.domain.models import ContentImmutableError
 from app.identity.api.dependencies import get_current_identity, require_trusted_origin
 from app.identity.domain.models import Identity
 
@@ -76,6 +83,8 @@ def update_content(
         content = service.rename(content_id, identity.id, payload.title)
     except ContentNotFoundError as error:
         raise not_found(error) from error
+    except ContentImmutableError as error:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Published Content is read-only") from error
     return ContentResponse.from_content(content)
 
 
@@ -91,6 +100,8 @@ def publish_content(
         content = service.publish(content_id, identity.id)
     except ContentNotFoundError as error:
         raise not_found(error) from error
+    except ContentBodyNotPublishableError as error:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Content body is not publishable") from error
     return ContentResponse.from_content(content)
 
 
@@ -105,3 +116,40 @@ def delete_content(content_id: UUID, identity: CurrentIdentity, service: Content
     except ContentNotFoundError as error:
         raise not_found(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/{content_id}/body", response_model=ContentBodyPayload)
+def get_content_body(
+    content_id: UUID, identity: CurrentIdentity, service: Contents
+) -> ContentBodyPayload:
+    try:
+        body = service.get_owned_body(content_id, identity.id)
+    except ContentNotFoundError as error:
+        raise not_found(error) from error
+    return ContentBodyPayload.model_validate(body.to_dict())
+
+
+@router.put(
+    "/{content_id}/body",
+    response_model=ContentBodyPayload,
+    dependencies=[Depends(require_trusted_origin)],
+)
+def replace_content_body(
+    content_id: UUID,
+    payload: ContentBodyPayload,
+    identity: CurrentIdentity,
+    service: Contents,
+) -> ContentBodyPayload:
+    try:
+        body = service.replace_owned_body(
+            content_id,
+            identity.id,
+            ContentBody.from_dict(payload.to_dict()),
+        )
+    except ContentNotFoundError as error:
+        raise not_found(error) from error
+    except ContentImmutableError as error:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Published Content is read-only") from error
+    except InvalidContentBodyError as error:
+        raise HTTPException(422, "Invalid Content body") from error
+    return ContentBodyPayload.model_validate(body.to_dict())

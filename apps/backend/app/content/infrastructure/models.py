@@ -3,7 +3,8 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Uuid
+from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Index, String, Uuid
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.content.domain.models import ContentStatus, ContentType
@@ -32,6 +33,7 @@ class ContentModel(Base):
             values_callable=lambda values: [v.value for v in values],
         )
     )
+    body: Mapped[dict[str, object]] = mapped_column(JSON().with_variant(JSONB, "postgresql"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

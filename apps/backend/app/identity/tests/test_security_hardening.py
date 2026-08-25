@@ -166,6 +166,11 @@ def test_all_cookie_authenticated_mutations_reject_untrusted_origin(
         ("patch", f"/api/v1/contents/{content['id']}", {"title": "Changed"}),
         ("delete", f"/api/v1/contents/{content['id']}", None),
         ("post", f"/api/v1/contents/{content['id']}/publish", None),
+        (
+            "put",
+            f"/api/v1/contents/{content['id']}/body",
+            {"schema_version": 1, "kind": "article", "blocks": []},
+        ),
         ("post", "/api/v1/teacher-spaces", {"name": "Another"}),
         ("patch", f"/api/v1/teacher-spaces/{teacher['id']}", {"name": "Changed"}),
         ("post", f"/api/v1/teacher-spaces/{teacher['id']}/disable", None),
@@ -205,6 +210,17 @@ def test_cors_allows_configured_frontend_with_credentials(client: TestClient) ->
     assert response.headers["access-control-allow-origin"] == TRUSTED_ORIGIN
     assert response.headers["access-control-allow-credentials"] == "true"
     assert "content-type" in response.headers["access-control-allow-headers"].casefold()
+
+    put_response = client.options(
+        "/api/v1/contents/id/body",
+        headers={
+            "Origin": TRUSTED_ORIGIN,
+            "Access-Control-Request-Method": "PUT",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert put_response.status_code == 200
+    assert put_response.headers["access-control-allow-origin"] == TRUSTED_ORIGIN
 
     delete_response = client.options(
         "/api/v1/teacher-spaces/id/environment/courses/id/sections/id",

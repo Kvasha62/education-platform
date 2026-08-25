@@ -115,6 +115,15 @@ def create_content(client: TestClient, title: str, publish: bool = False) -> dic
         headers=HEADERS,
     ).json()
     if publish:
+        client.put(
+            f"/api/v1/contents/{content['id']}/body",
+            json={
+                "schema_version": 1,
+                "kind": "article",
+                "blocks": [{"type": "paragraph", "text": title}],
+            },
+            headers=HEADERS,
+        )
         content = client.post(f"/api/v1/contents/{content['id']}/publish", headers=HEADERS).json()
     return content
 

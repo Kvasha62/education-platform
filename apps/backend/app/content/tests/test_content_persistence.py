@@ -1,6 +1,7 @@
 from typing import cast
 
-from sqlalchemy import Enum, Index, String, Table
+from sqlalchemy import JSON, Enum, Index, String, Table
+from sqlalchemy.dialects import postgresql
 
 from app.content.infrastructure.models import ContentModel
 
@@ -13,6 +14,7 @@ def test_content_persistence_contract_and_owner_fk() -> None:
         "type",
         "title",
         "status",
+        "body",
         "created_at",
         "updated_at",
     }
@@ -20,6 +22,9 @@ def test_content_persistence_contract_and_owner_fk() -> None:
     assert cast(String, table.c.title.type).length == 120
     assert set(cast(Enum, table.c.type.type).enums) == {"article", "resource"}
     assert set(cast(Enum, table.c.status.type).enums) == {"draft", "published"}
+    assert isinstance(table.c.body.type, JSON)
+    assert isinstance(table.c.body.type.dialect_impl(postgresql.dialect()), postgresql.JSONB)
+    assert not table.c.body.nullable
     assert any(
         isinstance(index, Index)
         and [column.name for column in index.columns] == ["owner_user_id", "created_at"]
@@ -48,6 +53,7 @@ def test_content_page_ordering_uses_created_at_then_id() -> None:
     from sqlalchemy.orm import Session
     from sqlalchemy.pool import StaticPool
 
+    from app.content.domain.body import ContentBody
     from app.content.domain.models import Content, ContentStatus, ContentType
     from app.content.infrastructure.repositories import SqlAlchemyContentRepository
     from app.core.database import Base
@@ -69,6 +75,7 @@ def test_content_page_ordering_uses_created_at_then_id() -> None:
                     type=ContentType.ARTICLE,
                     title=str(content_id),
                     status=ContentStatus.DRAFT,
+                    body=ContentBody.article_empty(),
                     created_at=created_at,
                     updated_at=created_at,
                 )

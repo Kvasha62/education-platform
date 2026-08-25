@@ -2,12 +2,25 @@ from uuid import uuid4
 
 import pytest
 
+from app.content.domain.body import ContentBody
 from app.content.domain.models import Content, ContentStatus, ContentType
 from app.content.public import (
     ContentLookupService,
     ContentLookupUnavailable,
     ContentReferenceNotFound,
 )
+
+
+def published_resource(owner_id):
+    return Content.create(owner_id, ContentType.RESOURCE, "Published").replace_body(
+        ContentBody.from_dict(
+            {
+                "schema_version": 1,
+                "kind": "resource",
+                "resource": {"url": "https://example.test", "description": ""},
+            }
+        )
+    ).publish()
 
 
 class LookupRepository:
@@ -37,7 +50,7 @@ def test_public_lookup_returns_safe_reference_and_student_availability() -> None
     repository = LookupRepository()
     owner_id = uuid4()
     draft = Content.create(owner_id, ContentType.ARTICLE, "Draft")
-    published = Content.create(owner_id, ContentType.RESOURCE, "Published").publish()
+    published = published_resource(owner_id)
     repository.items[(draft.id, owner_id)] = draft
     repository.items[(published.id, owner_id)] = published
     service = ContentLookupService(repository)  # type: ignore[arg-type]
@@ -70,7 +83,7 @@ def test_published_lookup_exposes_only_published_content() -> None:
     repository = LookupRepository()
     owner_id = uuid4()
     draft = Content.create(owner_id, ContentType.ARTICLE, "Draft")
-    published = Content.create(owner_id, ContentType.RESOURCE, "Published").publish()
+    published = published_resource(owner_id)
     repository.items[(draft.id, owner_id)] = draft
     repository.items[(published.id, owner_id)] = published
     service = ContentLookupService(repository)  # type: ignore[arg-type]

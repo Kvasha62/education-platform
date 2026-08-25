@@ -5,6 +5,7 @@ import pytest
 
 from app.content.application.errors import ContentNotFoundError
 from app.content.application.services import ContentService
+from app.content.domain.body import ContentBody
 from app.content.domain.models import ContentStatus, ContentType, InvalidContentTitleError
 
 
@@ -80,6 +81,17 @@ def test_cross_owner_is_not_found(service: ContentService) -> None:
 def test_publish_draft_and_repeat_idempotently(service: ContentService) -> None:
     owner = uuid4()
     draft = service.create(owner, ContentType.ARTICLE, "Publishable")
+    service.replace_owned_body(
+        draft.id,
+        owner,
+        ContentBody.from_dict(
+            {
+                "schema_version": 1,
+                "kind": "article",
+                "blocks": [{"type": "paragraph", "text": "Ready"}],
+            }
+        ),
+    )
 
     published = service.publish(draft.id, owner)
     repeated = service.publish(draft.id, owner)
