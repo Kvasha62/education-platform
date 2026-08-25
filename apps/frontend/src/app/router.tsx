@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { LoginPage, PublicOnlyRoute, RegisterPage } from '../modules/identity/AuthPages'
+import { TeacherSpacePage, TeacherSpacesPage } from '../modules/teacher'
 import { ProtectedApp, ProtectedRoute, RootLayout } from './App'
 
 export const routes = [
@@ -17,7 +18,11 @@ export const routes = [
       },
       {
         element: <ProtectedRoute />,
-        children: [{ path: 'app', element: <ProtectedApp /> }],
+        children: [
+          { path: 'app', element: <ProtectedApp /> },
+          { path: 'app/teacher-spaces', element: <TeacherSpacesPage /> },
+          { path: 'app/teacher-spaces/:teacherSpaceId', element: <TeacherSpacePage /> },
+        ],
       },
     ],
   },

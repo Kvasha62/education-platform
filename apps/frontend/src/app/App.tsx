@@ -46,6 +46,7 @@ export const ProtectedApp = () => {
       <p className="eyebrow">Protected application</p>
       <h1 id="app-title">You are signed in.</h1>
       <p>{authentication.user.email}</p>
+      <p><Link to="/app/teacher-spaces">Open Teacher Spaces</Link></p>
       {logout.isError && <ErrorState message="Logout failed. Please try again." />}
       <button disabled={logout.isPending} onClick={() => logout.mutate()} type="button">
         {logout.isPending ? 'Logging out…' : 'Log out'}
