@@ -1,46 +1,55 @@
-import { Link, Outlet } from 'react-router-dom'
-import { useAuthentication } from '../modules/identity'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { authQueryKey, identityApi, useAuthentication } from '../modules/identity'
 import { ErrorState, LoadingState } from '../shared/ui'
 import './styles.css'
 
-export const App = () => {
-  const authentication = useAuthentication()
+export const RootLayout = () => (
+  <div className="app-shell">
+    <header className="app-header">
+      <Link className="brand" to="/">Education Platform</Link>
+    </header>
+    <main><Outlet /></main>
+  </div>
+)
 
-  return (
-    <div className="app-shell">
-      <header className="app-header">
-        <Link className="brand" to="/">Education Platform</Link>
-        <span className="session-status">
-          {authentication.status === 'loading' && 'Checking session…'}
-          {authentication.status === 'authenticated' && authentication.user.email}
-          {authentication.status === 'unauthenticated' && 'Not signed in'}
-          {authentication.status === 'error' && 'Session unavailable'}
-        </span>
-      </header>
-      <main>
-        {authentication.status === 'loading' && <LoadingState label="Loading application" />}
-        {authentication.status === 'error' && (
-          <ErrorState message="The application could not check your session." />
-        )}
-        {authentication.status !== 'loading' && authentication.status !== 'error' && <Outlet />}
-      </main>
-    </div>
-  )
+export const ProtectedRoute = () => {
+  const authentication = useAuthentication()
+  const location = useLocation()
+
+  if (authentication.status === 'loading') return <LoadingState label="Loading application" />
+  if (authentication.status === 'unauthenticated') {
+    return <Navigate replace state={{ from: location.pathname }} to="/login" />
+  }
+  if (authentication.status === 'error') {
+    return <ErrorState message="The application could not check your session." />
+  }
+  return <Outlet />
 }
 
-export const FoundationPage = () => (
-  <section className="welcome" aria-labelledby="welcome-title">
-    <p className="eyebrow">Frontend foundation</p>
-    <h1 id="welcome-title">Ready for the next learning experience.</h1>
-    <p>Routing, session bootstrap, server state, and shared API infrastructure are active.</p>
-    <Link to="/foundation">Verify routing</Link>
-  </section>
-)
+export const ProtectedApp = () => {
+  const authentication = useAuthentication()
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const logout = useMutation({
+    mutationFn: identityApi.logout,
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: authQueryKey })
+      navigate('/login', { replace: true })
+    },
+  })
 
-export const RoutingProofPage = () => (
-  <section className="welcome" aria-labelledby="routing-title">
-    <p className="eyebrow">Routing</p>
-    <h1 id="routing-title">The application router is working.</h1>
-    <Link to="/">Back to foundation</Link>
-  </section>
-)
+  if (authentication.status !== 'authenticated') return null
+
+  return (
+    <section className="welcome" aria-labelledby="app-title">
+      <p className="eyebrow">Protected application</p>
+      <h1 id="app-title">You are signed in.</h1>
+      <p>{authentication.user.email}</p>
+      {logout.isError && <ErrorState message="Logout failed. Please try again." />}
+      <button disabled={logout.isPending} onClick={() => logout.mutate()} type="button">
+        {logout.isPending ? 'Logging out…' : 'Log out'}
+      </button>
+    </section>
+  )
+}
