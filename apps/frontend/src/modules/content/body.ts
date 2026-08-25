@@ -57,5 +57,5 @@ export const createBlock = (type: ArticleBlockType): ArticleBlock => {
   if (type === 'heading') return { type, level: 2, text: '' }
   if (type === 'code') return { type, language: null, code: '' }
   if (type === 'list') return { type, style: 'unordered', items: [] }
-  return { type, url: 'https://', label: '' }
+  return { type, url: '', label: '' }
 }

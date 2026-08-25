@@ -106,6 +106,10 @@ describe('Content Editor Foundation', () => {
     expect(screen.getByDisplayValue('Hello learners')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Remove block' }))
     expect(screen.getByText('No blocks yet.')).toBeInTheDocument()
+
+    await user.selectOptions(typeSelect, 'link')
+    await user.click(screen.getByRole('button', { name: 'Add block' }))
+    expect(screen.getByLabelText('URL')).toHaveValue('')
   })
 
   it('loads and saves an empty DRAFT RESOURCE with edited URL and description', async () => {
