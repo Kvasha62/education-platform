@@ -45,3 +45,7 @@ button:disabled { cursor: wait; opacity: .65; }
 .workspace-actions p { margin: .4rem 0 1.25rem; }
 .primary-link { display: inline-block; padding: .7rem 1rem; border-radius: .55rem; background: #1d5b43; color: #fff; font-weight: 750; text-decoration: none; }
 .primary-link:hover { background: #164b36; }
+.environment-page { display: grid; gap: 2rem; }
+.environment-empty { display: grid; gap: 1rem; padding: 2rem; border: 1px solid #d9dccf; border-radius: 1rem; background: #fff; }
+.environment-empty h1 { margin: 0; font-size: clamp(2rem, 7vw, 4rem); }
+.environment-empty > p { margin: 0; color: #667168; }
