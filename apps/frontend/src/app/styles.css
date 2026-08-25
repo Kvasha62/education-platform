@@ -75,3 +75,12 @@ button:disabled { cursor: wait; opacity: .65; }
 .attach-content { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; }
 .attach-content label { display: grid; flex: 1 1 16rem; gap: .4rem; font-size: .85rem; font-weight: 700; }
 .attach-content select { padding: .7rem; border: 1px solid #aeb8b0; border-radius: .5rem; background: #fff; font: inherit; }
+.content-editor { display: grid; gap: 1.5rem; }
+.content-editor h1 { font-size: clamp(2rem, 7vw, 4rem); }
+.article-editor, .resource-editor { display: grid; gap: 1rem; padding: 1.25rem; border: 1px solid #d9dccf; border-radius: 1rem; background: #fff; }
+.content-blocks { display: grid; gap: 1rem; margin: 0; padding: 0; list-style: none; }
+.content-block { display: grid; gap: .75rem; padding: 1rem; border: 1px solid #e1e4dc; border-radius: .7rem; }
+.content-block label, .resource-editor label, .editor-actions label { display: grid; gap: .4rem; font-size: .85rem; font-weight: 700; }
+.content-block input, .content-block textarea, .content-block select, .resource-editor input, .resource-editor textarea, .editor-actions select { padding: .7rem; border: 1px solid #aeb8b0; border-radius: .5rem; background: #fff; font: inherit; }
+.content-block textarea, .resource-editor textarea { min-height: 6rem; resize: vertical; }
+.editor-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; }

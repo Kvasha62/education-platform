@@ -1,4 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { ContentEditorPage } from '../modules/content'
 import { ActivitiesPage, CoursePage, CoursesPage, EducationalEnvironmentPage, LearningUnitsPage, SectionsPage } from '../modules/education'
 import { LoginPage, PublicOnlyRoute, RegisterPage } from '../modules/identity/AuthPages'
 import { TeacherSpacePage, TeacherSpacesPage } from '../modules/teacher'
@@ -22,6 +23,7 @@ export const routes = [
         children: [
           { path: 'app', element: <ProtectedApp /> },
           { path: 'app/teacher-spaces', element: <TeacherSpacesPage /> },
+          { path: 'app/contents/:contentId/edit', element: <ContentEditorPage /> },
           { path: 'app/teacher-spaces/:teacherSpaceId', element: <TeacherSpacePage /> },
           {
             path: 'app/teacher-spaces/:teacherSpaceId/environment',
