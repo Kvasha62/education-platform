@@ -76,7 +76,6 @@ const ActivityRow = ({
           />
         </label>
         <span className="activity-type">{activity.type}</span>
-        <span className="section-position">Position {activity.position}</span>
         <div className="section-actions">
           <button disabled={updateActivity.isPending} type="submit">
             {updateActivity.isPending ? 'Saving…' : 'Save'}

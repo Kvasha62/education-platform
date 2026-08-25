@@ -55,9 +55,9 @@ describe('Activity UI', () => {
 
     const rows = await screen.findAllByRole('listitem')
     expect(within(rows[0]).getByDisplayValue('Lecture One')).toBeInTheDocument()
-    expect(within(rows[0]).getByText('Position 0')).toBeInTheDocument()
+    expect(within(rows[0]).getByLabelText('Position')).toHaveValue(0)
     expect(within(rows[1]).getByDisplayValue('Video One')).toBeInTheDocument()
-    expect(within(rows[1]).getByText('Position 2')).toBeInTheDocument()
+    expect(within(rows[1]).getByLabelText('Position')).toHaveValue(2)
   })
 
   it('creates an Activity and refetches the scoped list', async () => {
@@ -120,7 +120,7 @@ describe('Activity UI', () => {
     await user.click(within(row).getByRole('button', { name: 'Save' }))
 
     expect(await within(row).findByDisplayValue('Updated Activity')).toBeInTheDocument()
-    expect(await within(row).findByText('Position 3')).toBeInTheDocument()
+    expect(within(row).getByLabelText('Position')).toHaveValue(3)
   })
 
   it('deletes an Activity and refetches the list', async () => {
