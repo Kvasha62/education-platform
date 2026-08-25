@@ -1,3 +1,7 @@
+export { ActivityContentPanel } from './ActivityContentPanel'
+export { activityContentApi } from './activityContentApi'
+export { activityContentKeys } from './activityContentQueries'
+export type { ActivityContentReference, ActivityContentScope } from './activityContentApi'
 export { ActivitiesPage } from './ActivityPage'
 export { activityApi } from './activityApi'
 export { activityKeys } from './activityQueries'

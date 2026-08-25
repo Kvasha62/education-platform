@@ -6,6 +6,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createQueryClient } from '../../app/providers'
 import { routes } from '../../app/router'
 
+vi.mock('./ActivityContentPanel', () => ({
+  ActivityContentPanel: () => <div>Content management</div>,
+}))
+
 const identity = {
   id: 'identity-id', email: 'teacher@example.com', status: 'active',
   created_at: '2026-08-25T00:00:00Z', updated_at: '2026-08-25T00:00:00Z',

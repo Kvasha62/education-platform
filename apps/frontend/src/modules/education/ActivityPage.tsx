@@ -3,6 +3,7 @@ import { FormEvent, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../../shared/api'
 import { ErrorState, LoadingState } from '../../shared/ui'
+import { ActivityContentPanel } from './ActivityContentPanel'
 import { activityApi } from './activityApi'
 import type { Activity, ActivityType } from './activityApi'
 import { activityKeys } from './activityQueries'
@@ -92,6 +93,15 @@ const ActivityRow = ({
       </form>
       {updateActivity.isError && <ErrorState message={errorMessage(updateActivity.error)} />}
       {deleteActivity.isError && <ErrorState message={errorMessage(deleteActivity.error)} />}
+      <ActivityContentPanel
+        scope={{
+          activityId: activity.id,
+          courseId,
+          learningUnitId,
+          sectionId,
+          teacherSpaceId,
+        }}
+      />
     </li>
   )
 }
