@@ -62,3 +62,6 @@ button:disabled { cursor: wait; opacity: .65; }
 @media (max-width: 720px) { .section-row form { grid-template-columns: 1fr; } .section-position { padding: 0; } }
 .learning-units-page { display: grid; gap: 2rem; }
 .unit-link { align-self: center; white-space: nowrap; }
+.activities-page { display: grid; gap: 2rem; }
+.create-space select { padding: .75rem; border: 1px solid #aeb8b0; border-radius: .5rem; background: #fff; font: inherit; }
+.activity-type { align-self: center; color: #1d5b43; font-size: .8rem; font-weight: 800; text-transform: uppercase; }
