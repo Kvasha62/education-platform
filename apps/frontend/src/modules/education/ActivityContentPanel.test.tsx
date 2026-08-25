@@ -1,6 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createQueryClient } from '../../app/providers'
 import { ActivityContentPanel } from './ActivityContentPanel'
@@ -31,10 +32,15 @@ const contentPage = (items: unknown[], page = 1, hasNext = false) => ({
   page_size: 20,
   has_next: hasNext,
 })
+const LocationProbe = () => <output aria-label="Current route">{useLocation().pathname}</output>
+
 const renderPanel = () =>
   render(
     <QueryClientProvider client={createQueryClient()}>
-      <ActivityContentPanel scope={scope} />
+      <MemoryRouter>
+        <ActivityContentPanel scope={scope} />
+        <LocationProbe />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
 
@@ -61,12 +67,21 @@ describe('Activity Content management', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) =>
       isContentRequest(String(input)) ? jsonResponse(contentPage([])) : jsonResponse([reference]),
     ))
+    const user = userEvent.setup()
     renderPanel()
 
     expect(await screen.findByText('article')).toBeInTheDocument()
     expect(screen.getByText('Status: published')).toBeInTheDocument()
     expect(screen.getByText('Student access: available')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Edit Content' })).toHaveAttribute(
+      'href',
+      '/app/contents/content-id/edit',
+    )
     expect(screen.queryByText('Reading')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: 'Edit Content' }))
+    expect(screen.getByLabelText('Current route')).toHaveTextContent(
+      '/app/contents/content-id/edit',
+    )
   })
 
   it('selects owned Content, attaches it, and refreshes linked Content', async () => {
