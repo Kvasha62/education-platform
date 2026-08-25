@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { contentApi } from '../content'
 import { ApiError } from '../../shared/api'
 import { ErrorState, LoadingState } from '../../shared/ui'
@@ -57,14 +58,17 @@ export const ActivityContentPanel = ({ scope }: { scope: ActivityContentScope })
                   Student access: {reference.available_for_student ? 'available' : 'unavailable'}
                 </span>
               </div>
-              <button
-                className="button-secondary"
-                disabled={detach.isPending}
-                onClick={() => detach.mutate(reference.id)}
-                type="button"
-              >
-                Remove
-              </button>
+              <div className="content-link-actions">
+                <Link to={`/app/contents/${reference.id}/edit`}>Edit Content</Link>
+                <button
+                  className="button-secondary"
+                  disabled={detach.isPending}
+                  onClick={() => detach.mutate(reference.id)}
+                  type="button"
+                >
+                  Remove
+                </button>
+              </div>
             </li>
           ))}
         </ul>
