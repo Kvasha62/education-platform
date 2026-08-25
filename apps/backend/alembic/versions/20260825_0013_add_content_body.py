@@ -17,13 +17,13 @@ def upgrade() -> None:
     op.add_column("contents", sa.Column("body", postgresql.JSONB(), nullable=True))
     op.execute(
         sa.text(
-            r"""
+            """
             UPDATE contents
             SET body = CASE
                 WHEN type = 'article' THEN
-                    '{"schema_version"\:1,"kind"\:"article","blocks"\:[]}'::jsonb
+                    '{"schema_version": 1, "kind": "article", "blocks": []}'::jsonb
                 ELSE
-                    '{"schema_version"\:1,"kind"\:"resource","resource"\:{"url"\:null,"description"\:""}}'::jsonb
+                    '{"schema_version": 1, "kind": "resource", "resource": {"url": null, "description": ""}}'::jsonb
             END
             """
         )
