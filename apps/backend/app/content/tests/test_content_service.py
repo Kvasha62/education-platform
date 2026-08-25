@@ -16,8 +16,10 @@ class MemoryRepository:
         self.items[item.id] = item
         return item
 
-    def list_owned(self, owner):
-        return [item for item in self.items.values() if item.owner_user_id == owner]
+    def list_owned(self, owner, *, offset, limit):
+        owned = [item for item in self.items.values() if item.owner_user_id == owner]
+        owned.sort(key=lambda item: (item.created_at, item.id))
+        return owned[offset : offset + limit]
 
     def get_by_id(self, item_id):
         return self.items.get(item_id)
@@ -99,3 +101,17 @@ def test_delete(service: ContentService) -> None:
     service.delete(item.id, owner)
     with pytest.raises(ContentNotFoundError):
         service.get_owned(item.id, owner)
+
+
+def test_paginated_list_uses_page_size_plus_one(service: ContentService) -> None:
+    owner = uuid4()
+    created = [service.create(owner, ContentType.ARTICLE, str(index)) for index in range(3)]
+    service.create(uuid4(), ContentType.ARTICLE, "Other owner")
+
+    first = service.list_owned(owner, page=1, page_size=2)
+    second = service.list_owned(owner, page=2, page_size=2)
+
+    assert first.items == created[:2]
+    assert first.has_next is True
+    assert second.items == created[2:]
+    assert second.has_next is False

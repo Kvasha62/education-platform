@@ -38,3 +38,42 @@ def test_content_has_no_education_or_teacher_foreign_keys() -> None:
     }
     table = cast(Table, ContentModel.__table__)
     assert all(key.column.table.name not in forbidden for key in table.foreign_keys)
+
+
+def test_content_page_ordering_uses_created_at_then_id() -> None:
+    from datetime import UTC, datetime
+    from uuid import UUID
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+    from sqlalchemy.pool import StaticPool
+
+    from app.content.domain.models import Content, ContentStatus, ContentType
+    from app.content.infrastructure.repositories import SqlAlchemyContentRepository
+    from app.core.database import Base
+
+    engine = create_engine("sqlite+pysqlite://", poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    owner = UUID("00000000-0000-0000-0000-000000000001")
+    created_at = datetime(2026, 8, 25, tzinfo=UTC)
+    later_id = UUID("00000000-0000-0000-0000-000000000020")
+    earlier_id = UUID("00000000-0000-0000-0000-000000000010")
+
+    with Session(engine) as session:
+        repository = SqlAlchemyContentRepository(session)
+        for content_id in (later_id, earlier_id):
+            repository.add(
+                Content(
+                    id=content_id,
+                    owner_user_id=owner,
+                    type=ContentType.ARTICLE,
+                    title=str(content_id),
+                    status=ContentStatus.DRAFT,
+                    created_at=created_at,
+                    updated_at=created_at,
+                )
+            )
+        session.commit()
+        page = repository.list_owned(owner, offset=0, limit=3)
+
+    assert [item.id for item in page] == [earlier_id, later_id]

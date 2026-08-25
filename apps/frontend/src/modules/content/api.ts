@@ -12,6 +12,14 @@ export interface Content {
   updated_at: string
 }
 
+export interface ContentPage {
+  items: Content[]
+  page: number
+  page_size: number
+  has_next: boolean
+}
+
 export const contentApi = {
-  list: () => apiRequest<Content[]>('/api/v1/contents'),
+  list: (page = 1, pageSize = 20) =>
+    apiRequest<ContentPage>(`/api/v1/contents?page=${page}&page_size=${pageSize}`),
 }

@@ -49,3 +49,10 @@ class ContentResponse(BaseModel):
             created_at=content.created_at,
             updated_at=content.updated_at,
         )
+
+
+class ContentPageResponse(BaseModel):
+    items: list[ContentResponse]
+    page: int
+    page_size: int
+    has_next: bool

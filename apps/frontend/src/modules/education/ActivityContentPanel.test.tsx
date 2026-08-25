@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createQueryClient } from '../../app/providers'
@@ -15,6 +15,7 @@ const scope = {
 const linksEndpoint =
   '/api/v1/teacher-spaces/space-id/environment/courses/course-id/sections/section-id/units/unit-id/activities/activity-id/contents'
 const contentEndpoint = '/api/v1/contents'
+const isContentRequest = (url: string) => url.includes(`${contentEndpoint}?`)
 const ownedContent = {
   id: 'content-id', type: 'article', title: 'Reading', status: 'draft',
   created_at: '2026-08-25T00:00:00Z', updated_at: '2026-08-25T00:00:00Z',
@@ -24,6 +25,12 @@ const reference = {
 }
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+const contentPage = (items: unknown[], page = 1, hasNext = false) => ({
+  items,
+  page,
+  page_size: 20,
+  has_next: hasNext,
+})
 const renderPanel = () =>
   render(
     <QueryClientProvider client={createQueryClient()}>
@@ -38,7 +45,7 @@ describe('Activity Content management', () => {
     let resolveLinks: ((response: Response) => void) | undefined
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
-      if (url.endsWith(contentEndpoint)) return jsonResponse([ownedContent])
+      if (isContentRequest(url)) return jsonResponse(contentPage([]))
       return new Promise<Response>((resolve) => { resolveLinks = resolve })
     }))
     renderPanel()
@@ -46,11 +53,13 @@ describe('Activity Content management', () => {
     expect(screen.getByText('Loading Content')).toBeInTheDocument()
     resolveLinks?.(jsonResponse([]))
     expect(await screen.findByText('No Content linked.')).toBeInTheDocument()
+    expect(within(screen.getByLabelText('Existing Content')).getAllByRole('option')).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument()
   })
 
   it('displays only safe linked Content reference fields', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) =>
-      String(input).endsWith(contentEndpoint) ? jsonResponse([]) : jsonResponse([reference]),
+      isContentRequest(String(input)) ? jsonResponse(contentPage([])) : jsonResponse([reference]),
     ))
     renderPanel()
 
@@ -64,7 +73,7 @@ describe('Activity Content management', () => {
     let linked = [] as typeof reference[]
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
-      if (url.endsWith(contentEndpoint)) return jsonResponse([ownedContent])
+      if (isContentRequest(url)) return jsonResponse(contentPage([ownedContent]))
       if (url.endsWith(linksEndpoint) && init?.method === 'POST') {
         expect(JSON.parse(String(init.body))).toEqual({ content_id: 'content-id' })
         linked = [reference]
@@ -91,7 +100,7 @@ describe('Activity Content management', () => {
     let linked = [reference]
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
-      if (url.endsWith(contentEndpoint)) return jsonResponse([])
+      if (isContentRequest(url)) return jsonResponse(contentPage([]))
       if (url.endsWith(`${linksEndpoint}/content-id`) && init?.method === 'DELETE') {
         linked = []
         return new Response(null, { status: 204 })
@@ -109,8 +118,8 @@ describe('Activity Content management', () => {
 
   it('shows linked-list and mutation errors', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) =>
-      String(input).endsWith(contentEndpoint)
-        ? jsonResponse([ownedContent])
+      isContentRequest(String(input))
+        ? jsonResponse(contentPage([ownedContent]))
         : jsonResponse({ detail: 'Content lookup unavailable' }, 503),
     ))
     const user = userEvent.setup()
@@ -123,4 +132,35 @@ describe('Activity Content management', () => {
       'Content lookup unavailable',
     )
   })
+  it('loads additional Content pages and appends their items', async () => {
+    const secondContent = { ...ownedContent, id: 'content-2', title: 'Second Reading' }
+    const requests: string[] = []
+    let resolveSecondPage: ((response: Response) => void) | undefined
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      requests.push(url)
+      if (url.includes('page=1&page_size=20')) {
+        return jsonResponse(contentPage([ownedContent], 1, true))
+      }
+      if (url.includes('page=2&page_size=20')) {
+        return new Promise<Response>((resolve) => { resolveSecondPage = resolve })
+      }
+      if (url.endsWith(linksEndpoint)) return jsonResponse([])
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    const user = userEvent.setup()
+    renderPanel()
+
+    const select = await screen.findByLabelText('Existing Content')
+    expect(within(select).getByRole('option', { name: /Reading/ })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Load more' }))
+    expect(screen.getByRole('button', { name: 'Loading more…' })).toBeDisabled()
+    resolveSecondPage?.(jsonResponse(contentPage([secondContent], 2, false)))
+
+    expect(await within(select).findByRole('option', { name: /Second Reading/ })).toBeInTheDocument()
+    expect(within(select).getByRole('option', { name: /^Reading/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument()
+    expect(requests.some((url) => url.includes('page=2&page_size=20'))).toBe(true)
+  })
+
 })
