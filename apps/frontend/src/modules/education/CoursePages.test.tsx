@@ -124,6 +124,10 @@ describe('Course UI', () => {
     resolveCourse?.(jsonResponse(course))
     expect(await screen.findByRole('heading', { name: course.title })).toBeInTheDocument()
     expect(screen.getByText('DRAFT')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open Sections' })).toHaveAttribute(
+      'href',
+      '/app/teacher-spaces/space-id/environment/courses/course-id/sections',
+    )
   })
 
   it('keeps Course detail 404 as a not-found error', async () => {

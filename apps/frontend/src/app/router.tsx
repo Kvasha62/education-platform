@@ -1,5 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
-import { CoursePage, CoursesPage, EducationalEnvironmentPage } from '../modules/education'
+import { CoursePage, CoursesPage, EducationalEnvironmentPage, SectionsPage } from '../modules/education'
 import { LoginPage, PublicOnlyRoute, RegisterPage } from '../modules/identity/AuthPages'
 import { TeacherSpacePage, TeacherSpacesPage } from '../modules/teacher'
 import { ProtectedApp, ProtectedRoute, RootLayout } from './App'
@@ -34,6 +34,10 @@ export const routes = [
           {
             path: 'app/teacher-spaces/:teacherSpaceId/environment/courses/:courseId',
             element: <CoursePage />,
+          },
+          {
+            path: 'app/teacher-spaces/:teacherSpaceId/environment/courses/:courseId/sections',
+            element: <SectionsPage />,
           },
         ],
       },
