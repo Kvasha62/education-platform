@@ -70,11 +70,19 @@ export const LoginPage = () => {
 
 export const RegisterPage = () => {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const register = useMutation({
-    mutationFn: (input: RegistrationInput) => identityApi.register(input),
-    onSuccess: (identity) => navigate('/login', { replace: true, state: { email: identity.email } }),
+    mutationFn: async (input: RegistrationInput) => {
+      await identityApi.register(input)
+      await identityApi.login(input)
+      return identityApi.me()
+    },
+    onSuccess: (identity) => {
+      queryClient.setQueryData(authQueryKey, identity)
+      navigate('/app', { replace: true })
+    },
   })
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
