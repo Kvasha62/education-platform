@@ -103,6 +103,9 @@ export const TeacherSpacePage = () => {
             <div><dt>Status</dt><dd>{space.data.status}</dd></div>
             <div><dt>Created</dt><dd>{new Date(space.data.created_at).toLocaleDateString()}</dd></div>
           </dl>
+          <Link className="primary-link" to={`/app/teacher-spaces/${space.data.id}/environment`}>
+            Open Educational Environment
+          </Link>
         </div>
       )}
     </section>
