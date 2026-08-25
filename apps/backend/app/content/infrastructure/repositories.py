@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.content.application.errors import ContentNotFoundError
+from app.content.domain.body import ContentBody
 from app.content.domain.models import Content
 from app.content.infrastructure.models import ContentModel
 
@@ -15,6 +16,7 @@ def _to_domain(model: ContentModel) -> Content:
         type=model.type,
         title=model.title,
         status=model.status,
+        body=ContentBody.from_dict(model.body),
         created_at=model.created_at,
         updated_at=model.updated_at,
     )
@@ -31,6 +33,7 @@ class SqlAlchemyContentRepository:
             type=content.type,
             title=content.title,
             status=content.status,
+            body=content.body.to_dict(),
             created_at=content.created_at,
             updated_at=content.updated_at,
         )
@@ -69,6 +72,7 @@ class SqlAlchemyContentRepository:
             raise ContentNotFoundError
         model.title = content.title
         model.status = content.status
+        model.body = content.body.to_dict()
         model.updated_at = content.updated_at
         self.db.flush()
         return _to_domain(model)

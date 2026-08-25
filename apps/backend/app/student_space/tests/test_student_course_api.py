@@ -153,6 +153,15 @@ def test_student_reads_ordered_structure_and_only_published_content(client: Test
         json={"title": "Published Content", "type": "resource"},
         headers=HEADERS,
     ).json()
+    client.put(
+        f"/api/v1/contents/{published_content['id']}/body",
+        json={
+            "schema_version": 1,
+            "kind": "resource",
+            "resource": {"url": "https://example.test/material", "description": ""},
+        },
+        headers=HEADERS,
+    )
     client.post(f"/api/v1/contents/{published_content['id']}/publish", headers=HEADERS)
     links = f"{activities}/{early_activity['id']}/contents"
     client.post(links, json={"content_id": draft_content["id"]}, headers=HEADERS)

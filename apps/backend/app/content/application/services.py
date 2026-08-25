@@ -3,6 +3,7 @@ from uuid import UUID
 
 from app.content.application.errors import ContentNotFoundError
 from app.content.application.ports import ContentRepository
+from app.content.domain.body import ContentBody
 from app.content.domain.models import Content, ContentType
 
 
@@ -32,6 +33,17 @@ class ContentService:
         if content is None:
             raise ContentNotFoundError
         return content
+
+    def get_owned_body(self, content_id: UUID, owner_user_id: UUID) -> ContentBody:
+        return self.get_owned(content_id, owner_user_id).body
+
+    def replace_owned_body(
+        self, content_id: UUID, owner_user_id: UUID, body: ContentBody
+    ) -> ContentBody:
+        updated = self.repository.update(
+            self.get_owned(content_id, owner_user_id).replace_body(body)
+        )
+        return updated.body
 
     def rename(self, content_id: UUID, owner_user_id: UUID, title: str) -> Content:
         return self.repository.update(self.get_owned(content_id, owner_user_id).rename(title))

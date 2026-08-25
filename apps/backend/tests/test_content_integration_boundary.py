@@ -79,6 +79,7 @@ def test_content_owns_separate_user_owned_persistence() -> None:
         "type",
         "title",
         "status",
+        "body",
         "created_at",
         "updated_at",
     }
