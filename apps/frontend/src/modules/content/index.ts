@@ -1,2 +1,6 @@
 export { contentApi } from './api'
 export type { Content, ContentPage, ContentStatus, ContentType } from './api'
+export { createBlock } from './body'
+export type { ArticleBlock, ArticleBlockType, ArticleBody, ContentBody, ResourceBody } from './body'
+export { ContentEditorPage } from './ContentEditorPage'
+export { contentKeys } from './queries'

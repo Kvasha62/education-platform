@@ -1,0 +1,198 @@
+import { QueryClientProvider } from '@tanstack/react-query'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { createMemoryRouter, RouterProvider } from 'react-router-dom'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createQueryClient } from '../../app/providers'
+import { routes } from '../../app/router'
+import type { ContentBody } from './body'
+
+const identity = {
+  id: 'identity-id', email: 'teacher@example.com', status: 'active',
+  created_at: '2026-08-25T00:00:00Z', updated_at: '2026-08-25T00:00:00Z',
+}
+const metadata = {
+  id: 'content-id', type: 'article', title: 'Programming Article', status: 'draft',
+  created_at: '2026-08-25T00:00:00Z', updated_at: '2026-08-25T00:00:00Z',
+}
+const emptyArticle: ContentBody = { schema_version: 1, kind: 'article', blocks: [] }
+const emptyResource: ContentBody = {
+  schema_version: 1,
+  kind: 'resource',
+  resource: { url: null, description: '' },
+}
+const route = '/app/contents/content-id/edit'
+const bodyEndpoint = '/api/v1/contents/content-id/body'
+const detailEndpoint = '/api/v1/contents/content-id'
+const jsonResponse = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+
+const renderRoute = () => {
+  const router = createMemoryRouter(routes, { initialEntries: [route] })
+  return render(
+    <QueryClientProvider client={createQueryClient()}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  )
+}
+
+const successfulFetch = (body: ContentBody, content = metadata) =>
+  vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+    if (url.endsWith(bodyEndpoint)) return jsonResponse(body)
+    if (url.endsWith(detailEndpoint)) return jsonResponse(content)
+    throw new Error(`Unexpected request: ${url}`)
+  })
+
+describe('Content Editor Foundation', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('renders the protected route and loading state', async () => {
+    let resolveBody: ((response: Response) => void) | undefined
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+      if (url.endsWith(detailEndpoint)) return jsonResponse(metadata)
+      return new Promise<Response>((resolve) => { resolveBody = resolve })
+    }))
+    renderRoute()
+
+    expect(await screen.findByText('Loading Content Editor')).toBeInTheDocument()
+    resolveBody?.(jsonResponse(emptyArticle))
+    expect(await screen.findByRole('heading', { name: metadata.title })).toBeInTheDocument()
+  })
+
+  it('loads and saves an empty DRAFT ARTICLE as the complete canonical body', async () => {
+    let bodyGets = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+      if (url.endsWith(detailEndpoint)) return jsonResponse(metadata)
+      if (url.endsWith(bodyEndpoint) && init?.method === 'PUT') {
+        expect(JSON.parse(String(init.body))).toEqual(emptyArticle)
+        return jsonResponse(emptyArticle)
+      }
+      if (url.endsWith(bodyEndpoint)) {
+        bodyGets += 1
+        return jsonResponse(emptyArticle)
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    renderRoute()
+
+    expect(await screen.findByText('No blocks yet.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save Content' }))
+    await waitFor(() => expect(bodyGets).toBeGreaterThanOrEqual(2))
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(bodyEndpoint),
+      expect.objectContaining({ credentials: 'include', method: 'PUT' }),
+    )
+  })
+
+  it('adds, edits, and removes approved ARTICLE blocks', async () => {
+    vi.stubGlobal('fetch', successfulFetch(emptyArticle))
+    const user = userEvent.setup()
+    renderRoute()
+
+    const typeSelect = await screen.findByLabelText('Block type')
+    expect(within(typeSelect).getAllByRole('option').map((option) => option.getAttribute('value'))).toEqual([
+      'paragraph', 'heading', 'code', 'list', 'link',
+    ])
+    await user.click(screen.getByRole('button', { name: 'Add block' }))
+    await user.type(screen.getByLabelText('Text'), 'Hello learners')
+    expect(screen.getByDisplayValue('Hello learners')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Remove block' }))
+    expect(screen.getByText('No blocks yet.')).toBeInTheDocument()
+
+    await user.selectOptions(typeSelect, 'link')
+    await user.click(screen.getByRole('button', { name: 'Add block' }))
+    expect(screen.getByLabelText('URL')).toHaveValue('')
+  })
+
+  it('loads and saves an empty DRAFT RESOURCE with edited URL and description', async () => {
+    const savedBodies: unknown[] = []
+    const resourceMetadata = { ...metadata, type: 'resource' }
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+      if (url.endsWith(detailEndpoint)) return jsonResponse(resourceMetadata)
+      if (url.endsWith(bodyEndpoint) && init?.method === 'PUT') {
+        const saved = JSON.parse(String(init.body))
+        savedBodies.push(saved)
+        return jsonResponse(saved)
+      }
+      if (url.endsWith(bodyEndpoint)) return jsonResponse(emptyResource)
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    renderRoute()
+
+    const url = await screen.findByLabelText('Resource URL')
+    expect(url).toHaveValue('')
+    await user.click(screen.getByRole('button', { name: 'Save Content' }))
+    await waitFor(() => expect(savedBodies).toHaveLength(1))
+    expect(savedBodies[0]).toEqual(emptyResource)
+
+    await user.type(url, 'https://example.test/resource')
+    await user.type(screen.getByLabelText('Description'), 'Reference material')
+    await user.click(screen.getByRole('button', { name: 'Save Content' }))
+    await waitFor(() => expect(savedBodies).toHaveLength(2))
+    expect(savedBodies[1]).toEqual({
+      schema_version: 1,
+      kind: 'resource',
+      resource: { url: 'https://example.test/resource', description: 'Reference material' },
+    })
+  })
+
+  it('surfaces backend save errors', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+      if (url.endsWith(detailEndpoint)) return jsonResponse(metadata)
+      if (url.endsWith(bodyEndpoint) && init?.method === 'PUT') {
+        return jsonResponse({ detail: 'Invalid Content body' }, 422)
+      }
+      if (url.endsWith(bodyEndpoint)) return jsonResponse(emptyArticle)
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    renderRoute()
+
+    await user.click(await screen.findByRole('button', { name: 'Save Content' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid Content body')
+  })
+
+  it('renders PUBLISHED Content read-only and never sends PUT', async () => {
+    const published = { ...metadata, status: 'published' }
+    const fetchMock = successfulFetch({
+      schema_version: 1,
+      kind: 'article',
+      blocks: [{ type: 'paragraph', text: 'Published body' }],
+    }, published)
+    vi.stubGlobal('fetch', fetchMock)
+    renderRoute()
+
+    expect(await screen.findByText('Published Content is read-only.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Text')).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Save Content' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add block' })).not.toBeInTheDocument()
+    expect(
+      fetchMock.mock.calls.filter(([input]) => String(input).endsWith(bodyEndpoint)),
+    ).toHaveLength(1)
+  })
+
+  it('protects the Content Editor route', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse({ detail: 'Authentication required' }, 401)),
+    )
+    renderRoute()
+    expect(await screen.findByRole('heading', { name: 'Log in' })).toBeInTheDocument()
+    expect(screen.queryByText('Content Editor')).not.toBeInTheDocument()
+  })
+})
