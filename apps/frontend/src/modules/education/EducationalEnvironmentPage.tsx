@@ -77,6 +77,9 @@ export const EducationalEnvironmentPage = () => {
             <div><dt>Teacher Space</dt><dd>{environment.data.teacher_space_id}</dd></div>
             <div><dt>Created</dt><dd>{new Date(environment.data.created_at).toLocaleDateString()}</dd></div>
           </dl>
+          <Link className="primary-link" to={`/app/teacher-spaces/${scopeId}/environment/courses`}>
+            Open Courses
+          </Link>
         </div>
       )}
     </section>

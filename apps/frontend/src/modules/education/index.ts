@@ -1,3 +1,7 @@
+export { CoursePage, CoursesPage } from './CoursePages'
+export { courseApi } from './courseApi'
+export { courseKeys } from './courseQueries'
+export type { Course, CourseStatus, CreateCourseInput } from './courseApi'
 export { EducationalEnvironmentPage } from './EducationalEnvironmentPage'
 export { educationalEnvironmentApi } from './api'
 export { educationalEnvironmentKeys } from './queries'
