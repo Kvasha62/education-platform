@@ -58,6 +58,12 @@ const SectionRow = ({ section, teacherSpaceId, courseId }: SectionRowProps) => {
           />
         </label>
         <span className="section-position">Position {section.position}</span>
+        <Link
+          className="unit-link"
+          to={`/app/teacher-spaces/${teacherSpaceId}/environment/courses/${courseId}/sections/${section.id}/learning-units`}
+        >
+          Open Units
+        </Link>
         <div className="section-actions">
           <button disabled={updateSection.isPending} type="submit">
             {updateSection.isPending ? 'Saving…' : 'Save'}

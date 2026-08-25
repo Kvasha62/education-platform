@@ -60,3 +60,5 @@ button:disabled { cursor: wait; opacity: .65; }
 .section-actions { display: flex; gap: .5rem; }
 .button-secondary { background: #e8ece8; color: #314139; }
 @media (max-width: 720px) { .section-row form { grid-template-columns: 1fr; } .section-position { padding: 0; } }
+.learning-units-page { display: grid; gap: 2rem; }
+.unit-link { align-self: center; white-space: nowrap; }
