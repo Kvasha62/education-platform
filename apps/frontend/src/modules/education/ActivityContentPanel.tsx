@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { contentApi } from '../content'
 import { ApiError } from '../../shared/api'
@@ -15,9 +15,11 @@ export const ActivityContentPanel = ({ scope }: { scope: ActivityContentScope })
   const linkedKey = activityContentKeys.linked(scope)
   const [contentId, setContentId] = useState('')
   const linked = useQuery({ queryKey: linkedKey, queryFn: () => activityContentApi.list(scope) })
-  const owned = useQuery({
+  const owned = useInfiniteQuery({
     queryKey: activityContentKeys.ownedContent,
-    queryFn: contentApi.list,
+    queryFn: ({ pageParam }) => contentApi.list(pageParam),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => (lastPage.has_next ? lastPage.page + 1 : undefined),
   })
   const attach = useMutation({
     mutationFn: () => activityContentApi.attach(scope, contentId),
@@ -31,7 +33,8 @@ export const ActivityContentPanel = ({ scope }: { scope: ActivityContentScope })
     onSuccess: () => queryClient.invalidateQueries({ queryKey: linkedKey }),
   })
   const linkedIds = new Set(linked.data?.map((item) => item.id) ?? [])
-  const available = owned.data?.filter((item) => !linkedIds.has(item.id)) ?? []
+  const ownedItems = owned.data?.pages.flatMap((page) => page.items) ?? []
+  const available = ownedItems.filter((item) => !linkedIds.has(item.id))
 
   return (
     <div className="activity-content" aria-label="Linked Content">
@@ -88,6 +91,16 @@ export const ActivityContentPanel = ({ scope }: { scope: ActivityContentScope })
           >
             {attach.isPending ? 'Attaching…' : 'Attach Content'}
           </button>
+          {owned.hasNextPage && (
+            <button
+              className="button-secondary"
+              disabled={owned.isFetchingNextPage}
+              onClick={() => owned.fetchNextPage()}
+              type="button"
+            >
+              {owned.isFetchingNextPage ? 'Loading more…' : 'Load more'}
+            </button>
+          )}
         </div>
       )}
       {attach.isError && <ErrorState message={errorMessage(attach.error)} />}

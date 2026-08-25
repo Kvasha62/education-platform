@@ -99,7 +99,13 @@ def test_owner_crud_and_default_contract(client: TestClient) -> None:
     assert first.json()["status"] == "draft"
     assert "owner_user_id" not in first.json()
     listed = client.get("/api/v1/contents").json()
-    assert len(listed) == 2
+    assert len(listed["items"]) == 2
+    assert listed == {
+        "items": listed["items"],
+        "page": 1,
+        "page_size": 20,
+        "has_next": False,
+    }
     item = f"/api/v1/contents/{first.json()['id']}"
     assert client.get(item).status_code == 200
     changed = client.patch(item, json={"title": "Changed"}, headers=HEADERS)
@@ -145,7 +151,9 @@ def test_cross_owner_isolation_and_owned_list(client: TestClient) -> None:
     private = create(client, "Private").json()
     auth(client, "second@example.com")
     own = create(client, "Own").json()
-    assert [item["id"] for item in client.get("/api/v1/contents").json()] == [own["id"]]
+    assert [item["id"] for item in client.get("/api/v1/contents").json()["items"]] == [
+        own["id"]
+    ]
     path = f"/api/v1/contents/{private['id']}"
     assert client.get(path).status_code == 404
     assert client.patch(path, json={"title": "Stolen"}, headers=HEADERS).status_code == 404
@@ -203,3 +211,60 @@ def test_openapi_content_lifecycle_contract(client: TestClient) -> None:
     assert {"get", "patch", "delete"} <= paths["/api/v1/contents/{content_id}"].keys()
     assert "post" in paths["/api/v1/contents/{content_id}/publish"]
     assert all("attachment" not in path for path in paths if "content" in path)
+
+
+def test_content_collection_pagination_contract(client: TestClient) -> None:
+    auth(client, "pagination@example.com")
+    created = [create(client, f"Content {index:02}").json() for index in range(21)]
+
+    created_ids = [item["id"] for item in created]
+    default_page = client.get("/api/v1/contents")
+    assert default_page.status_code == 200
+    default_payload = default_page.json()
+    assert [item["id"] for item in default_payload["items"]] == created_ids[:20]
+    assert {key: default_payload[key] for key in ("page", "page_size", "has_next")} == {
+        "page": 1,
+        "page_size": 20,
+        "has_next": True,
+    }
+
+    final_payload = client.get("/api/v1/contents?page=2&page_size=20").json()
+    assert [item["id"] for item in final_payload["items"]] == created_ids[20:]
+    assert {key: final_payload[key] for key in ("page", "page_size", "has_next")} == {
+        "page": 2,
+        "page_size": 20,
+        "has_next": False,
+    }
+
+    minimum_page = client.get("/api/v1/contents?page=2&page_size=1").json()
+    assert [item["id"] for item in minimum_page["items"]] == created_ids[1:2]
+    assert minimum_page["has_next"] is True
+
+    maximum_page = client.get("/api/v1/contents?page_size=100").json()
+    assert maximum_page["page_size"] == 100
+    assert [item["id"] for item in maximum_page["items"]] == created_ids
+    assert maximum_page["has_next"] is False
+
+    beyond = client.get("/api/v1/contents?page=99&page_size=20").json()
+    assert beyond == {"items": [], "page": 99, "page_size": 20, "has_next": False}
+
+
+@pytest.mark.parametrize(
+    "query",
+    ["page=0", "page=-1", "page_size=0", "page_size=-1", "page_size=101"],
+)
+def test_content_pagination_rejects_invalid_parameters(
+    client: TestClient, query: str
+) -> None:
+    auth(client, f"{query.replace('=', '-')}@example.com")
+    assert client.get(f"/api/v1/contents?{query}").status_code == 422
+
+
+def test_empty_content_collection_uses_paginated_envelope(client: TestClient) -> None:
+    auth(client, "empty@example.com")
+    assert client.get("/api/v1/contents").json() == {
+        "items": [],
+        "page": 1,
+        "page_size": 20,
+        "has_next": False,
+    }

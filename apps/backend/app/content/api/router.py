@@ -1,10 +1,15 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from app.content.api.dependencies import get_content_service
-from app.content.api.schemas import ContentResponse, CreateContentRequest, UpdateContentRequest
+from app.content.api.schemas import (
+    ContentPageResponse,
+    ContentResponse,
+    CreateContentRequest,
+    UpdateContentRequest,
+)
 from app.content.application.errors import ContentNotFoundError
 from app.content.application.services import ContentService
 from app.identity.api.dependencies import get_current_identity, require_trusted_origin
@@ -31,9 +36,20 @@ def create_content(
     return ContentResponse.from_content(service.create(identity.id, payload.type, payload.title))
 
 
-@router.get("", response_model=list[ContentResponse])
-def list_contents(identity: CurrentIdentity, service: Contents) -> list[ContentResponse]:
-    return [ContentResponse.from_content(item) for item in service.list_owned(identity.id)]
+@router.get("", response_model=ContentPageResponse)
+def list_contents(
+    identity: CurrentIdentity,
+    service: Contents,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> ContentPageResponse:
+    result = service.list_owned(identity.id, page=page, page_size=page_size)
+    return ContentPageResponse(
+        items=[ContentResponse.from_content(item) for item in result.items],
+        page=page,
+        page_size=page_size,
+        has_next=result.has_next,
+    )
 
 
 @router.get("/{content_id}", response_model=ContentResponse)

@@ -38,11 +38,15 @@ class SqlAlchemyContentRepository:
         self.db.flush()
         return _to_domain(model)
 
-    def list_owned(self, owner_user_id: UUID) -> list[Content]:
+    def list_owned(
+        self, owner_user_id: UUID, *, offset: int, limit: int
+    ) -> list[Content]:
         models = self.db.scalars(
             select(ContentModel)
             .where(ContentModel.owner_user_id == owner_user_id)
             .order_by(ContentModel.created_at, ContentModel.id)
+            .offset(offset)
+            .limit(limit)
         ).all()
         return [_to_domain(model) for model in models]
 
