@@ -1,2 +1,4 @@
-// Public entrypoint for future Teacher frontend features.
-export {}
+export { TeacherSpacePage, TeacherSpacesPage } from './TeacherSpacePages'
+export { teacherSpaceApi } from './api'
+export { teacherSpaceKeys } from './queries'
+export type { CreateTeacherSpaceInput, TeacherSpace } from './api'
