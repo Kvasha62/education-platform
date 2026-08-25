@@ -1,3 +1,7 @@
+export { SectionsPage } from './SectionPage'
+export { sectionApi } from './sectionApi'
+export { sectionKeys } from './sectionQueries'
+export type { CreateSectionInput, Section, UpdateSectionInput } from './sectionApi'
 export { CoursePage, CoursesPage } from './CoursePages'
 export { courseApi } from './courseApi'
 export { courseKeys } from './courseQueries'

@@ -121,6 +121,9 @@ export const CoursePage = () => {
             <div><dt>Status</dt><dd>{statusLabel(course.data.status)}</dd></div>
             <div><dt>Created</dt><dd>{new Date(course.data.created_at).toLocaleDateString()}</dd></div>
           </dl>
+          <Link className="primary-link" to={`/app/teacher-spaces/${scopeId}/environment/courses/${selectedCourseId}/sections`}>
+            Open Sections
+          </Link>
         </div>
       )}
     </section>

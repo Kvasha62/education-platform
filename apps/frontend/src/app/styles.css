@@ -50,3 +50,13 @@ button:disabled { cursor: wait; opacity: .65; }
 .environment-empty h1 { margin: 0; font-size: clamp(2rem, 7vw, 4rem); }
 .environment-empty > p { margin: 0; color: #667168; }
 .courses-page, .course-detail { display: grid; gap: 2rem; }
+.sections-page { display: grid; gap: 2rem; }
+.section-list { display: grid; gap: 1rem; margin: 0; padding: 0; list-style: none; }
+.section-row { display: grid; gap: .75rem; padding: 1rem; border: 1px solid #d9dccf; border-radius: .8rem; background: #fff; }
+.section-row form { display: grid; grid-template-columns: minmax(12rem, 1fr) 7rem auto auto; gap: .75rem; align-items: end; }
+.section-row label { display: grid; gap: .4rem; font-size: .85rem; font-weight: 700; }
+.section-row input { min-width: 0; padding: .7rem; border: 1px solid #aeb8b0; border-radius: .5rem; font: inherit; }
+.section-position { padding-bottom: .7rem; color: #667168; font-size: .82rem; }
+.section-actions { display: flex; gap: .5rem; }
+.button-secondary { background: #e8ece8; color: #314139; }
+@media (max-width: 720px) { .section-row form { grid-template-columns: 1fr; } .section-position { padding: 0; } }
