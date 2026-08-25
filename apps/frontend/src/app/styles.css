@@ -40,3 +40,8 @@ button:disabled { cursor: wait; opacity: .65; }
 .space-detail-card dl div { display: grid; grid-template-columns: 7rem 1fr; }
 .space-detail-card dt { color: #667168; }
 .space-detail-card dd { margin: 0; text-transform: capitalize; }
+.workspace-actions { margin: 2rem 0; padding: 1.5rem; border: 1px solid #d9dccf; border-radius: 1rem; background: #fff; }
+.workspace-actions h2 { margin: 0; font-size: 1.35rem; }
+.workspace-actions p { margin: .4rem 0 1.25rem; }
+.primary-link { display: inline-block; padding: .7rem 1rem; border-radius: .55rem; background: #1d5b43; color: #fff; font-weight: 750; text-decoration: none; }
+.primary-link:hover { background: #164b36; }

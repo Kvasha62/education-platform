@@ -38,8 +38,12 @@ describe('authentication UI', () => {
     renderApplication('/app')
 
     expect(screen.getByRole('status')).toHaveTextContent('Loading application')
-    expect(await screen.findByRole('heading', { name: 'You are signed in.' })).toBeInTheDocument()
-    expect(screen.getByText(identity.email)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Teacher Workspace' })).toBeInTheDocument()
+    expect(screen.getByText(/welcome, person@example.com/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open Teacher Spaces' })).toHaveAttribute(
+      'href',
+      '/app/teacher-spaces',
+    )
   })
 
   it('redirects an unauthenticated visitor away from the protected app', async () => {
@@ -82,7 +86,7 @@ describe('authentication UI', () => {
     await user.type(screen.getByLabelText('Password'), 'a secure password')
     await user.click(screen.getByRole('button', { name: 'Create account' }))
 
-    expect(await screen.findByRole('heading', { name: 'You are signed in.' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Teacher Workspace' })).toBeInTheDocument()
     expect(requests).toEqual([
       'GET /api/v1/auth/me',
       'POST /api/v1/auth/register',
@@ -123,7 +127,7 @@ describe('authentication UI', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Invalid email or password')
     expect(screen.getByRole('heading', { name: 'Create an account' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'You are signed in.' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Teacher Workspace' })).not.toBeInTheDocument()
   })
 
   it('presents normalized authentication failures', async () => {

@@ -43,10 +43,16 @@ export const ProtectedApp = () => {
 
   return (
     <section className="welcome" aria-labelledby="app-title">
-      <p className="eyebrow">Protected application</p>
-      <h1 id="app-title">You are signed in.</h1>
-      <p>{authentication.user.email}</p>
-      <p><Link to="/app/teacher-spaces">Open Teacher Spaces</Link></p>
+      <p className="eyebrow">Teacher area</p>
+      <h1 id="app-title">Teacher Workspace</h1>
+      <p>Welcome, {authentication.user.email}. Manage your teaching spaces from here.</p>
+      <div className="workspace-actions">
+        <div>
+          <h2>Teacher Spaces</h2>
+          <p>View your spaces or create a new one.</p>
+          <Link className="primary-link" to="/app/teacher-spaces">Open Teacher Spaces</Link>
+        </div>
+      </div>
       {logout.isError && <ErrorState message="Logout failed. Please try again." />}
       <button disabled={logout.isPending} onClick={() => logout.mutate()} type="button">
         {logout.isPending ? 'Logging out…' : 'Log out'}
