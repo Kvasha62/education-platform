@@ -49,3 +49,4 @@ button:disabled { cursor: wait; opacity: .65; }
 .environment-empty { display: grid; gap: 1rem; padding: 2rem; border: 1px solid #d9dccf; border-radius: 1rem; background: #fff; }
 .environment-empty h1 { margin: 0; font-size: clamp(2rem, 7vw, 4rem); }
 .environment-empty > p { margin: 0; color: #667168; }
+.courses-page, .course-detail { display: grid; gap: 2rem; }
