@@ -1,3 +1,7 @@
+export { ActivitiesPage } from './ActivityPage'
+export { activityApi } from './activityApi'
+export { activityKeys } from './activityQueries'
+export type { Activity, ActivityType, CreateActivityInput, UpdateActivityInput } from './activityApi'
 export { LearningUnitsPage } from './LearningUnitPage'
 export { learningUnitApi } from './learningUnitApi'
 export { learningUnitKeys } from './learningUnitQueries'

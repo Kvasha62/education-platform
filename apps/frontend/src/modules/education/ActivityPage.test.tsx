@@ -10,13 +10,13 @@ const identity = {
   id: 'identity-id', email: 'teacher@example.com', status: 'active',
   created_at: '2026-08-25T00:00:00Z', updated_at: '2026-08-25T00:00:00Z',
 }
-const firstUnit = {
-  id: 'unit-1', section_id: 'section-id', title: 'Lesson One', position: 0,
+const firstActivity = {
+  id: 'activity-1', learning_unit_id: 'unit-id', title: 'Lecture One', type: 'lecture', position: 0,
   created_at: '2026-08-25T00:00:00Z', updated_at: '2026-08-25T00:00:00Z',
 }
-const secondUnit = { ...firstUnit, id: 'unit-2', title: 'Lesson Two', position: 2 }
-const route = '/app/teacher-spaces/space-id/environment/courses/course-id/sections/section-id/learning-units'
-const endpoint = '/api/v1/teacher-spaces/space-id/environment/courses/course-id/sections/section-id/units'
+const secondActivity = { ...firstActivity, id: 'activity-2', title: 'Video One', type: 'video', position: 2 }
+const route = '/app/teacher-spaces/space-id/environment/courses/course-id/sections/section-id/learning-units/unit-id/activities'
+const endpoint = '/api/v1/teacher-spaces/space-id/environment/courses/course-id/sections/section-id/units/unit-id/activities'
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
@@ -29,79 +29,81 @@ const renderRoute = () => {
   )
 }
 
-describe('Learning Unit UI', () => {
+describe('Activity UI', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('shows loading and an explicit empty state', async () => {
-    let resolveUnits: ((response: Response) => void) | undefined
+    let resolveActivities: ((response: Response) => void) | undefined
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       if (String(input).endsWith('/api/v1/auth/me')) return jsonResponse(identity)
-      return new Promise<Response>((resolve) => { resolveUnits = resolve })
+      return new Promise<Response>((resolve) => { resolveActivities = resolve })
     }))
     renderRoute()
 
-    expect(await screen.findByText('Loading Learning Units')).toBeInTheDocument()
-    resolveUnits?.(jsonResponse([]))
-    expect(await screen.findByRole('heading', { name: 'No Learning Units yet' })).toBeInTheDocument()
+    expect(await screen.findByText('Loading Activities')).toBeInTheDocument()
+    resolveActivities?.(jsonResponse([]))
+    expect(await screen.findByRole('heading', { name: 'No Activities yet' })).toBeInTheDocument()
   })
 
-  it('renders Learning Units in the server-provided position order', async () => {
+  it('renders Activities in the server-provided position order', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) =>
       String(input).endsWith('/api/v1/auth/me')
         ? jsonResponse(identity)
-        : jsonResponse([firstUnit, secondUnit]),
+        : jsonResponse([firstActivity, secondActivity]),
     ))
     renderRoute()
 
     const rows = await screen.findAllByRole('listitem')
-    expect(within(rows[0]).getByDisplayValue('Lesson One')).toBeInTheDocument()
-    expect(within(rows[0]).getByText('Position 0')).toBeInTheDocument()
-    expect(within(rows[1]).getByDisplayValue('Lesson Two')).toBeInTheDocument()
-    expect(within(rows[1]).getByText('Position 2')).toBeInTheDocument()
-    expect(within(rows[0]).getByRole('link', { name: 'Open Activities' })).toHaveAttribute(
-      'href',
-      '/app/teacher-spaces/space-id/environment/courses/course-id/sections/section-id/learning-units/unit-1/activities',
-    )
+    expect(within(rows[0]).getByDisplayValue('Lecture One')).toBeInTheDocument()
+    expect(within(rows[0]).getByLabelText('Position')).toHaveValue(0)
+    expect(within(rows[1]).getByDisplayValue('Video One')).toBeInTheDocument()
+    expect(within(rows[1]).getByLabelText('Position')).toHaveValue(2)
   })
 
-  it('creates a Learning Unit and refetches the scoped list', async () => {
-    let units = [] as typeof firstUnit[]
+  it('creates an Activity and refetches the scoped list', async () => {
+    let activities = [] as typeof firstActivity[]
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
       if (url.endsWith(endpoint) && init?.method === 'POST') {
-        expect(JSON.parse(String(init.body))).toEqual({ title: 'Lesson One', position: 0 })
-        units = [firstUnit]
-        return jsonResponse(firstUnit, 201)
+        expect(JSON.parse(String(init.body))).toEqual({ title: 'Lecture One', type: 'homework', position: 0 })
+        activities = [firstActivity]
+        return jsonResponse(firstActivity, 201)
       }
-      if (url.endsWith(endpoint)) return jsonResponse(units)
+      if (url.endsWith(endpoint)) return jsonResponse(activities)
       throw new Error(`Unexpected request: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
     renderRoute()
 
-    await user.type(await screen.findByLabelText('Learning Unit title'), 'Lesson One')
-    await user.click(screen.getByRole('button', { name: 'Create Learning Unit' }))
+    await user.type(await screen.findByLabelText('Activity title'), 'Lecture One')
+    expect(within(screen.getByLabelText('Type')).getAllByRole('option').map((option) => option.getAttribute('value'))).toEqual([
+      'lecture',
+      'video',
+      'homework',
+    ])
+    await user.selectOptions(screen.getByLabelText('Type'), 'homework')
+    await user.click(screen.getByRole('button', { name: 'Create Activity' }))
 
-    expect(await screen.findByDisplayValue('Lesson One')).toBeInTheDocument()
+    expect(await screen.findByDisplayValue('Lecture One')).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining(endpoint),
       expect.objectContaining({ credentials: 'include', method: 'POST' }),
     )
   })
 
-  it('updates Learning Unit title and position through the existing API', async () => {
-    let unit = firstUnit
+  it('updates Activity title and position through the existing API', async () => {
+    let activity = firstActivity
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
-      if (url.endsWith(`${endpoint}/unit-1`) && init?.method === 'PATCH') {
-        expect(JSON.parse(String(init.body))).toEqual({ title: 'Updated Unit', position: 3 })
-        unit = { ...unit, title: 'Updated Unit', position: 3 }
-        return jsonResponse(unit)
+      if (url.endsWith(`${endpoint}/activity-1`) && init?.method === 'PATCH') {
+        expect(JSON.parse(String(init.body))).toEqual({ title: 'Updated Activity', position: 3 })
+        activity = { ...activity, title: 'Updated Activity', position: 3 }
+        return jsonResponse(activity)
       }
-      if (url.endsWith(endpoint)) return jsonResponse([unit])
+      if (url.endsWith(endpoint)) return jsonResponse([activity])
       throw new Error(`Unexpected request: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -109,28 +111,28 @@ describe('Learning Unit UI', () => {
     renderRoute()
 
     const row = await screen.findByRole('listitem')
-    const title = within(row).getByLabelText('Learning Unit title')
+    const title = within(row).getByLabelText('Activity title')
     await user.clear(title)
-    await user.type(title, 'Updated Unit')
+    await user.type(title, 'Updated Activity')
     const position = within(row).getByLabelText('Position')
     await user.clear(position)
     await user.type(position, '3')
     await user.click(within(row).getByRole('button', { name: 'Save' }))
 
-    expect(await within(row).findByDisplayValue('Updated Unit')).toBeInTheDocument()
-    expect(await within(row).findByText('Position 3')).toBeInTheDocument()
+    expect(await within(row).findByDisplayValue('Updated Activity')).toBeInTheDocument()
+    expect(within(row).getByLabelText('Position')).toHaveValue(3)
   })
 
-  it('deletes a Learning Unit and refetches the list', async () => {
-    let units = [firstUnit]
+  it('deletes an Activity and refetches the list', async () => {
+    let activities = [firstActivity]
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
-      if (url.endsWith(`${endpoint}/unit-1`) && init?.method === 'DELETE') {
-        units = []
+      if (url.endsWith(`${endpoint}/activity-1`) && init?.method === 'DELETE') {
+        activities = []
         return new Response(null, { status: 204 })
       }
-      if (url.endsWith(endpoint)) return jsonResponse(units)
+      if (url.endsWith(endpoint)) return jsonResponse(activities)
       throw new Error(`Unexpected request: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -138,7 +140,7 @@ describe('Learning Unit UI', () => {
     renderRoute()
 
     await user.click(within(await screen.findByRole('listitem')).getByRole('button', { name: 'Delete' }))
-    expect(await screen.findByRole('heading', { name: 'No Learning Units yet' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'No Activities yet' })).toBeInTheDocument()
   })
 
   it('shows API errors and protects the route', async () => {
