@@ -11,6 +11,7 @@ from app.education.application.errors import PublishedActivityNotFoundError
 class PublishedActivityReference:
     id: UUID
     course_id: UUID
+    title: str
 
 
 class PublishedActivityLookup(Protocol):

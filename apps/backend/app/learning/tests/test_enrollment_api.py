@@ -318,6 +318,7 @@ def test_student_dashboard_composes_enrollment_and_continue_learning(
     assert payload["continue_learning"] == {
         "course_id": course_id,
         "activity_id": activity_id,
+        "activity_title": "Activity",
         "status": "in_progress",
         "updated_at": payload["continue_learning"]["updated_at"],
     }
@@ -349,9 +350,13 @@ def test_student_dashboard_excludes_archived_enrolled_course(client: TestClient)
 
 
 def test_student_dashboard_openapi_contract(client: TestClient) -> None:
-    operation = client.get("/openapi.json").json()["paths"][
-        "/api/v1/student/dashboard"
-    ]["get"]
+    openapi = client.get("/openapi.json").json()
+    operation = openapi["paths"]["/api/v1/student/dashboard"]["get"]
     assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/StudentDashboardResponse"
     }
+    continue_schema = openapi["components"]["schemas"][
+        "DashboardContinueLearningResponse"
+    ]
+    assert "activity_title" in continue_schema["properties"]
+    assert "activity_title" in continue_schema["required"]

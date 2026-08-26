@@ -52,8 +52,8 @@ def test_continue_learning_ignores_newer_progress_in_non_enrolled_course() -> No
     ]
     activities = Activities(
         [
-            PublishedActivityReference(non_enrolled_activity, non_enrolled_course),
-            PublishedActivityReference(enrolled_activity, enrolled_course),
+            PublishedActivityReference(non_enrolled_activity, non_enrolled_course, "Not enrolled"),
+            PublishedActivityReference(enrolled_activity, enrolled_course, "Enrolled activity"),
         ]
     )
 
@@ -64,6 +64,7 @@ def test_continue_learning_ignores_newer_progress_in_non_enrolled_course() -> No
     assert result is not None
     assert result.course_id == enrolled_course
     assert result.activity_id == enrolled_activity
+    assert result.activity_title == "Enrolled activity"
     assert result.status == "in_progress"
     assert activities.requested == [non_enrolled_activity, enrolled_activity]
 

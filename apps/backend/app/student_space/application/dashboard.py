@@ -27,6 +27,7 @@ class DashboardCourse:
 class DashboardContinueLearning:
     course_id: UUID
     activity_id: UUID
+    activity_title: str
     status: Literal["in_progress"]
     updated_at: datetime
 
@@ -82,6 +83,7 @@ class StudentDashboardService:
             DashboardContinueLearning(
                 course_id=resumable.course_id,
                 activity_id=resumable.activity_id,
+                activity_title=resumable.activity_title,
                 status=resumable.status,
                 updated_at=resumable.updated_at,
             )
