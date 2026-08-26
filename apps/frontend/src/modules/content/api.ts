@@ -31,4 +31,6 @@ export const contentApi = {
       method: 'PUT',
       body,
     }),
+  publish: (contentId: string) =>
+    apiRequest<Content>(`/api/v1/contents/${contentId}/publish`, { method: 'POST' }),
 }

@@ -148,13 +148,33 @@ export const ContentEditorPage = () => {
     enabled: Boolean(contentId),
   })
   const [draft, setDraft] = useState<ContentBody | null>(null)
+  const [dirty, setDirty] = useState(false)
   const [newBlockType, setNewBlockType] = useState<ArticleBlockType>('paragraph')
   useEffect(() => {
-    if (body.data) setDraft(body.data)
+    if (body.data) {
+      setDraft(body.data)
+      setDirty(false)
+    }
   }, [body.data])
+  const changeDraft = (value: ContentBody) => {
+    setDraft(value)
+    setDirty(true)
+  }
   const save = useMutation({
     mutationFn: (value: ContentBody) => contentApi.replaceBody(contentId, value),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: contentKeys.body(contentId) }),
+    onSuccess: async () => {
+      setDirty(false)
+      await queryClient.invalidateQueries({ queryKey: contentKeys.body(contentId) })
+    },
+  })
+  const publish = useMutation({
+    mutationFn: () => contentApi.publish(contentId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: contentKeys.detail(contentId) }),
+        queryClient.invalidateQueries({ queryKey: contentKeys.body(contentId) }),
+      ])
+    },
   })
   const readOnly = metadata.data?.status === 'published'
 
@@ -189,12 +209,12 @@ export const ContentEditorPage = () => {
                 disabled={readOnly}
                 key={index}
                 onChange={(updated) =>
-                  setDraft({ ...draft, blocks: draft.blocks.map((item, itemIndex) =>
+                  changeDraft({ ...draft, blocks: draft.blocks.map((item, itemIndex) =>
                     itemIndex === index ? updated : item,
                   ) })
                 }
                 onRemove={() =>
-                  setDraft({ ...draft, blocks: draft.blocks.filter((_, itemIndex) =>
+                  changeDraft({ ...draft, blocks: draft.blocks.filter((_, itemIndex) =>
                     itemIndex !== index,
                   ) })
                 }
@@ -215,7 +235,7 @@ export const ContentEditorPage = () => {
                 </select>
               </label>
               <button
-                onClick={() => setDraft({ ...draft, blocks: [...draft.blocks, createBlock(newBlockType)] })}
+                onClick={() => changeDraft({ ...draft, blocks: [...draft.blocks, createBlock(newBlockType)] })}
                 type="button"
               >
                 Add block
@@ -230,7 +250,7 @@ export const ContentEditorPage = () => {
             <input
               disabled={readOnly}
               onChange={(event) =>
-                setDraft({ ...draft, resource: { ...draft.resource, url: event.target.value || null } })
+                changeDraft({ ...draft, resource: { ...draft.resource, url: event.target.value || null } })
               }
               type="url"
               value={draft.resource.url ?? ''}
@@ -241,7 +261,7 @@ export const ContentEditorPage = () => {
             <textarea
               disabled={readOnly}
               onChange={(event) =>
-                setDraft({ ...draft, resource: { ...draft.resource, description: event.target.value } })
+                changeDraft({ ...draft, resource: { ...draft.resource, description: event.target.value } })
               }
               value={draft.resource.description}
             />
@@ -250,10 +270,22 @@ export const ContentEditorPage = () => {
       )}
 
       {save.isError && <ErrorState message={errorMessage(save.error)} />}
+      {publish.isError && <ErrorState message={errorMessage(publish.error)} />}
       {!readOnly && (
-        <button disabled={save.isPending} onClick={saveDraft} type="button">
-          {save.isPending ? 'Saving…' : 'Save Content'}
-        </button>
+        <div className="editor-actions">
+          <button disabled={save.isPending} onClick={saveDraft} type="button">
+            {save.isPending ? 'Saving…' : 'Save Content'}
+          </button>
+          <button
+            className="button-secondary"
+            disabled={dirty || save.isPending || publish.isPending}
+            onClick={() => publish.mutate()}
+            type="button"
+          >
+            {publish.isPending ? 'Publishing…' : 'Publish Content'}
+          </button>
+          {dirty && <span className="form-hint">Save changes before publishing.</span>}
+        </div>
       )}
     </section>
   )
