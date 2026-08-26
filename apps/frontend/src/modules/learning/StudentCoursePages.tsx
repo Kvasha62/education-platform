@@ -22,7 +22,10 @@ export const StudentCoursesPage = () => {
           <p className="eyebrow">Student</p>
           <h1 id="student-courses-title">Published Courses</h1>
         </div>
-        <Link to="/app">Back to workspace</Link>
+        <div className="student-course-nav">
+          <Link to="/app/student/my-courses">My Courses</Link>
+          <Link to="/app">Back to workspace</Link>
+        </div>
       </div>
 
       {courses.isPending && <LoadingState label="Loading published Courses" />}
