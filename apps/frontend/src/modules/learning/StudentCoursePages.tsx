@@ -23,6 +23,7 @@ export const StudentCoursesPage = () => {
           <h1 id="student-courses-title">Published Courses</h1>
         </div>
         <div className="student-course-nav">
+          <Link to="/app/student/dashboard">Dashboard</Link>
           <Link to="/app/student/my-courses">My Courses</Link>
           <Link to="/app">Back to workspace</Link>
         </div>

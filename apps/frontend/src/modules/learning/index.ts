@@ -1,3 +1,7 @@
+export { StudentDashboardPage } from './StudentDashboardPage'
+export { dashboardApi } from './dashboardApi'
+export { dashboardKeys } from './dashboardQueries'
+export type { DashboardContinueLearning, DashboardCourse, StudentDashboard } from './dashboardApi'
 export { MyCoursesPage } from './MyCoursesPage'
 export { StudentCourseEnrollment } from './StudentCourseEnrollment'
 export { enrollmentApi } from './enrollmentApi'

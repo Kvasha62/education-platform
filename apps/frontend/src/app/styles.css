@@ -117,3 +117,10 @@ button:disabled { cursor: wait; opacity: .65; }
 .my-course-list li div { display: grid; gap: .2rem; }
 .my-course-list span { color: #667168; font-size: .82rem; }
 .student-course-nav { display: flex; flex-wrap: wrap; gap: 1rem; }
+.student-dashboard { display: grid; gap: 2rem; }
+.dashboard-panel { display: grid; gap: 1rem; }
+.dashboard-panel h2 { margin: 0; }
+.dashboard-course-list { display: grid; gap: .75rem; margin: 0; padding: 0; list-style: none; }
+.dashboard-course-list li, .continue-learning-card { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 1rem 1.2rem; border: 1px solid #d9dccf; border-radius: .8rem; background: #fff; }
+.dashboard-course-list li div, .continue-learning-card div { display: grid; gap: .2rem; }
+.dashboard-course-list span, .continue-learning-card span { color: #667168; font-size: .82rem; }
