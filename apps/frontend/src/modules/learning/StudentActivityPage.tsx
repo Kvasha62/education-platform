@@ -2,6 +2,7 @@ import { useQueries, useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../../shared/api'
 import { ErrorState, LoadingState } from '../../shared/ui'
+import { findNextActivity } from './activityProgression'
 import { StudentActivityProgress } from './StudentActivityProgress'
 import { StudentContentBody } from './StudentContentBody'
 import { studentCourseApi } from './studentCourseApi'
@@ -28,6 +29,7 @@ export const StudentActivityPage = () => {
         .map((activity) => ({ activity, section, unit })),
     ),
   )[0]
+  const nextActivity = course.data ? findNextActivity(course.data, activityId) : null
   const contentQueries = useQueries({
     queries: (location?.activity.contents ?? []).map((reference) => ({
       queryKey: studentCourseKeys.contentBody(reference.id),
@@ -52,7 +54,11 @@ export const StudentActivityPage = () => {
           {location.activity.type.toUpperCase()} · Activity {location.activity.position + 1}
         </p>
       </div>
-      <StudentActivityProgress activityId={location.activity.id} />
+      <StudentActivityProgress
+        activityId={location.activity.id}
+        courseId={courseId}
+        nextActivity={nextActivity}
+      />
 
       {location.activity.contents.length === 0 && (
         <div className="empty-state"><h2>No published Content attached</h2></div>

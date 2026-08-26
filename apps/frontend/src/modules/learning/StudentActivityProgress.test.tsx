@@ -1,6 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createQueryClient } from '../../app/providers'
 import { StudentActivityProgress } from './StudentActivityProgress'
@@ -8,11 +9,17 @@ import { StudentActivityProgress } from './StudentActivityProgress'
 const endpoint = '/api/v1/student/activities/activity-id/progress'
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
-const renderProgress = () =>
+const renderProgress = (nextActivity?: { id: string; title: string } | null) =>
   render(
-    <QueryClientProvider client={createQueryClient()}>
-      <StudentActivityProgress activityId="activity-id" />
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider client={createQueryClient()}>
+        <StudentActivityProgress
+          activityId="activity-id"
+          courseId="course-id"
+          nextActivity={nextActivity}
+        />
+      </QueryClientProvider>
+    </MemoryRouter>,
   )
 
 describe('Student Activity Progress UI', () => {
@@ -96,7 +103,39 @@ describe('Student Activity Progress UI', () => {
     expect(screen.getByRole('button', { name: 'Start Activity' })).toBeEnabled()
   })
 
-  it('does not advance IN_PROGRESS when Complete fails', async () => {
+  it('shows the next Activity only after backend-confirmed completion', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === endpoint && !init?.method) {
+        return jsonResponse({ activity_id: 'activity-id', status: 'in_progress' })
+      }
+      return jsonResponse({ activity_id: 'activity-id', status: 'completed' })
+    }))
+    const user = userEvent.setup()
+    renderProgress({ id: 'next-id', title: 'Next lesson' })
+
+    expect(await screen.findByRole('button', { name: 'Complete Activity' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Next Activity' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Complete Activity' }))
+    expect(await screen.findByRole('link', { name: 'Next Activity' })).toHaveAttribute(
+      'href',
+      '/app/student/courses/course-id/activities/next-id',
+    )
+    expect(screen.getByText('Next Activity: Next lesson')).toBeInTheDocument()
+  })
+
+  it('shows the last Activity state without claiming Course completion', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      jsonResponse({ activity_id: 'activity-id', status: 'completed' }),
+    ))
+    renderProgress(null)
+
+    expect(await screen.findByText("You've completed the last Activity.")).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Next Activity' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Course completed/i)).not.toBeInTheDocument()
+  })
+
+  it('does not show next Activity when Complete fails', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url === endpoint && !init?.method) {
@@ -106,11 +145,12 @@ describe('Student Activity Progress UI', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
-    renderProgress()
+    renderProgress({ id: 'next-id', title: 'Next lesson' })
 
     await user.click(await screen.findByRole('button', { name: 'Complete Activity' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Unable to complete progress')
     expect(screen.getByText('In progress')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Complete Activity' })).toBeEnabled()
+    expect(screen.queryByRole('link', { name: 'Next Activity' })).not.toBeInTheDocument()
   })
 })

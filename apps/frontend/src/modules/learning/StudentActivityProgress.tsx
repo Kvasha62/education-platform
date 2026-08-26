@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { ApiError } from '../../shared/api'
 import { ErrorState, LoadingState } from '../../shared/ui'
 import { progressApi } from './progressApi'
@@ -13,7 +14,17 @@ const statusLabel: Record<ProgressStatus, string> = {
 const errorMessage = (error: unknown) =>
   error instanceof ApiError || error instanceof Error ? error.message : 'Request failed.'
 
-export const StudentActivityProgress = ({ activityId }: { activityId: string }) => {
+interface StudentActivityProgressProps {
+  activityId: string
+  courseId?: string
+  nextActivity?: { id: string; title: string } | null
+}
+
+export const StudentActivityProgress = ({
+  activityId,
+  courseId,
+  nextActivity,
+}: StudentActivityProgressProps) => {
   const queryClient = useQueryClient()
   const queryKey = progressKeys.detail(activityId)
   const progress = useQuery({
@@ -57,6 +68,17 @@ export const StudentActivityProgress = ({ activityId }: { activityId: string }) 
             >
               {complete.isPending ? 'Completing…' : 'Complete Activity'}
             </button>
+          )}
+          {status === 'completed' && courseId && nextActivity && (
+            <div className="activity-progression">
+              <p>Next Activity: {nextActivity.title}</p>
+              <Link to={`/app/student/courses/${courseId}/activities/${nextActivity.id}`}>
+                Next Activity
+              </Link>
+            </div>
+          )}
+          {status === 'completed' && courseId && nextActivity === null && (
+            <p>You've completed the last Activity.</p>
           )}
         </>
       )}
