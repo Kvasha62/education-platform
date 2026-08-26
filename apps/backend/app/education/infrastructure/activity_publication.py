@@ -21,13 +21,13 @@ class SqlAlchemyPublishedActivityRepository:
 
     def lookup_published(self, activity_id: UUID) -> PublishedActivityReference | None:
         row = self.db.execute(
-            select(ActivityModel.id, CourseModel.id)
+            select(ActivityModel.id, CourseModel.id, ActivityModel.title)
             .join(LearningUnitModel, ActivityModel.learning_unit_id == LearningUnitModel.id)
             .join(SectionModel, LearningUnitModel.section_id == SectionModel.id)
             .join(CourseModel, SectionModel.course_id == CourseModel.id)
             .where(ActivityModel.id == activity_id, CourseModel.status == CourseStatus.PUBLISHED)
         ).one_or_none()
-        return PublishedActivityReference(row[0], row[1]) if row else None
+        return PublishedActivityReference(row[0], row[1], row[2]) if row else None
 
     def list_published(
         self, activity_ids: list[UUID], course_ids: set[UUID]
@@ -35,7 +35,7 @@ class SqlAlchemyPublishedActivityRepository:
         if not activity_ids or not course_ids:
             return []
         rows = self.db.execute(
-            select(ActivityModel.id, CourseModel.id)
+            select(ActivityModel.id, CourseModel.id, ActivityModel.title)
             .join(LearningUnitModel, ActivityModel.learning_unit_id == LearningUnitModel.id)
             .join(SectionModel, LearningUnitModel.section_id == SectionModel.id)
             .join(CourseModel, SectionModel.course_id == CourseModel.id)
@@ -45,4 +45,4 @@ class SqlAlchemyPublishedActivityRepository:
                 CourseModel.status == CourseStatus.PUBLISHED,
             )
         ).all()
-        return [PublishedActivityReference(row[0], row[1]) for row in rows]
+        return [PublishedActivityReference(row[0], row[1], row[2]) for row in rows]

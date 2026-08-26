@@ -13,6 +13,7 @@ from app.learning.domain.progress import ActivityProgress
 class ContinueLearningReference:
     course_id: UUID
     activity_id: UUID
+    activity_title: str
     status: Literal["in_progress"]
     updated_at: datetime
 
@@ -54,6 +55,7 @@ class ContinueLearningService:
                 return ContinueLearningReference(
                     course_id=activity.course_id,
                     activity_id=candidate.activity_id,
+                    activity_title=activity.title,
                     status="in_progress",
                     updated_at=candidate.updated_at,
                 )

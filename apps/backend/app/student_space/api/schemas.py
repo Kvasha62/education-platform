@@ -195,6 +195,7 @@ class DashboardCourseResponse(BaseModel):
 class DashboardContinueLearningResponse(BaseModel):
     course_id: UUID
     activity_id: UUID
+    activity_title: str
     status: Literal["in_progress"]
     updated_at: datetime
 
@@ -219,6 +220,7 @@ class StudentDashboardResponse(BaseModel):
                 DashboardContinueLearningResponse(
                     course_id=dashboard.continue_learning.course_id,
                     activity_id=dashboard.continue_learning.activity_id,
+                    activity_title=dashboard.continue_learning.activity_title,
                     status=dashboard.continue_learning.status,
                     updated_at=dashboard.continue_learning.updated_at,
                 )

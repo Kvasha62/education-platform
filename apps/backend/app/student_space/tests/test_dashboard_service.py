@@ -54,6 +54,7 @@ def test_dashboard_orders_enrollments_and_excludes_unpublished_or_stale_courses(
     continue_item = ContinueLearningReference(
         course_id=newer_course,
         activity_id=uuid4(),
+        activity_title="Continue activity",
         status="in_progress",
         updated_at=now,
     )
@@ -74,6 +75,7 @@ def test_dashboard_orders_enrollments_and_excludes_unpublished_or_stale_courses(
     ]
     assert dashboard.continue_learning is not None
     assert dashboard.continue_learning.activity_id == continue_item.activity_id
+    assert dashboard.continue_learning.activity_title == "Continue activity"
 
 
 def test_dashboard_drops_continue_item_outside_current_enrolled_published_courses() -> None:
@@ -81,6 +83,7 @@ def test_dashboard_drops_continue_item_outside_current_enrolled_published_course
     continue_item = ContinueLearningReference(
         course_id=course_id,
         activity_id=uuid4(),
+        activity_title="Continue activity",
         status="in_progress",
         updated_at=datetime.now(UTC),
     )
