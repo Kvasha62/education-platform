@@ -6,9 +6,17 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.education.application.activity_publication import PublishedActivityLookup
+from app.education.application.activity_publication import (
+    PublishedActivityCollectionLookup,
+    PublishedActivityLookup,
+)
 from app.education.application.publication import PublishedCourseLookup
-from app.education.composition import get_published_activity_lookup, get_published_course_lookup
+from app.education.composition import (
+    get_published_activity_collection_lookup,
+    get_published_activity_lookup,
+    get_published_course_lookup,
+)
+from app.learning.application.dashboard import ContinueLearningReader, ContinueLearningService
 from app.learning.application.enrollment_read import (
     StudentEnrollmentReader,
     StudentEnrollmentReadService,
@@ -44,3 +52,13 @@ def get_activity_progress_service(
         SqlAlchemyEnrollmentVerifier(db),
         activities,
     )
+
+
+def get_continue_learning_reader(
+    db: Annotated[Session, Depends(get_db)],
+    activities: Annotated[
+        PublishedActivityCollectionLookup,
+        Depends(get_published_activity_collection_lookup),
+    ],
+) -> ContinueLearningReader:
+    return ContinueLearningService(SqlAlchemyProgressRepository(db), activities)

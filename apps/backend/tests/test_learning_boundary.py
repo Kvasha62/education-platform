@@ -100,3 +100,21 @@ def test_activity_progress_contracts_are_minimal() -> None:
     }
     assert reader_methods == {"get_for_student_activity"}
     assert writer_methods == {"start", "complete"}
+
+
+def test_dashboard_readers_are_minimal_read_only_contracts() -> None:
+    from app.learning.application.dashboard import ContinueLearningReader
+    from app.student_space.application.dashboard import StudentDashboardReader
+
+    continue_methods = {
+        name
+        for name, member in ContinueLearningReader.__dict__.items()
+        if callable(member) and not name.startswith("_")
+    }
+    dashboard_methods = {
+        name
+        for name, member in StudentDashboardReader.__dict__.items()
+        if callable(member) and not name.startswith("_")
+    }
+    assert continue_methods == {"get_for_student"}
+    assert dashboard_methods == {"get_dashboard"}

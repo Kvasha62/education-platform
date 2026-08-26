@@ -21,6 +21,7 @@ from app.learning.application.enrollment_read import EnrollmentReference
 from app.learning.application.progress import ActivityProgressReference
 from app.learning.domain.models import Enrollment, EnrollmentStatus
 from app.learning.domain.progress import ProgressStatus
+from app.student_space.application.dashboard import StudentDashboard
 
 
 class StudentContentReferenceResponse(BaseModel):
@@ -181,4 +182,47 @@ class StudentPublishedContentBodyResponse(BaseModel):
             id=reference.id,
             type=reference.type,
             body=ContentBodyPayload.model_validate(reference.body),
+        )
+
+
+class DashboardCourseResponse(BaseModel):
+    course_id: UUID
+    title: str
+    status: Literal["enrolled"]
+    enrolled_at: datetime
+
+
+class DashboardContinueLearningResponse(BaseModel):
+    course_id: UUID
+    activity_id: UUID
+    status: Literal["in_progress"]
+    updated_at: datetime
+
+
+class StudentDashboardResponse(BaseModel):
+    my_courses: list[DashboardCourseResponse]
+    continue_learning: DashboardContinueLearningResponse | None
+
+    @classmethod
+    def from_dashboard(cls, dashboard: "StudentDashboard") -> "StudentDashboardResponse":
+        return cls(
+            my_courses=[
+                DashboardCourseResponse(
+                    course_id=item.course_id,
+                    title=item.title,
+                    status=item.status,
+                    enrolled_at=item.enrolled_at,
+                )
+                for item in dashboard.my_courses
+            ],
+            continue_learning=(
+                DashboardContinueLearningResponse(
+                    course_id=dashboard.continue_learning.course_id,
+                    activity_id=dashboard.continue_learning.activity_id,
+                    status=dashboard.continue_learning.status,
+                    updated_at=dashboard.continue_learning.updated_at,
+                )
+                if dashboard.continue_learning is not None
+                else None
+            ),
         )

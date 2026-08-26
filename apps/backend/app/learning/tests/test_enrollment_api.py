@@ -281,3 +281,77 @@ def test_activity_progress_openapi_contract(client: TestClient) -> None:
     assert set(openapi["paths"][f"{base}/start"]) == {"post"}
     assert set(openapi["paths"][f"{base}/complete"]) == {"post"}
     assert "ActivityProgressResponse" in openapi["components"]["schemas"]
+
+
+def test_student_dashboard_empty_and_authentication(client: TestClient) -> None:
+    assert client.get("/api/v1/student/dashboard").status_code == 401
+    auth(client, "empty-dashboard@example.com")
+    response = client.get("/api/v1/student/dashboard")
+    assert response.status_code == 200
+    assert response.json() == {"my_courses": [], "continue_learning": None}
+
+
+def test_student_dashboard_composes_enrollment_and_continue_learning(
+    client: TestClient,
+) -> None:
+    teacher = auth(client, "dashboard-teacher@example.com")
+    course_path, course_id = create_course(client, "Dashboard Course")
+    activity_id = create_activity(client, course_path)
+    client.post(f"{course_path}/publish", headers=HEADERS)
+
+    other_path, _other_course_id = create_course(client, "Not Enrolled")
+    client.post(f"{other_path}/publish", headers=HEADERS)
+
+    student = auth(client, "dashboard-student@example.com")
+    client.post(enrollment_path(course_id), headers=HEADERS)
+    client.post(
+        f"/api/v1/student/activities/{activity_id}/progress/start",
+        headers=HEADERS,
+    )
+    response = client.get("/api/v1/student/dashboard")
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["my_courses"]) == 1
+    assert payload["my_courses"][0]["course_id"] == course_id
+    assert payload["my_courses"][0]["title"] == "Dashboard Course"
+    assert payload["my_courses"][0]["status"] == "enrolled"
+    assert payload["continue_learning"] == {
+        "course_id": course_id,
+        "activity_id": activity_id,
+        "status": "in_progress",
+        "updated_at": payload["continue_learning"]["updated_at"],
+    }
+    assert set(payload) == {"my_courses", "continue_learning"}
+
+    auth(client, "dashboard-other-student@example.com")
+    assert client.get("/api/v1/student/dashboard").json() == {
+        "my_courses": [],
+        "continue_learning": None,
+    }
+    client.cookies.set(SESSION_COOKIE_NAME, teacher)
+    client.cookies.set(SESSION_COOKIE_NAME, student)
+
+
+def test_student_dashboard_excludes_archived_enrolled_course(client: TestClient) -> None:
+    teacher = auth(client, "stale-dashboard-teacher@example.com")
+    course_path, course_id = create_course(client, "Archived Enrollment")
+    client.post(f"{course_path}/publish", headers=HEADERS)
+    student = auth(client, "stale-dashboard-student@example.com")
+    client.post(enrollment_path(course_id), headers=HEADERS)
+
+    client.cookies.set(SESSION_COOKIE_NAME, teacher)
+    client.post(f"{course_path}/archive", headers=HEADERS)
+    client.cookies.set(SESSION_COOKIE_NAME, student)
+    assert client.get("/api/v1/student/dashboard").json() == {
+        "my_courses": [],
+        "continue_learning": None,
+    }
+
+
+def test_student_dashboard_openapi_contract(client: TestClient) -> None:
+    operation = client.get("/openapi.json").json()["paths"][
+        "/api/v1/student/dashboard"
+    ]["get"]
+    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/StudentDashboardResponse"
+    }

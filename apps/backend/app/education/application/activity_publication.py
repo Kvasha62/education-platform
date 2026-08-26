@@ -30,3 +30,28 @@ class ActivityPublicationLookupService:
         if reference is None:
             raise PublishedActivityNotFoundError
         return reference
+
+
+class PublishedActivityCollectionLookup(Protocol):
+    def list_published(
+        self, activity_ids: list[UUID]
+    ) -> dict[UUID, PublishedActivityReference]: ...
+
+
+class PublishedActivityCollectionLookupService:
+    def __init__(self, activities: "PublishedActivityCollectionRepository") -> None:
+        self.activities = activities
+
+    def list_published(
+        self, activity_ids: list[UUID]
+    ) -> dict[UUID, PublishedActivityReference]:
+        return {
+            reference.id: reference
+            for reference in self.activities.list_published(activity_ids)
+        }
+
+
+class PublishedActivityCollectionRepository(Protocol):
+    def list_published(
+        self, activity_ids: list[UUID]
+    ) -> list[PublishedActivityReference]: ...
