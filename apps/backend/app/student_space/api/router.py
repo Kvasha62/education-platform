@@ -50,8 +50,7 @@ StudentContentBodies = Annotated[
 ]
 PublishedCourseLists = Annotated[
     StudentPublishedCourseListService,
-    StudentPublishedContentBodyNotFoundError,
-    StudentPublishedContentBodyService, Depends(get_student_published_course_list_service)
+    Depends(get_student_published_course_list_service),
 ]
 Enrollments = Annotated[EnrollmentService, Depends(get_enrollment_service)]
 ActivityProgresses = Annotated[ActivityProgressService, Depends(get_activity_progress_service)]
