@@ -1,3 +1,4 @@
+export { MyCoursesPage } from './MyCoursesPage'
 export { StudentCourseEnrollment } from './StudentCourseEnrollment'
 export { enrollmentApi } from './enrollmentApi'
 export { enrollmentKeys } from './enrollmentQueries'
