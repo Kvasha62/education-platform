@@ -291,6 +291,7 @@ def test_student_course_progress_contract_and_calculation(client: TestClient) ->
     course_path, course_id = create_course(client, "Course Progress")
     first_activity = create_activity(client, course_path)
     second_activity = create_activity(client, course_path)
+    third_activity = create_activity(client, course_path)
     client.post(f"{course_path}/publish", headers=HEADERS)
 
     other_path, other_course_id = create_course(client, "Other Course")
@@ -303,10 +304,19 @@ def test_student_course_progress_contract_and_calculation(client: TestClient) ->
     client.post(enrollment_path(course_id), headers=HEADERS)
     client.post(enrollment_path(other_course_id), headers=HEADERS)
 
+    published_activities = [
+        activity
+        for section in client.get(f"/api/v1/student/courses/{course_id}").json()["sections"]
+        for unit in section["units"]
+        for activity in unit["activities"]
+    ]
+    assert len(published_activities) == 3
+    assert all(activity["contents"] == [] for activity in published_activities)
+
     assert client.get(endpoint).json() == {
         "course_id": course_id,
         "completed_activities": 0,
-        "total_activities": 2,
+        "total_activities": 3,
         "progress_percent": 0,
     }
     for activity_id in (first_activity, other_activity):
@@ -317,16 +327,17 @@ def test_student_course_progress_contract_and_calculation(client: TestClient) ->
     assert client.get(endpoint).json() == {
         "course_id": course_id,
         "completed_activities": 1,
-        "total_activities": 2,
-        "progress_percent": 50,
+        "total_activities": 3,
+        "progress_percent": 33,
     }
-    second_progress = f"/api/v1/student/activities/{second_activity}/progress"
-    client.post(f"{second_progress}/start", headers=HEADERS)
-    client.post(f"{second_progress}/complete", headers=HEADERS)
+    for activity_id in (second_activity, third_activity):
+        progress = f"/api/v1/student/activities/{activity_id}/progress"
+        client.post(f"{progress}/start", headers=HEADERS)
+        client.post(f"{progress}/complete", headers=HEADERS)
     assert client.get(endpoint).json() == {
         "course_id": course_id,
-        "completed_activities": 2,
-        "total_activities": 2,
+        "completed_activities": 3,
+        "total_activities": 3,
         "progress_percent": 100,
     }
 

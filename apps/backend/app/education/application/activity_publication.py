@@ -60,7 +60,7 @@ class PublishedActivityCollectionRepository(Protocol):
 
 
 class PublishedCourseActivityReader(Protocol):
-    """Student-visible Activity IDs for one PUBLISHED Course."""
+    """All Activity IDs belonging to a PUBLISHED Course, per ADR-0005."""
 
     def list_activity_ids(self, course_id: UUID) -> list[UUID]: ...
 

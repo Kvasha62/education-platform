@@ -21,10 +21,14 @@ The response is:
 }
 ```
 
-`total_activities` counts only Activities in the Education-owned, Student-visible structure of the
-published Course. Missing or stale Activity IDs outside that scope are excluded.
-`completed_activities` counts scoped Activities whose Learning-owned Activity Progress status is
+Per ADR-0005, Activity has no independent publication or visibility lifecycle. `total_activities`
+counts every Activity belonging through its Learning Unit and Section to the currently `PUBLISHED`
+Course. No additional Activity visibility filter is applied. Content publication, missing Content,
+and `Content.available_for_student` do not affect this denominator.
+
+`completed_activities` counts those Course Activities whose Learning-owned Activity Progress status is
 `COMPLETED`; an Activity without a Progress row is not completed, and this read creates no rows.
+Progress for an Activity outside the Course does not contribute.
 
 The integer percentage is calculated with floor division:
 
@@ -35,8 +39,9 @@ completed_activities * 100 // total_activities
 A zero total returns `0`. A `100` percentage means only that all counted Activities are completed; it
 does not introduce a Course completion state.
 
-Education exposes the minimal read-only `PublishedCourseActivityReader` application boundary.
-Learning owns enrollment checks, the set-based completed-progress count, and Course Progress
+Education exposes the minimal read-only `PublishedCourseActivityReader` application boundary defined
+by [ADR-0005](decisions/ADR-0005-activity-publication-student-visibility.md). Learning owns enrollment
+checks, the set-based completed-progress count, and Course Progress
 aggregation. Student Space serializes the Learning application result and accesses neither Education
 nor Learning persistence. The implementation uses bounded set-based queries and never performs a
 per-Activity Progress lookup.
