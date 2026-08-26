@@ -180,10 +180,88 @@ describe('Content Editor Foundation', () => {
     expect(await screen.findByText('Published Content is read-only.')).toBeInTheDocument()
     expect(screen.getByLabelText('Text')).toBeDisabled()
     expect(screen.queryByRole('button', { name: 'Save Content' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Publish Content' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Add block' })).not.toBeInTheDocument()
     expect(
       fetchMock.mock.calls.filter(([input]) => String(input).endsWith(bodyEndpoint)),
     ).toHaveLength(1)
+  })
+
+  it('publishes saved DRAFT Content, refetches queries, and becomes read-only', async () => {
+    let status = 'draft'
+    let metadataGets = 0
+    let bodyGets = 0
+    const publishableBody: ContentBody = {
+      schema_version: 1,
+      kind: 'article',
+      blocks: [{ type: 'paragraph', text: 'Ready to publish' }],
+    }
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+      if (url.endsWith(`${detailEndpoint}/publish`) && init?.method === 'POST') {
+        status = 'published'
+        return jsonResponse({ ...metadata, status })
+      }
+      if (url.endsWith(bodyEndpoint)) {
+        bodyGets += 1
+        return jsonResponse(publishableBody)
+      }
+      if (url.endsWith(detailEndpoint)) {
+        metadataGets += 1
+        return jsonResponse({ ...metadata, status })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    renderRoute()
+
+    await user.click(await screen.findByRole('button', { name: 'Publish Content' }))
+    expect(await screen.findByText('Published Content is read-only.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save Content' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Publish Content' })).not.toBeInTheDocument()
+    expect(metadataGets).toBeGreaterThanOrEqual(2)
+    expect(bodyGets).toBeGreaterThanOrEqual(2)
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(`${detailEndpoint}/publish`),
+      expect.objectContaining({ credentials: 'include', method: 'POST' }),
+    )
+  })
+
+  it('surfaces backend publish validation errors and remains editable', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+      if (url.endsWith(`${detailEndpoint}/publish`) && init?.method === 'POST') {
+        return jsonResponse({ detail: 'Content body is not publishable' }, 409)
+      }
+      if (url.endsWith(bodyEndpoint)) return jsonResponse(emptyArticle)
+      if (url.endsWith(detailEndpoint)) return jsonResponse(metadata)
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    renderRoute()
+
+    await user.click(await screen.findByRole('button', { name: 'Publish Content' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Content body is not publishable')
+    expect(screen.getByRole('button', { name: 'Publish Content' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Save Content' })).toBeEnabled()
+  })
+
+  it('requires explicit Save before publishing local body changes', async () => {
+    const fetchMock = successfulFetch(emptyArticle)
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    renderRoute()
+
+    await user.click(await screen.findByRole('button', { name: 'Add block' }))
+    expect(screen.getByText('Save changes before publishing.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Publish Content' })).toBeDisabled()
+    expect(
+      fetchMock.mock.calls.some(([input]) => String(input).endsWith('/publish')),
+    ).toBe(false)
   })
 
   it('protects the Content Editor route', async () => {
