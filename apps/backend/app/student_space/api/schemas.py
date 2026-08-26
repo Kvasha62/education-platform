@@ -17,6 +17,7 @@ from app.education.application.student_course import (
     StudentLearningUnit,
     StudentSection,
 )
+from app.learning.application.course_progress import CourseProgress
 from app.learning.application.enrollment_read import EnrollmentReference
 from app.learning.application.progress import ActivityProgressReference
 from app.learning.domain.models import Enrollment, EnrollmentStatus
@@ -152,6 +153,22 @@ class ActivityProgressResponse(BaseModel):
     @classmethod
     def from_reference(cls, reference: "ActivityProgressReference") -> "ActivityProgressResponse":
         return cls(activity_id=reference.activity_id, status=reference.status)
+
+
+class CourseProgressResponse(BaseModel):
+    course_id: UUID
+    completed_activities: int
+    total_activities: int
+    progress_percent: int
+
+    @classmethod
+    def from_progress(cls, progress: CourseProgress) -> "CourseProgressResponse":
+        return cls(
+            course_id=progress.course_id,
+            completed_activities=progress.completed_activities,
+            total_activities=progress.total_activities,
+            progress_percent=progress.progress_percent,
+        )
 
 
 class PublishedCourseSummaryResponse(BaseModel):

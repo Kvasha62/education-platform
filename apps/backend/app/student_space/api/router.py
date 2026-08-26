@@ -10,6 +10,10 @@ from app.learning.api.dependencies import (
     get_enrollment_service,
     get_student_enrollment_reader,
 )
+from app.learning.application.course_progress import (
+    CourseProgressNotFoundError,
+    CourseProgressReader,
+)
 from app.learning.application.enrollment_read import StudentEnrollmentReader
 from app.learning.application.progress import (
     ActivityProgressService,
@@ -19,6 +23,7 @@ from app.learning.application.progress import (
 )
 from app.learning.application.services import EnrollmentCourseNotFoundError, EnrollmentService
 from app.student_space.api.dependencies import (
+    get_student_course_progress_reader,
     get_student_course_service,
     get_student_dashboard_reader,
     get_student_published_content_body_service,
@@ -26,6 +31,7 @@ from app.student_space.api.dependencies import (
 )
 from app.student_space.api.schemas import (
     ActivityProgressResponse,
+    CourseProgressResponse,
     EnrollmentReferenceResponse,
     EnrollmentResponse,
     PublishedCourseListResponse,
@@ -48,6 +54,10 @@ from app.student_space.application.services import (
 router = APIRouter(prefix="/api/v1/student", tags=["student-courses"])
 CurrentIdentity = Annotated[Identity, Depends(get_current_identity)]
 StudentCourses = Annotated[StudentCourseService, Depends(get_student_course_service)]
+StudentCourseProgresses = Annotated[
+    CourseProgressReader,
+    Depends(get_student_course_progress_reader),
+]
 StudentDashboards = Annotated[StudentDashboardReader, Depends(get_student_dashboard_reader)]
 StudentContentBodies = Annotated[
     StudentPublishedContentBodyService, Depends(get_student_published_content_body_service)
@@ -109,6 +119,22 @@ def list_published_courses(
             for item in courses.list_published()
         ]
     )
+
+
+@router.get(
+    "/courses/{course_id}/progress",
+    response_model=CourseProgressResponse,
+)
+def get_course_progress(
+    course_id: UUID,
+    identity: CurrentIdentity,
+    progress: StudentCourseProgresses,
+) -> CourseProgressResponse:
+    try:
+        result = progress.get_for_student(identity.id, course_id)
+    except CourseProgressNotFoundError as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Course not found") from error
+    return CourseProgressResponse.from_progress(result)
 
 
 @router.get("/courses/{course_id}", response_model=StudentCourseResponse)
