@@ -78,7 +78,7 @@ export const StudentCoursePage = () => {
               {course.data.sections.map((section) => (
                 <li key={section.id}>
                   <div className="student-section-heading">
-                    <span>Section {section.position}</span>
+                    <span>Section {section.position + 1}</span>
                     <h2>{section.title}</h2>
                   </div>
                   {section.units.length === 0 ? (
@@ -87,7 +87,7 @@ export const StudentCoursePage = () => {
                     <ol className="student-unit-list">
                       {section.units.map((unit) => (
                         <li key={unit.id}>
-                          <span>Unit {unit.position}</span>
+                          <span>Unit {unit.position + 1}</span>
                           <strong>{unit.title}</strong>
                         </li>
                       ))}
