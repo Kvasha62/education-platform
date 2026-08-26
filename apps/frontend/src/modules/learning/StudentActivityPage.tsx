@@ -35,12 +35,6 @@ export const StudentActivityPage = () => {
     })),
   })
   const courseNotFound = course.error instanceof ApiError && course.error.status === 404
-  const contentNotFound = contentQueries.find(
-    (query) => query.error instanceof ApiError && query.error.status === 404,
-  )
-  const contentError = contentQueries.find(
-    (query) => query.isError && !(query.error instanceof ApiError && query.error.status === 404),
-  )
 
   if (course.isPending) return <LoadingState label="Loading Activity" />
   if (courseNotFound) return <ErrorState message="Published Course not found." />
@@ -61,19 +55,26 @@ export const StudentActivityPage = () => {
       {location.activity.contents.length === 0 && (
         <div className="empty-state"><h2>No published Content attached</h2></div>
       )}
-      {contentQueries.some((query) => query.isPending) && (
-        <LoadingState label="Loading published Content" />
-      )}
-      {contentNotFound && <ErrorState message="Published Content not found." />}
-      {contentError && <ErrorState message={errorMessage(contentError.error)} />}
-      {contentQueries.every((query) => query.isSuccess) && contentQueries.length > 0 && (
+      {contentQueries.length > 0 && (
         <div className="student-content-list">
-          {contentQueries.map((query) => (
-            <article className="student-content" key={query.data.id}>
-              <p className="eyebrow">{query.data.type}</p>
-              <StudentContentBody body={query.data.body} />
-            </article>
-          ))}
+          {contentQueries.map((query, index) => {
+            const reference = location.activity.contents[index]
+            if (query.isPending) {
+              return <LoadingState key={reference.id} label="Loading published Content" />
+            }
+            if (query.error instanceof ApiError && query.error.status === 404) {
+              return <ErrorState key={reference.id} message="Published Content not found." />
+            }
+            if (query.isError) {
+              return <ErrorState key={reference.id} message={errorMessage(query.error)} />
+            }
+            return (
+              <article className="student-content" key={reference.id}>
+                <p className="eyebrow">{query.data.type}</p>
+                <StudentContentBody body={query.data.body} />
+              </article>
+            )
+          })}
         </div>
       )}
     </section>

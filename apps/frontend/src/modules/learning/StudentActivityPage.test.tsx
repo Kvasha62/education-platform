@@ -102,6 +102,27 @@ describe('Student Activity and Content Viewer', () => {
     expect(fetchMock.mock.calls.some(([input]) => String(input).includes('enrollment'))).toBe(false)
   })
 
+  it('keeps successful Content visible when another Content returns 404', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+      if (url.endsWith('/api/v1/student/courses/course-id')) return jsonResponse(course)
+      if (url.endsWith('/api/v1/student/contents/article-id/body')) {
+        return jsonResponse(articleResponse)
+      }
+      if (url.endsWith('/api/v1/student/contents/resource-id/body')) {
+        return jsonResponse({ detail: 'Content not found' }, 404)
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    renderRoute()
+
+    expect(await screen.findByText('A loop repeats work.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Loop basics', level: 2 })).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Published Content not found.')
+    expect(screen.queryByRole('link', { name: 'Open resource' })).not.toBeInTheDocument()
+  })
+
   it('shows loading while published Content bodies load', async () => {
     let resolveBody: ((response: Response) => void) | undefined
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
@@ -151,7 +172,18 @@ describe('Student Activity and Content Viewer', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
-      if (url.endsWith('/api/v1/student/courses/course-id')) return jsonResponse(course)
+      if (url.endsWith('/api/v1/student/courses/course-id')) {
+        return jsonResponse({
+          ...course,
+          sections: [{
+            ...course.sections[0],
+            units: [{
+              ...course.sections[0].units[0],
+              activities: [{ ...activity, contents: [activity.contents[0]] }],
+            }],
+          }],
+        })
+      }
       return jsonResponse({ detail: 'Content not found' }, 404)
     }))
     renderRoute()
