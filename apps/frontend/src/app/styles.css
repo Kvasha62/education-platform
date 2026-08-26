@@ -86,3 +86,11 @@ button:disabled { cursor: wait; opacity: .65; }
 .editor-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; }
 .button-danger { background: #9f2f25; }
 .button-danger:hover { background: #7f241c; }
+.student-courses, .student-course-detail { display: grid; gap: 2rem; }
+.student-course-list, .student-section-list, .student-unit-list { display: grid; gap: .75rem; margin: 0; padding: 0; list-style: none; }
+.student-course-list li, .student-section-list > li { padding: 1rem 1.2rem; border: 1px solid #d9dccf; border-radius: .8rem; background: #fff; }
+.student-course-list li { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
+.student-course-detail h1 { font-size: clamp(2rem, 7vw, 4rem); }
+.student-section-heading span, .student-unit-list span { color: #667168; font-size: .78rem; text-transform: uppercase; }
+.student-section-heading h2 { margin: .25rem 0 1rem; }
+.student-unit-list li { display: grid; gap: .2rem; padding: .7rem; border-radius: .5rem; background: #f5f6f1; }
