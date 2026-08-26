@@ -331,6 +331,21 @@ The authenticated student identity comes from the existing authentication/sessio
 
 Student Space may read any `PUBLISHED` Course in this MVP slice. `DRAFT`, `ARCHIVED` and unknown Courses are invisible through this endpoint and return `404`.
 
+### Activity publication and Student visibility
+
+Activity has no independent publication or visibility lifecycle. Course publication and Activity
+membership are authoritative: every Activity belonging through its Learning Unit and Section to a
+`PUBLISHED` Course is Student-visible, while Activities of DRAFT or ARCHIVED Courses are outside the
+published Student scope. The architecture cannot represent an individually hidden Activity inside a
+`PUBLISHED` Course.
+
+Activity visibility must not be derived from `Content.status` or `Content.available_for_student`.
+Content availability controls only which associated Content references a visible Activity may expose.
+Education may provide all Activity IDs belonging to a `PUBLISHED` Course through a minimal read-only
+application/public boundary for Learning aggregation; Learning must not access Education persistence.
+The complete decision is recorded in
+[`ADR-0005`](docs/decisions/ADR-0005-activity-publication-student-visibility.md).
+
 The dependency direction is:
 
 ```text
