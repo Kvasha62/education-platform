@@ -74,8 +74,10 @@ class StudentDashboardService:
         if not my_courses:
             return StudentDashboard(my_courses=[], continue_learning=None)
 
-        resumable = self.continue_learning.get_for_student(student_user_id)
         enrolled_course_ids = {course.course_id for course in my_courses}
+        resumable = self.continue_learning.get_for_student(
+            student_user_id, enrolled_course_ids
+        )
         continue_item = (
             DashboardContinueLearning(
                 course_id=resumable.course_id,

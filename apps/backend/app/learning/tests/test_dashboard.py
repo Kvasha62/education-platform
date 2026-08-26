@@ -20,11 +20,13 @@ class Activities:
         self.requested: list[UUID] = []
 
     def list_published(
-        self, activity_ids: list[UUID]
+        self, activity_ids: list[UUID], course_ids: set[UUID]
     ) -> dict[UUID, PublishedActivityReference]:
         self.requested = activity_ids
         return {
-            item.id: item for item in self.references if item.id in activity_ids
+            item.id: item
+            for item in self.references
+            if item.id in activity_ids and item.course_id in course_ids
         }
 
 
@@ -39,26 +41,31 @@ def progress(student_id: UUID, activity_id: UUID, updated_at: datetime) -> Activ
     )
 
 
-def test_continue_learning_chooses_latest_student_visible_in_progress_activity() -> None:
+def test_continue_learning_ignores_newer_progress_in_non_enrolled_course() -> None:
     student_id = uuid4()
     now = datetime.now(UTC)
-    stale_activity, visible_activity = uuid4(), uuid4()
+    enrolled_activity, non_enrolled_activity = uuid4(), uuid4()
+    enrolled_course, non_enrolled_course = uuid4(), uuid4()
     candidates = [
-        progress(student_id, stale_activity, now),
-        progress(student_id, visible_activity, now - timedelta(minutes=1)),
+        progress(student_id, non_enrolled_activity, now),
+        progress(student_id, enrolled_activity, now - timedelta(minutes=1)),
     ]
-    course_id = uuid4()
-    activities = Activities([PublishedActivityReference(visible_activity, course_id)])
+    activities = Activities(
+        [
+            PublishedActivityReference(non_enrolled_activity, non_enrolled_course),
+            PublishedActivityReference(enrolled_activity, enrolled_course),
+        ]
+    )
 
     result = ContinueLearningService(
         ProgressRepository(candidates), activities
-    ).get_for_student(student_id)
+    ).get_for_student(student_id, {enrolled_course})
 
     assert result is not None
-    assert result.course_id == course_id
-    assert result.activity_id == visible_activity
+    assert result.course_id == enrolled_course
+    assert result.activity_id == enrolled_activity
     assert result.status == "in_progress"
-    assert activities.requested == [stale_activity, visible_activity]
+    assert activities.requested == [non_enrolled_activity, enrolled_activity]
 
 
 def test_continue_learning_is_empty_without_visible_in_progress_activity() -> None:
@@ -66,5 +73,23 @@ def test_continue_learning_is_empty_without_visible_in_progress_activity() -> No
     candidate = progress(student_id, uuid4(), datetime.now(UTC))
     result = ContinueLearningService(
         ProgressRepository([candidate]), Activities([])
-    ).get_for_student(student_id)
+    ).get_for_student(student_id, {uuid4()})
+    assert result is None
+
+
+def test_continue_learning_is_empty_without_enrolled_courses() -> None:
+    student_id = uuid4()
+    candidate = progress(student_id, uuid4(), datetime.now(UTC))
+    activities = Activities([])
+    result = ContinueLearningService(
+        ProgressRepository([candidate]), activities
+    ).get_for_student(student_id, set())
+    assert result is None
+    assert activities.requested == []
+
+
+def test_continue_learning_is_empty_without_in_progress_candidates() -> None:
+    result = ContinueLearningService(
+        ProgressRepository([]), Activities([])
+    ).get_for_student(uuid4(), {uuid4()})
     assert result is None

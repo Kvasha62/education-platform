@@ -30,9 +30,9 @@ class SqlAlchemyPublishedActivityRepository:
         return PublishedActivityReference(row[0], row[1]) if row else None
 
     def list_published(
-        self, activity_ids: list[UUID]
+        self, activity_ids: list[UUID], course_ids: set[UUID]
     ) -> list[PublishedActivityReference]:
-        if not activity_ids:
+        if not activity_ids or not course_ids:
             return []
         rows = self.db.execute(
             select(ActivityModel.id, CourseModel.id)
@@ -41,6 +41,7 @@ class SqlAlchemyPublishedActivityRepository:
             .join(CourseModel, SectionModel.course_id == CourseModel.id)
             .where(
                 ActivityModel.id.in_(activity_ids),
+                CourseModel.id.in_(course_ids),
                 CourseModel.status == CourseStatus.PUBLISHED,
             )
         ).all()

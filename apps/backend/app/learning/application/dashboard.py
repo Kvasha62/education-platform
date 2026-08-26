@@ -22,7 +22,9 @@ class InProgressRepository(Protocol):
 
 
 class ContinueLearningReader(Protocol):
-    def get_for_student(self, student_user_id: UUID) -> ContinueLearningReference | None: ...
+    def get_for_student(
+        self, student_user_id: UUID, enrolled_course_ids: set[UUID]
+    ) -> ContinueLearningReference | None: ...
 
 
 class ContinueLearningService:
@@ -36,10 +38,15 @@ class ContinueLearningService:
         self.progress = progress
         self.activities = activities
 
-    def get_for_student(self, student_user_id: UUID) -> ContinueLearningReference | None:
+    def get_for_student(
+        self, student_user_id: UUID, enrolled_course_ids: set[UUID]
+    ) -> ContinueLearningReference | None:
+        if not enrolled_course_ids:
+            return None
         candidates = self.progress.list_in_progress(student_user_id)
         published = self.activities.list_published(
-            [candidate.activity_id for candidate in candidates]
+            [candidate.activity_id for candidate in candidates],
+            enrolled_course_ids,
         )
         for candidate in candidates:
             activity = published.get(candidate.activity_id)

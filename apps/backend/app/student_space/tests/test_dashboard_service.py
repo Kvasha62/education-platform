@@ -28,7 +28,9 @@ class ContinueLearning:
     def __init__(self, item: ContinueLearningReference | None) -> None:
         self.item = item
 
-    def get_for_student(self, student_user_id: UUID) -> ContinueLearningReference | None:
+    def get_for_student(
+        self, student_user_id: UUID, enrolled_course_ids: set[UUID]
+    ) -> ContinueLearningReference | None:
         return self.item
 
 

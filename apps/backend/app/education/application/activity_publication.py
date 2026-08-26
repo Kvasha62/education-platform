@@ -34,7 +34,7 @@ class ActivityPublicationLookupService:
 
 class PublishedActivityCollectionLookup(Protocol):
     def list_published(
-        self, activity_ids: list[UUID]
+        self, activity_ids: list[UUID], course_ids: set[UUID]
     ) -> dict[UUID, PublishedActivityReference]: ...
 
 
@@ -43,15 +43,15 @@ class PublishedActivityCollectionLookupService:
         self.activities = activities
 
     def list_published(
-        self, activity_ids: list[UUID]
+        self, activity_ids: list[UUID], course_ids: set[UUID]
     ) -> dict[UUID, PublishedActivityReference]:
         return {
             reference.id: reference
-            for reference in self.activities.list_published(activity_ids)
+            for reference in self.activities.list_published(activity_ids, course_ids)
         }
 
 
 class PublishedActivityCollectionRepository(Protocol):
     def list_published(
-        self, activity_ids: list[UUID]
+        self, activity_ids: list[UUID], course_ids: set[UUID]
     ) -> list[PublishedActivityReference]: ...
