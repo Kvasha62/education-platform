@@ -6,6 +6,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createQueryClient } from '../../app/providers'
 import { routes } from '../../app/router'
 
+vi.mock('./StudentCourseEnrollment', () => ({
+  StudentCourseEnrollment: () => <div>Course enrollment</div>,
+}))
+
 const identity = {
   id: 'identity-id', email: 'student@example.com', status: 'active',
   created_at: '2026-08-26T00:00:00Z', updated_at: '2026-08-26T00:00:00Z',
@@ -85,6 +89,7 @@ describe('Student Course UI', () => {
     await user.click(links[0])
 
     expect(await screen.findByRole('heading', { name: 'Newest Course' })).toBeInTheDocument()
+    expect(screen.getByText('Course enrollment')).toBeInTheDocument()
     expect(requests.some((url) => url.includes('enrollment'))).toBe(false)
   })
 

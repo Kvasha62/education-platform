@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../../shared/api'
 import { ErrorState, LoadingState } from '../../shared/ui'
+import { StudentCourseEnrollment } from './StudentCourseEnrollment'
 import { studentCourseApi } from './studentCourseApi'
 import { studentCourseKeys } from './studentCourseQueries'
 
@@ -68,6 +69,7 @@ export const StudentCoursePage = () => {
             <p className="eyebrow">Published Course</p>
             <h1 id="student-course-title">{course.data.title}</h1>
           </div>
+          <StudentCourseEnrollment courseId={course.data.id} />
           {course.data.sections.length === 0 && (
             <div className="empty-state">
               <h2>No Sections available</h2>

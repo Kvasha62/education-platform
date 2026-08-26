@@ -1,3 +1,7 @@
+export { StudentCourseEnrollment } from './StudentCourseEnrollment'
+export { enrollmentApi } from './enrollmentApi'
+export { enrollmentKeys } from './enrollmentQueries'
+export type { Enrollment, EnrollmentList } from './enrollmentApi'
 export { StudentActivityProgress } from './StudentActivityProgress'
 export { progressApi } from './progressApi'
 export { progressKeys } from './progressQueries'
