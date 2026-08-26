@@ -23,7 +23,12 @@ const course = {
     {
       id: 'section-1', title: 'Introduction', position: 0,
       units: [
-        { id: 'unit-1', title: 'Welcome', position: 0, activities: [] },
+        {
+          id: 'unit-1', title: 'Welcome', position: 0,
+          activities: [
+            { id: 'activity-1', title: 'First Activity', type: 'lecture', position: 0, contents: [] },
+          ],
+        },
         { id: 'unit-2', title: 'Setup', position: 1, activities: [] },
       ],
     },
@@ -101,6 +106,11 @@ describe('Student Course UI', () => {
     expect(within(introductionSection!).getByText('Unit 2')).toBeInTheDocument()
     expect(within(introductionSection!).getByText('Welcome')).toBeInTheDocument()
     expect(within(introductionSection!).getByText('Setup')).toBeInTheDocument()
+    expect(within(introductionSection!).getByText('Activity 1')).toBeInTheDocument()
+    expect(within(introductionSection!).getByRole('link', { name: 'First Activity' })).toHaveAttribute(
+      'href',
+      '/app/student/courses/new-course/activities/activity-1',
+    )
     expect(within(nextStepsSection!).getByText('No Learning Units available.')).toBeInTheDocument()
     expect(screen.queryByText('Section 0')).not.toBeInTheDocument()
     expect(screen.queryByText('Unit 0')).not.toBeInTheDocument()

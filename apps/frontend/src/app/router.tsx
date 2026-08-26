@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { ContentEditorPage, CreateContentPage } from '../modules/content'
 import { ActivitiesPage, CoursePage, CoursesPage, EducationalEnvironmentPage, LearningUnitsPage, SectionsPage } from '../modules/education'
-import { StudentCoursePage, StudentCoursesPage } from '../modules/learning'
+import { StudentActivityPage, StudentCoursePage, StudentCoursesPage } from '../modules/learning'
 import { LoginPage, PublicOnlyRoute, RegisterPage } from '../modules/identity/AuthPages'
 import { TeacherSpacePage, TeacherSpacesPage } from '../modules/teacher'
 import { ProtectedApp, ProtectedRoute, RootLayout } from './App'
@@ -25,6 +25,10 @@ export const routes = [
           { path: 'app', element: <ProtectedApp /> },
           { path: 'app/student/courses', element: <StudentCoursesPage /> },
           { path: 'app/student/courses/:courseId', element: <StudentCoursePage /> },
+          {
+            path: 'app/student/courses/:courseId/activities/:activityId',
+            element: <StudentActivityPage />,
+          },
           { path: 'app/teacher-spaces', element: <TeacherSpacesPage /> },
           { path: 'app/contents/new', element: <CreateContentPage /> },
           { path: 'app/contents/:contentId/edit', element: <ContentEditorPage /> },

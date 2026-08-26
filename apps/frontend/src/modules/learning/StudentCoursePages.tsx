@@ -89,6 +89,22 @@ export const StudentCoursePage = () => {
                         <li key={unit.id}>
                           <span>Unit {unit.position + 1}</span>
                           <strong>{unit.title}</strong>
+                          {unit.activities.length === 0 ? (
+                            <span>No Activities available.</span>
+                          ) : (
+                            <ul className="student-activity-list">
+                              {unit.activities.map((activity) => (
+                                <li key={activity.id}>
+                                  <span>Activity {activity.position + 1}</span>
+                                  <Link
+                                    to={`/app/student/courses/${courseId}/activities/${activity.id}`}
+                                  >
+                                    {activity.title}
+                                  </Link>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </li>
                       ))}
                     </ol>
