@@ -106,3 +106,37 @@ def test_public_lookup_preserves_technical_failure() -> None:
         service.lookup_owned(uuid4(), uuid4())
     with pytest.raises(ContentLookupUnavailable):
         service.lookup_published(uuid4())
+
+
+def test_published_body_lookup_returns_canonical_body_without_ownership() -> None:
+    from app.content.public import PublishedContentBodyLookupService
+
+    repository = LookupRepository()
+    owner_id = uuid4()
+    published = published_resource(owner_id)
+    repository.items[(published.id, owner_id)] = published
+    service = PublishedContentBodyLookupService(repository)  # type: ignore[arg-type]
+
+    reference = service.read_published_body(published.id)
+    assert reference.id == published.id
+    assert reference.type is ContentType.RESOURCE
+    assert reference.body.to_dict()["kind"] == "resource"
+    assert not hasattr(reference, "owner_user_id")
+
+
+def test_published_body_lookup_hides_draft_missing_and_preserves_failure() -> None:
+    from app.content.public import PublishedContentBodyLookupService
+
+    repository = LookupRepository()
+    owner_id = uuid4()
+    draft = Content.create(owner_id, ContentType.ARTICLE, "Draft")
+    repository.items[(draft.id, owner_id)] = draft
+    service = PublishedContentBodyLookupService(repository)  # type: ignore[arg-type]
+
+    with pytest.raises(ContentReferenceNotFound):
+        service.read_published_body(draft.id)
+    with pytest.raises(ContentReferenceNotFound):
+        service.read_published_body(uuid4())
+    repository.fail = True
+    with pytest.raises(ContentLookupUnavailable):
+        service.read_published_body(draft.id)

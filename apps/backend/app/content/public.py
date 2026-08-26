@@ -5,6 +5,7 @@ from typing import Protocol
 from uuid import UUID
 
 from app.content.application.ports import ContentRepository
+from app.content.domain.body import ContentBody
 from app.content.domain.models import Content, ContentStatus, ContentType
 
 
@@ -61,3 +62,32 @@ class ContentLookupService:
         if content is None or content.status is not ContentStatus.PUBLISHED:
             raise ContentReferenceNotFound
         return self._reference(content)
+
+
+@dataclass(frozen=True, slots=True)
+class PublishedContentBodyReference:
+    id: UUID
+    type: ContentType
+    body: "ContentBody"
+
+
+class PublishedContentBodyLookup(Protocol):
+    def read_published_body(self, content_id: UUID) -> PublishedContentBodyReference: ...
+
+
+class PublishedContentBodyLookupService:
+    def __init__(self, repository: ContentRepository) -> None:
+        self.repository = repository
+
+    def read_published_body(self, content_id: UUID) -> PublishedContentBodyReference:
+        try:
+            content = self.repository.get_by_id(content_id)
+        except Exception as error:
+            raise ContentLookupUnavailable from error
+        if content is None or content.status is not ContentStatus.PUBLISHED:
+            raise ContentReferenceNotFound
+        return PublishedContentBodyReference(
+            id=content.id,
+            type=content.type,
+            body=content.body,
+        )

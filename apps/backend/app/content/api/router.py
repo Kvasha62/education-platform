@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from app.content.api.dependencies import get_content_service
 from app.content.api.schemas import (
-    ContentBodyPayload,
     ContentPageResponse,
     ContentResponse,
     CreateContentRequest,
@@ -13,6 +12,7 @@ from app.content.api.schemas import (
 )
 from app.content.application.errors import ContentNotFoundError
 from app.content.application.services import ContentService
+from app.content.body_contracts import ContentBodyPayload
 from app.content.domain.body import (
     ContentBody,
     ContentBodyNotPublishableError,

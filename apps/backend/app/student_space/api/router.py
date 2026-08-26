@@ -20,6 +20,7 @@ from app.learning.application.progress import (
 from app.learning.application.services import EnrollmentCourseNotFoundError, EnrollmentService
 from app.student_space.api.dependencies import (
     get_student_course_service,
+    get_student_published_content_body_service,
     get_student_published_course_list_service,
 )
 from app.student_space.api.schemas import (
@@ -30,23 +31,51 @@ from app.student_space.api.schemas import (
     PublishedCourseSummaryResponse,
     StudentCourseResponse,
     StudentEnrollmentListResponse,
+    StudentPublishedContentBodyResponse,
 )
 from app.student_space.application.services import (
     StudentContentUnavailableError,
     StudentCourseNotFoundError,
     StudentCourseService,
+    StudentPublishedContentBodyNotFoundError,
+    StudentPublishedContentBodyService,
     StudentPublishedCourseListService,
 )
 
 router = APIRouter(prefix="/api/v1/student", tags=["student-courses"])
 CurrentIdentity = Annotated[Identity, Depends(get_current_identity)]
 StudentCourses = Annotated[StudentCourseService, Depends(get_student_course_service)]
+StudentContentBodies = Annotated[
+    StudentPublishedContentBodyService, Depends(get_student_published_content_body_service)
+]
 PublishedCourseLists = Annotated[
-    StudentPublishedCourseListService, Depends(get_student_published_course_list_service)
+    StudentPublishedCourseListService,
+    Depends(get_student_published_course_list_service),
 ]
 Enrollments = Annotated[EnrollmentService, Depends(get_enrollment_service)]
 ActivityProgresses = Annotated[ActivityProgressService, Depends(get_activity_progress_service)]
 StudentEnrollments = Annotated[StudentEnrollmentReader, Depends(get_student_enrollment_reader)]
+
+
+@router.get(
+    "/contents/{content_id}/body",
+    response_model=StudentPublishedContentBodyResponse,
+)
+def get_published_content_body(
+    content_id: UUID,
+    _identity: CurrentIdentity,
+    content: StudentContentBodies,
+) -> StudentPublishedContentBodyResponse:
+    try:
+        reference = content.get_published_body(content_id)
+    except StudentPublishedContentBodyNotFoundError as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Content not found") from error
+    except StudentContentUnavailableError as error:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Content lookup unavailable",
+        ) from error
+    return StudentPublishedContentBodyResponse.from_reference(reference)
 
 
 @router.get("/courses", response_model=PublishedCourseListResponse)

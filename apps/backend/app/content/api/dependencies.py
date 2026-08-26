@@ -5,7 +5,12 @@ from sqlalchemy.orm import Session
 
 from app.content.application.services import ContentService
 from app.content.infrastructure.repositories import SqlAlchemyContentRepository
-from app.content.public import ContentLookup, ContentLookupService
+from app.content.public import (
+    ContentLookup,
+    ContentLookupService,
+    PublishedContentBodyLookup,
+    PublishedContentBodyLookupService,
+)
 from app.core.database import get_db
 
 
@@ -15,3 +20,9 @@ def get_content_service(db: Annotated[Session, Depends(get_db)]) -> ContentServi
 
 def get_content_lookup(db: Annotated[Session, Depends(get_db)]) -> ContentLookup:
     return ContentLookupService(SqlAlchemyContentRepository(db))
+
+
+def get_published_content_body_lookup(
+    db: Annotated[Session, Depends(get_db)],
+) -> PublishedContentBodyLookup:
+    return PublishedContentBodyLookupService(SqlAlchemyContentRepository(db))

@@ -4,7 +4,7 @@ import ast
 from pathlib import Path
 
 from app.content.infrastructure import models as content_models  # noqa: F401
-from app.content.public import ContentLookup
+from app.content.public import ContentLookup, PublishedContentBodyLookup
 from app.core.database import Base
 from app.education.infrastructure import models as education_models  # noqa: F401
 from app.identity.infrastructure import models as identity_models  # noqa: F401
@@ -164,7 +164,9 @@ def test_student_space_uses_only_education_application_boundary() -> None:
     student_package = Path(__file__).parents[1] / "app" / "student_space"
     imports = _imports(student_package)
 
-    assert not {name for name in imports if name.startswith("app.content")}
+    assert {name for name in imports if name.startswith("app.content")} <= {
+        "app.content.body_contracts"
+    }
     assert not {
         name
         for name in imports
@@ -179,6 +181,16 @@ def test_student_space_uses_only_education_application_boundary() -> None:
     assert education_imports <= {
         "app.education.application.errors",
         "app.education.application.published_course_list",
+        "app.education.application.student_content_body",
         "app.education.application.student_course",
         "app.education.composition",
     }
+
+
+def test_published_content_body_public_interface_is_read_only() -> None:
+    methods = {
+        name
+        for name, member in PublishedContentBodyLookup.__dict__.items()
+        if callable(member) and not name.startswith("_")
+    }
+    assert methods == {"read_published_body"}

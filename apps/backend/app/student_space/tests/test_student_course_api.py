@@ -289,3 +289,149 @@ def test_openapi_contains_exact_published_course_list_contract(client: TestClien
     assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/PublishedCourseListResponse"
     }
+
+
+def create_activity_in_course(
+    client: TestClient, space_id: str, course_id: str, title: str
+) -> tuple[str, str]:
+    course_path, sections_path = course_paths(space_id, course_id)
+    section = client.post(
+        sections_path, json={"title": f"{title} Section", "position": 0}, headers=HEADERS
+    ).json()
+    units_path = f"{sections_path}/{section['id']}/units"
+    unit = client.post(
+        units_path, json={"title": f"{title} Unit", "position": 0}, headers=HEADERS
+    ).json()
+    activities_path = f"{units_path}/{unit['id']}/activities"
+    activity = client.post(
+        activities_path,
+        json={"title": title, "type": "lecture", "position": 0},
+        headers=HEADERS,
+    ).json()
+    return course_path, f"{activities_path}/{activity['id']}/contents"
+
+
+def create_content_with_body(
+    client: TestClient, title: str, content_type: str, body: dict
+) -> dict:
+    content = client.post(
+        "/api/v1/contents",
+        json={"title": title, "type": content_type},
+        headers=HEADERS,
+    ).json()
+    client.put(
+        f"/api/v1/contents/{content['id']}/body",
+        json=body,
+        headers=HEADERS,
+    )
+    return content
+
+
+def publish_content(client: TestClient, content: dict) -> None:
+    response = client.post(f"/api/v1/contents/{content['id']}/publish", headers=HEADERS)
+    assert response.status_code == 200
+
+
+def test_student_reads_published_article_and_resource_bodies_without_ownership(
+    client: TestClient,
+) -> None:
+    teacher_token = auth(client, "body-teacher@example.com")
+    space_id, course_id = create_course(client, "Body Course")
+    course_path, links_path = create_activity_in_course(
+        client, space_id, course_id, "Body Activity"
+    )
+    article_body = {
+        "schema_version": 1,
+        "kind": "article",
+        "blocks": [{"type": "paragraph", "text": "Student article"}],
+    }
+    resource_body = {
+        "schema_version": 1,
+        "kind": "resource",
+        "resource": {
+            "url": "https://example.test/resource",
+            "description": "Student resource",
+        },
+    }
+    article = create_content_with_body(client, "Article", "article", article_body)
+    resource = create_content_with_body(client, "Resource", "resource", resource_body)
+    publish_content(client, article)
+    publish_content(client, resource)
+    client.post(links_path, json={"content_id": article["id"]}, headers=HEADERS)
+    client.post(links_path, json={"content_id": resource["id"]}, headers=HEADERS)
+    client.post(f"{course_path}/publish", headers=HEADERS)
+
+    client.cookies.clear()
+    assert client.get(f"/api/v1/student/contents/{article['id']}/body").status_code == 401
+    student_token = auth(client, "body-student@example.com")
+    assert client.get(f"/api/v1/student/contents/{article['id']}/body").json() == {
+        "id": article["id"],
+        "type": "article",
+        "body": article_body,
+    }
+    assert client.get(f"/api/v1/student/contents/{resource['id']}/body").json() == {
+        "id": resource["id"],
+        "type": "resource",
+        "body": resource_body,
+    }
+    use(client, teacher_token)
+    use(client, student_token)
+
+
+def test_student_content_body_hides_draft_stale_unrelated_and_archived_contexts(
+    client: TestClient,
+) -> None:
+    teacher_token = auth(client, "isolation-teacher@example.com")
+    space_id, course_id = create_course(client, "Visible Course")
+    course_path, links_path = create_activity_in_course(
+        client, space_id, course_id, "Visible Activity"
+    )
+    article_body = {
+        "schema_version": 1,
+        "kind": "article",
+        "blocks": [{"type": "paragraph", "text": "Ready"}],
+    }
+    draft = create_content_with_body(client, "Draft", "article", article_body)
+    stale = create_content_with_body(client, "Stale", "article", article_body)
+    unrelated = create_content_with_body(client, "Unrelated", "article", article_body)
+    client.post(links_path, json={"content_id": draft["id"]}, headers=HEADERS)
+    client.post(links_path, json={"content_id": stale["id"]}, headers=HEADERS)
+    client.delete(f"/api/v1/contents/{stale['id']}", headers=HEADERS)
+    publish_content(client, unrelated)
+    client.post(f"{course_path}/publish", headers=HEADERS)
+
+    archived_space, archived_course = create_course(client, "Archived Course")
+    archived_path, archived_links = create_activity_in_course(
+        client, archived_space, archived_course, "Archived Activity"
+    )
+    archived_content = create_content_with_body(
+        client, "Archived Content", "article", article_body
+    )
+    publish_content(client, archived_content)
+    client.post(
+        archived_links, json={"content_id": archived_content["id"]}, headers=HEADERS
+    )
+    client.post(f"{archived_path}/publish", headers=HEADERS)
+    client.post(f"{archived_path}/archive", headers=HEADERS)
+
+    auth(client, "isolation-student@example.com")
+    hidden_ids = [
+        draft["id"],
+        stale["id"],
+        unrelated["id"],
+        archived_content["id"],
+        "00000000-0000-0000-0000-000000000000",
+    ]
+    for content_id in hidden_ids:
+        response = client.get(f"/api/v1/student/contents/{content_id}/body")
+        assert response.status_code == 404
+        assert response.json() == {"detail": "Content not found"}
+    use(client, teacher_token)
+
+
+def test_openapi_contains_student_published_content_body_contract(client: TestClient) -> None:
+    path = "/api/v1/student/contents/{content_id}/body"
+    operation = client.get("/openapi.json").json()["paths"][path]["get"]
+    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/StudentPublishedContentBodyResponse"
+    }
