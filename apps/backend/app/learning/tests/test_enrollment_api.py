@@ -283,6 +283,104 @@ def test_activity_progress_openapi_contract(client: TestClient) -> None:
     assert "ActivityProgressResponse" in openapi["components"]["schemas"]
 
 
+def test_student_course_progress_contract_and_calculation(client: TestClient) -> None:
+    path = "/api/v1/student/courses/00000000-0000-0000-0000-000000000000/progress"
+    assert client.get(path).status_code == 401
+
+    teacher = auth(client, "course-progress-teacher@example.com")
+    course_path, course_id = create_course(client, "Course Progress")
+    first_activity = create_activity(client, course_path)
+    second_activity = create_activity(client, course_path)
+    third_activity = create_activity(client, course_path)
+    client.post(f"{course_path}/publish", headers=HEADERS)
+
+    other_path, other_course_id = create_course(client, "Other Course")
+    other_activity = create_activity(client, other_path)
+    client.post(f"{other_path}/publish", headers=HEADERS)
+
+    student = auth(client, "course-progress-student@example.com")
+    endpoint = f"/api/v1/student/courses/{course_id}/progress"
+    assert client.get(endpoint).status_code == 404
+    client.post(enrollment_path(course_id), headers=HEADERS)
+    client.post(enrollment_path(other_course_id), headers=HEADERS)
+
+    published_activities = [
+        activity
+        for section in client.get(f"/api/v1/student/courses/{course_id}").json()["sections"]
+        for unit in section["units"]
+        for activity in unit["activities"]
+    ]
+    assert len(published_activities) == 3
+    assert all(activity["contents"] == [] for activity in published_activities)
+
+    assert client.get(endpoint).json() == {
+        "course_id": course_id,
+        "completed_activities": 0,
+        "total_activities": 3,
+        "progress_percent": 0,
+    }
+    for activity_id in (first_activity, other_activity):
+        progress = f"/api/v1/student/activities/{activity_id}/progress"
+        client.post(f"{progress}/start", headers=HEADERS)
+        client.post(f"{progress}/complete", headers=HEADERS)
+
+    assert client.get(endpoint).json() == {
+        "course_id": course_id,
+        "completed_activities": 1,
+        "total_activities": 3,
+        "progress_percent": 33,
+    }
+    for activity_id in (second_activity, third_activity):
+        progress = f"/api/v1/student/activities/{activity_id}/progress"
+        client.post(f"{progress}/start", headers=HEADERS)
+        client.post(f"{progress}/complete", headers=HEADERS)
+    assert client.get(endpoint).json() == {
+        "course_id": course_id,
+        "completed_activities": 3,
+        "total_activities": 3,
+        "progress_percent": 100,
+    }
+
+    unknown = "/api/v1/student/courses/00000000-0000-0000-0000-000000000000/progress"
+    assert client.get(unknown).status_code == 404
+    client.cookies.set(SESSION_COOKIE_NAME, teacher)
+    client.post(f"{course_path}/archive", headers=HEADERS)
+    client.cookies.set(SESSION_COOKIE_NAME, student)
+    assert client.get(endpoint).status_code == 404
+
+
+def test_student_course_progress_zero_activity_course(client: TestClient) -> None:
+    teacher = auth(client, "empty-progress-teacher@example.com")
+    course_path, course_id = create_course(client, "Empty Course")
+    client.post(f"{course_path}/publish", headers=HEADERS)
+    auth(client, "empty-progress-student@example.com")
+    client.post(enrollment_path(course_id), headers=HEADERS)
+
+    assert client.get(f"/api/v1/student/courses/{course_id}/progress").json() == {
+        "course_id": course_id,
+        "completed_activities": 0,
+        "total_activities": 0,
+        "progress_percent": 0,
+    }
+    client.cookies.set(SESSION_COOKIE_NAME, teacher)
+
+
+def test_student_course_progress_openapi_contract(client: TestClient) -> None:
+    openapi = client.get("/openapi.json").json()
+    operation = openapi["paths"]["/api/v1/student/courses/{course_id}/progress"]["get"]
+    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/CourseProgressResponse"
+    }
+    schema = openapi["components"]["schemas"]["CourseProgressResponse"]
+    assert set(schema["properties"]) == {
+        "course_id",
+        "completed_activities",
+        "total_activities",
+        "progress_percent",
+    }
+    assert set(schema["required"]) == set(schema["properties"])
+
+
 def test_student_dashboard_empty_and_authentication(client: TestClient) -> None:
     assert client.get("/api/v1/student/dashboard").status_code == 401
     auth(client, "empty-dashboard@example.com")

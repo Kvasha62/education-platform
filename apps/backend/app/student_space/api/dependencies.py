@@ -14,8 +14,10 @@ from app.education.composition import (
 )
 from app.learning.api.dependencies import (
     get_continue_learning_reader,
+    get_course_progress_reader,
     get_student_enrollment_reader,
 )
+from app.learning.application.course_progress import CourseProgressReader
 from app.learning.application.dashboard import ContinueLearningReader
 from app.learning.application.enrollment_read import StudentEnrollmentReader
 from app.student_space.application.dashboard import StudentDashboardReader, StudentDashboardService
@@ -47,6 +49,12 @@ def get_student_published_content_body_service(
     ],
 ) -> StudentPublishedContentBodyService:
     return StudentPublishedContentBodyService(content)
+
+
+def get_student_course_progress_reader(
+    progress: Annotated[CourseProgressReader, Depends(get_course_progress_reader)],
+) -> CourseProgressReader:
+    return progress
 
 
 def get_student_dashboard_reader(

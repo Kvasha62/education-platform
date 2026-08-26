@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -43,6 +43,17 @@ class SqlAlchemyProgressRepository:
             .order_by(ActivityProgressModel.updated_at.desc(), ActivityProgressModel.id.desc())
         ).all()
         return [_to_domain(model) for model in models]
+
+    def count_completed(self, student_user_id: UUID, activity_ids: list[UUID]) -> int:
+        if not activity_ids:
+            return 0
+        return self.db.scalar(
+            select(func.count(ActivityProgressModel.id)).where(
+                ActivityProgressModel.student_user_id == student_user_id,
+                ActivityProgressModel.activity_id.in_(activity_ids),
+                ActivityProgressModel.status == ProgressStatus.COMPLETED,
+            )
+        ) or 0
 
     def get_or_create(self, progress: ActivityProgress) -> ActivityProgress:
         model = ActivityProgressModel(

@@ -9,12 +9,18 @@ from app.core.database import get_db
 from app.education.application.activity_publication import (
     PublishedActivityCollectionLookup,
     PublishedActivityLookup,
+    PublishedCourseActivityReader,
 )
 from app.education.application.publication import PublishedCourseLookup
 from app.education.composition import (
     get_published_activity_collection_lookup,
     get_published_activity_lookup,
+    get_published_course_activity_reader,
     get_published_course_lookup,
+)
+from app.learning.application.course_progress import (
+    CourseProgressReader,
+    CourseProgressService,
 )
 from app.learning.application.dashboard import ContinueLearningReader, ContinueLearningService
 from app.learning.application.enrollment_read import (
@@ -51,6 +57,20 @@ def get_activity_progress_service(
         SqlAlchemyProgressRepository(db),
         SqlAlchemyEnrollmentVerifier(db),
         activities,
+    )
+
+
+def get_course_progress_reader(
+    db: Annotated[Session, Depends(get_db)],
+    activities: Annotated[
+        PublishedCourseActivityReader,
+        Depends(get_published_course_activity_reader),
+    ],
+) -> CourseProgressReader:
+    return CourseProgressService(
+        activities,
+        SqlAlchemyEnrollmentVerifier(db),
+        SqlAlchemyProgressRepository(db),
     )
 
 

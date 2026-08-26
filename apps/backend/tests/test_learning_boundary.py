@@ -6,6 +6,8 @@ from pathlib import Path
 from sqlalchemy import UniqueConstraint
 
 from app.core.database import Base
+from app.education.application.activity_publication import PublishedCourseActivityReader
+from app.learning.application.course_progress import CourseProgressReader
 from app.learning.application.enrollment_read import StudentEnrollmentReader
 from app.learning.application.progress import ActivityProgressReader, ActivityProgressWriter
 from app.learning.infrastructure import models as learning_models  # noqa: F401
@@ -100,6 +102,21 @@ def test_activity_progress_contracts_are_minimal() -> None:
     }
     assert reader_methods == {"get_for_student_activity"}
     assert writer_methods == {"start", "complete"}
+
+
+def test_course_progress_boundaries_are_minimal_read_only_contracts() -> None:
+    education_methods = {
+        name
+        for name, member in PublishedCourseActivityReader.__dict__.items()
+        if callable(member) and not name.startswith("_")
+    }
+    learning_methods = {
+        name
+        for name, member in CourseProgressReader.__dict__.items()
+        if callable(member) and not name.startswith("_")
+    }
+    assert education_methods == {"list_activity_ids"}
+    assert learning_methods == {"get_for_student"}
 
 
 def test_dashboard_readers_are_minimal_read_only_contracts() -> None:

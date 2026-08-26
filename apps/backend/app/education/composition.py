@@ -23,6 +23,8 @@ from app.education.application.activity_publication import (
     PublishedActivityCollectionLookup,
     PublishedActivityCollectionLookupService,
     PublishedActivityLookup,
+    PublishedCourseActivityReader,
+    PublishedCourseActivityReadService,
 )
 from app.education.application.content_links import ActivityContentService
 from app.education.application.ports import ActivityContentLinkRepository
@@ -122,4 +124,14 @@ def get_published_activity_collection_lookup(
 ) -> PublishedActivityCollectionLookup:
     return PublishedActivityCollectionLookupService(
         SqlAlchemyPublishedActivityRepository(db)
+    )
+
+
+def get_published_course_activity_reader(
+    db: Annotated[Session, Depends(get_db)],
+    courses: Annotated[PublishedCourseLookup, Depends(get_published_course_lookup)],
+) -> PublishedCourseActivityReader:
+    return PublishedCourseActivityReadService(
+        courses,
+        SqlAlchemyPublishedActivityRepository(db),
     )
