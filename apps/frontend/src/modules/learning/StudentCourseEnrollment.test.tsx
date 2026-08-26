@@ -100,10 +100,39 @@ describe('Student Course Enrollment UI', () => {
     expect(screen.queryByText('Enrolled')).not.toBeInTheDocument()
   })
 
+  it('keeps Course Detail available when the enrollment list returns 503', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({ detail: 'Enrollment service unavailable' }, 503),
+      ),
+    )
+    render(
+      <article>
+        <h1>Readable Published Course</h1>
+        <section>
+          <h2>Course Section</h2>
+          <p>Learning Unit content remains available.</p>
+        </section>
+        <QueryClientProvider client={createQueryClient()}>
+          <StudentCourseEnrollment courseId="course-id" />
+        </QueryClientProvider>
+      </article>,
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Enrollment service unavailable',
+    )
+    expect(screen.getByRole('heading', { name: 'Readable Published Course' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Course Section' })).toBeInTheDocument()
+    expect(screen.getByText('Learning Unit content remains available.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Enroll in Course' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Enrolled')).not.toBeInTheDocument()
+  })
+
   it.each([
     [401, 'Authentication required'],
     [404, 'Enrollments not found'],
-    [503, 'Enrollment service unavailable'],
   ])('shows enrollment list %s errors without gating Course UI', async (status, detail) => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ detail }, status)))
     renderEnrollment()
