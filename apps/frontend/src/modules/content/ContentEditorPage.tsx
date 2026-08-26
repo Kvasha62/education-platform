@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '../../shared/api'
 import { ErrorState, LoadingState } from '../../shared/ui'
 import { contentApi } from './api'
@@ -137,6 +137,7 @@ const BlockEditor = ({ block, disabled, onChange, onRemove }: BlockEditorProps) 
 export const ContentEditorPage = () => {
   const { contentId = '' } = useParams<{ contentId: string }>()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const metadata = useQuery({
     queryKey: contentKeys.detail(contentId),
     queryFn: () => contentApi.get(contentId),
@@ -176,6 +177,15 @@ export const ContentEditorPage = () => {
       ])
     },
   })
+  const deleteContent = useMutation({
+    mutationFn: () => contentApi.delete(contentId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['owned-content'] })
+      queryClient.removeQueries({ queryKey: contentKeys.detail(contentId) })
+      queryClient.removeQueries({ queryKey: contentKeys.body(contentId) })
+      navigate('/app', { replace: true })
+    },
+  })
   const readOnly = metadata.data?.status === 'published'
 
   if (metadata.isError) return <ErrorState message={errorMessage(metadata.error)} />
@@ -186,6 +196,11 @@ export const ContentEditorPage = () => {
 
   const saveDraft = () => {
     if (!readOnly) save.mutate(draft)
+  }
+  const confirmDelete = () => {
+    if (window.confirm(`Permanently delete "${metadata.data.title}"?`)) {
+      deleteContent.mutate()
+    }
   }
 
   return (
@@ -271,6 +286,7 @@ export const ContentEditorPage = () => {
 
       {save.isError && <ErrorState message={errorMessage(save.error)} />}
       {publish.isError && <ErrorState message={errorMessage(publish.error)} />}
+      {deleteContent.isError && <ErrorState message={errorMessage(deleteContent.error)} />}
       {!readOnly && (
         <div className="editor-actions">
           <button disabled={save.isPending} onClick={saveDraft} type="button">
@@ -287,6 +303,14 @@ export const ContentEditorPage = () => {
           {dirty && <span className="form-hint">Save changes before publishing.</span>}
         </div>
       )}
+      <button
+        className="button-danger"
+        disabled={deleteContent.isPending}
+        onClick={confirmDelete}
+        type="button"
+      >
+        {deleteContent.isPending ? 'Deleting…' : 'Delete Content'}
+      </button>
     </section>
   )
 }
