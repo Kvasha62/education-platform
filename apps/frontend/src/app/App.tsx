@@ -53,6 +53,13 @@ export const ProtectedApp = () => {
           <Link className="primary-link" to="/app/teacher-spaces">Open Teacher Spaces</Link>
         </div>
       </div>
+      <div className="workspace-actions">
+        <div>
+          <h2>Content</h2>
+          <p>Create educational Content, then edit its DRAFT body.</p>
+          <Link className="primary-link" to="/app/contents/new">Create Content</Link>
+        </div>
+      </div>
       {logout.isError && <ErrorState message="Logout failed. Please try again." />}
       <button disabled={logout.isPending} onClick={() => logout.mutate()} type="button">
         {logout.isPending ? 'Logging out…' : 'Log out'}
