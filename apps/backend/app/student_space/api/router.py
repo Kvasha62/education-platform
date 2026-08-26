@@ -20,6 +20,7 @@ from app.learning.application.progress import (
 from app.learning.application.services import EnrollmentCourseNotFoundError, EnrollmentService
 from app.student_space.api.dependencies import (
     get_student_course_service,
+    get_student_dashboard_reader,
     get_student_published_content_body_service,
     get_student_published_course_list_service,
 )
@@ -30,9 +31,11 @@ from app.student_space.api.schemas import (
     PublishedCourseListResponse,
     PublishedCourseSummaryResponse,
     StudentCourseResponse,
+    StudentDashboardResponse,
     StudentEnrollmentListResponse,
     StudentPublishedContentBodyResponse,
 )
+from app.student_space.application.dashboard import StudentDashboardReader
 from app.student_space.application.services import (
     StudentContentUnavailableError,
     StudentCourseNotFoundError,
@@ -45,6 +48,7 @@ from app.student_space.application.services import (
 router = APIRouter(prefix="/api/v1/student", tags=["student-courses"])
 CurrentIdentity = Annotated[Identity, Depends(get_current_identity)]
 StudentCourses = Annotated[StudentCourseService, Depends(get_student_course_service)]
+StudentDashboards = Annotated[StudentDashboardReader, Depends(get_student_dashboard_reader)]
 StudentContentBodies = Annotated[
     StudentPublishedContentBodyService, Depends(get_student_published_content_body_service)
 ]
@@ -55,6 +59,22 @@ PublishedCourseLists = Annotated[
 Enrollments = Annotated[EnrollmentService, Depends(get_enrollment_service)]
 ActivityProgresses = Annotated[ActivityProgressService, Depends(get_activity_progress_service)]
 StudentEnrollments = Annotated[StudentEnrollmentReader, Depends(get_student_enrollment_reader)]
+
+
+@router.get("/dashboard", response_model=StudentDashboardResponse)
+def get_student_dashboard(
+    identity: CurrentIdentity,
+    dashboard: StudentDashboards,
+) -> StudentDashboardResponse:
+    """Return enrolled published Courses and the latest visible IN_PROGRESS Activity.
+
+    Recent Learning and Progress Overview are intentionally excluded from the MVP contract.
+    The endpoint is an unpaginated aggregate composed through Education and Learning readers.
+    Contract versioning is provided by the existing `/api/v1` prefix; no body version field is used.
+    """
+    return StudentDashboardResponse.from_dashboard(
+        dashboard.get_dashboard(identity.id)
+    )
 
 
 @router.get(

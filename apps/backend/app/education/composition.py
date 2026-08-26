@@ -20,6 +20,8 @@ from app.education.api.dependencies import (
 )
 from app.education.application.activity_publication import (
     ActivityPublicationLookupService,
+    PublishedActivityCollectionLookup,
+    PublishedActivityCollectionLookupService,
     PublishedActivityLookup,
 )
 from app.education.application.content_links import ActivityContentService
@@ -112,4 +114,12 @@ def get_student_published_content_body_reader(
     return StudentPublishedContentBodyReadService(
         SqlAlchemyPublishedContentAssociationRepository(db),
         content,
+    )
+
+
+def get_published_activity_collection_lookup(
+    db: Annotated[Session, Depends(get_db)],
+) -> PublishedActivityCollectionLookup:
+    return PublishedActivityCollectionLookupService(
+        SqlAlchemyPublishedActivityRepository(db)
     )

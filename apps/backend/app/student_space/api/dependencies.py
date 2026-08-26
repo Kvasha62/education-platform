@@ -2,7 +2,9 @@ from typing import Annotated
 
 from fastapi import Depends
 
-from app.education.application.published_course_list import PublishedCourseListReader
+from app.education.application.published_course_list import (
+    PublishedCourseListReader,
+)
 from app.education.application.student_content_body import StudentPublishedContentBodyReader
 from app.education.application.student_course import PublishedCourseReader
 from app.education.composition import (
@@ -10,6 +12,13 @@ from app.education.composition import (
     get_published_course_reader,
     get_student_published_content_body_reader,
 )
+from app.learning.api.dependencies import (
+    get_continue_learning_reader,
+    get_student_enrollment_reader,
+)
+from app.learning.application.dashboard import ContinueLearningReader
+from app.learning.application.enrollment_read import StudentEnrollmentReader
+from app.student_space.application.dashboard import StudentDashboardReader, StudentDashboardService
 from app.student_space.application.services import (
     StudentCourseService,
     StudentPublishedContentBodyService,
@@ -38,3 +47,17 @@ def get_student_published_content_body_service(
     ],
 ) -> StudentPublishedContentBodyService:
     return StudentPublishedContentBodyService(content)
+
+
+def get_student_dashboard_reader(
+    enrollments: Annotated[
+        StudentEnrollmentReader, Depends(get_student_enrollment_reader)
+    ],
+    courses: Annotated[
+        PublishedCourseListReader, Depends(get_published_course_list_reader)
+    ],
+    continue_learning: Annotated[
+        ContinueLearningReader, Depends(get_continue_learning_reader)
+    ],
+) -> StudentDashboardReader:
+    return StudentDashboardService(enrollments, courses, continue_learning)

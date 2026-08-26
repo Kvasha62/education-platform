@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.learning.domain.models import EnrollmentStatus
-from app.learning.domain.progress import ActivityProgress
+from app.learning.domain.progress import ActivityProgress, ProgressStatus
 from app.learning.infrastructure.models import ActivityProgressModel, EnrollmentModel
 
 
@@ -32,6 +32,17 @@ class SqlAlchemyProgressRepository:
             )
         )
         return _to_domain(model) if model else None
+
+    def list_in_progress(self, student_user_id: UUID) -> list[ActivityProgress]:
+        models = self.db.scalars(
+            select(ActivityProgressModel)
+            .where(
+                ActivityProgressModel.student_user_id == student_user_id,
+                ActivityProgressModel.status == ProgressStatus.IN_PROGRESS,
+            )
+            .order_by(ActivityProgressModel.updated_at.desc(), ActivityProgressModel.id.desc())
+        ).all()
+        return [_to_domain(model) for model in models]
 
     def get_or_create(self, progress: ActivityProgress) -> ActivityProgress:
         model = ActivityProgressModel(
