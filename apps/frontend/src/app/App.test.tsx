@@ -44,6 +44,10 @@ describe('authentication UI', () => {
       'href',
       '/app/teacher-spaces',
     )
+    expect(screen.getByRole('link', { name: 'Create Content' })).toHaveAttribute(
+      'href',
+      '/app/contents/new',
+    )
   })
 
   it('redirects an unauthenticated visitor away from the protected app', async () => {

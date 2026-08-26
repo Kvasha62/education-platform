@@ -20,7 +20,14 @@ export interface ContentPage {
   has_next: boolean
 }
 
+export interface CreateContentInput {
+  title: string
+  type: ContentType
+}
+
 export const contentApi = {
+  create: (input: CreateContentInput) =>
+    apiRequest<Content>('/api/v1/contents', { method: 'POST', body: input }),
   list: (page = 1, pageSize = 20) =>
     apiRequest<ContentPage>(`/api/v1/contents?page=${page}&page_size=${pageSize}`),
   get: (contentId: string) => apiRequest<Content>(`/api/v1/contents/${contentId}`),
