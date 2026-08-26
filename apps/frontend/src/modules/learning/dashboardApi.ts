@@ -10,6 +10,7 @@ export interface DashboardCourse {
 export interface DashboardContinueLearning {
   course_id: string
   activity_id: string
+  activity_title: string
   status: 'in_progress'
   updated_at: string
 }

@@ -60,7 +60,7 @@ export const StudentDashboardPage = () => {
             {dashboard.data.continue_learning ? (
               <div className="continue-learning-card">
                 <div>
-                  <strong>Activity in progress</strong>
+                  <strong>{dashboard.data.continue_learning.activity_title}</strong>
                   <span>IN PROGRESS</span>
                 </div>
                 <Link

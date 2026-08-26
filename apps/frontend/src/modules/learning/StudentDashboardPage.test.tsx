@@ -17,8 +17,8 @@ const dashboard = {
     },
   ],
   continue_learning: {
-    course_id: 'course-id', activity_id: 'activity-id', status: 'in_progress',
-    updated_at: '2026-08-26T01:00:00Z',
+    course_id: 'course-id', activity_id: 'activity-id', activity_title: 'Variables practice',
+    status: 'in_progress', updated_at: '2026-08-26T01:00:00Z',
   },
 }
 const jsonResponse = (body: unknown, status = 200) =>
@@ -60,7 +60,8 @@ describe('Student Dashboard UI', () => {
     expect(screen.getByRole('link', { name: 'Open Course' })).toHaveAttribute(
       'href', '/app/student/courses/course-id',
     )
-    expect(screen.getByText('Activity in progress')).toBeInTheDocument()
+    expect(screen.getByText('Variables practice')).toBeInTheDocument()
+    expect(screen.queryByText('activity-id')).not.toBeInTheDocument()
     expect(screen.getByText('IN PROGRESS')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Continue Activity' })).toHaveAttribute(
       'href', '/app/student/courses/course-id/activities/activity-id',
@@ -106,7 +107,7 @@ describe('Student Dashboard UI', () => {
     ))
     renderRoute()
     expect(await screen.findByRole('alert')).toHaveTextContent(detail)
-    expect(screen.queryByText('Activity in progress')).not.toBeInTheDocument()
+    expect(screen.queryByText('Variables practice')).not.toBeInTheDocument()
   })
 
   it('protects the Student Dashboard route', async () => {
