@@ -2,6 +2,7 @@ import { useQueries, useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../../shared/api'
 import { ErrorState, LoadingState } from '../../shared/ui'
+import { StudentActivityProgress } from './StudentActivityProgress'
 import { StudentContentBody } from './StudentContentBody'
 import { studentCourseApi } from './studentCourseApi'
 import { studentCourseKeys } from './studentCourseQueries'
@@ -51,6 +52,7 @@ export const StudentActivityPage = () => {
           {location.activity.type.toUpperCase()} · Activity {location.activity.position + 1}
         </p>
       </div>
+      <StudentActivityProgress activityId={location.activity.id} />
 
       {location.activity.contents.length === 0 && (
         <div className="empty-state"><h2>No published Content attached</h2></div>

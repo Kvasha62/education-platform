@@ -5,6 +5,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createQueryClient } from '../../app/providers'
 import { routes } from '../../app/router'
 
+vi.mock('./StudentActivityProgress', () => ({
+  StudentActivityProgress: () => <div>Activity progress</div>,
+}))
+
 const identity = {
   id: 'identity-id', email: 'student@example.com', status: 'active',
   created_at: '2026-08-26T00:00:00Z', updated_at: '2026-08-26T00:00:00Z',
@@ -85,6 +89,7 @@ describe('Student Activity and Content Viewer', () => {
 
     expect(await screen.findByRole('heading', { name: 'Learn Loops' })).toBeInTheDocument()
     expect(screen.getByText('LECTURE · Activity 1')).toBeInTheDocument()
+    expect(screen.getByText('Activity progress')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Loop basics', level: 2 })).toBeInTheDocument()
     expect(screen.getByText('A loop repeats work.')).toBeInTheDocument()
     expect(screen.getByText(/for item in items/)).toBeInTheDocument()
