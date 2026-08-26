@@ -5,8 +5,11 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from app.content.api.dependencies import get_content_lookup
-from app.content.public import ContentLookup
+from app.content.api.dependencies import (
+    get_content_lookup,
+    get_published_content_body_lookup,
+)
+from app.content.public import ContentLookup, PublishedContentBodyLookup
 from app.core.database import get_db
 from app.education.api.dependencies import (
     get_activity_content_link_repository,
@@ -35,6 +38,10 @@ from app.education.application.services import (
     LearningUnitService,
     SectionService,
 )
+from app.education.application.student_content_body import (
+    StudentPublishedContentBodyReader,
+    StudentPublishedContentBodyReadService,
+)
 from app.education.application.student_course import (
     PublishedCourseReader,
     StudentCourseReadService,
@@ -43,6 +50,9 @@ from app.education.infrastructure.activity_publication import (
     SqlAlchemyPublishedActivityRepository,
 )
 from app.education.infrastructure.repositories import SqlAlchemyCourseRepository
+from app.education.infrastructure.student_content_body import (
+    SqlAlchemyPublishedContentAssociationRepository,
+)
 
 
 def get_activity_content_service(
@@ -91,3 +101,15 @@ def get_published_course_list_reader(
     db: Annotated[Session, Depends(get_db)],
 ) -> PublishedCourseListReader:
     return PublishedCourseListService(SqlAlchemyCourseRepository(db))
+
+
+def get_student_published_content_body_reader(
+    db: Annotated[Session, Depends(get_db)],
+    content: Annotated[
+        PublishedContentBodyLookup, Depends(get_published_content_body_lookup)
+    ],
+) -> StudentPublishedContentBodyReader:
+    return StudentPublishedContentBodyReadService(
+        SqlAlchemyPublishedContentAssociationRepository(db),
+        content,
+    )

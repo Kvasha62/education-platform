@@ -1,9 +1,12 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.content.body_contracts import ContentBodyPayload
 from app.education.application.published_course_list import PublishedCourseSummary
+from app.education.application.student_content_body import StudentPublishedContentBody
 from app.education.application.student_course import (
     ActivityTypeValue,
     ContentStatusValue,
@@ -163,3 +166,19 @@ class PublishedCourseSummaryResponse(BaseModel):
 
 class PublishedCourseListResponse(BaseModel):
     items: list[PublishedCourseSummaryResponse]
+
+
+class StudentPublishedContentBodyResponse(BaseModel):
+    id: UUID
+    type: Literal["article", "resource"]
+    body: "ContentBodyPayload"
+
+    @classmethod
+    def from_reference(
+        cls, reference: StudentPublishedContentBody
+    ) -> "StudentPublishedContentBodyResponse":
+        return cls(
+            id=reference.id,
+            type=reference.type,
+            body=ContentBodyPayload.model_validate(reference.body),
+        )

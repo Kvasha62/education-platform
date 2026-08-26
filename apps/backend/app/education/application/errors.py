@@ -39,3 +39,7 @@ class LinkedContentUnavailableError(Exception):
 
 class PublishedActivityNotFoundError(Exception):
     pass
+
+
+class PublishedContentBodyNotFoundError(Exception):
+    pass
