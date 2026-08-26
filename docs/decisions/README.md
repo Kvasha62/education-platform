@@ -10,3 +10,4 @@ Add an ADR here when an approved architectural decision needs to be recorded.
 - [`ADR-0002 — Frontend Architecture`](./ADR-0002-frontend-architecture.md)
 - [`ADR-0003 — Pagination Architecture`](./ADR-0003-pagination-architecture.md)
 - [`ADR-0004 — Content Body and Editor Architecture`](./ADR-0004-content-body-editor-architecture.md)
+- [`ADR-0005 — Activity Publication and Student Visibility`](./ADR-0005-activity-publication-student-visibility.md)
