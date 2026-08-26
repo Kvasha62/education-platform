@@ -17,6 +17,7 @@ from app.education.application.errors import (
 from app.education.domain.models import (
     Activity,
     Course,
+    CourseStatus,
     EducationalEnvironment,
     LearningUnit,
     Section,
@@ -115,6 +116,14 @@ class SqlAlchemyCourseRepository:
             select(CourseModel)
             .where(CourseModel.educational_environment_id == environment_id)
             .order_by(CourseModel.created_at, CourseModel.id)
+        ).all()
+        return [_course_to_domain(model) for model in models]
+
+    def list_published(self) -> list[Course]:
+        models = self.db.scalars(
+            select(CourseModel)
+            .where(CourseModel.status == CourseStatus.PUBLISHED)
+            .order_by(CourseModel.created_at.desc(), CourseModel.id.desc())
         ).all()
         return [_course_to_domain(model) for model in models]
 

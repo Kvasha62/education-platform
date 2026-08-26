@@ -241,3 +241,51 @@ def test_openapi_contains_exact_student_contract(client: TestClient) -> None:
     openapi = client.get("/openapi.json").json()
     assert set(openapi["paths"][path]) == {"get"}
     assert "StudentCourseResponse" in openapi["components"]["schemas"]
+
+
+def test_published_course_collection_auth_visibility_ordering_and_shape(
+    client: TestClient,
+) -> None:
+    assert client.get("/api/v1/student/courses").status_code == 401
+
+    teacher_token = auth(client, "list-teacher@example.com")
+    _draft_space, draft_id = create_course(client, "Draft")
+    first_space, first_id = create_course(client, "First Published")
+    first_path, _ = course_paths(first_space, first_id)
+    client.post(f"{first_path}/publish", headers=HEADERS)
+    second_space, second_id = create_course(client, "Second Published")
+    second_path, _ = course_paths(second_space, second_id)
+    client.post(f"{second_path}/publish", headers=HEADERS)
+    archived_space, archived_id = create_course(client, "Archived")
+    archived_path, _ = course_paths(archived_space, archived_id)
+    client.post(f"{archived_path}/publish", headers=HEADERS)
+    client.post(f"{archived_path}/archive", headers=HEADERS)
+
+    student_token = auth(client, "list-student@example.com")
+    response = client.get("/api/v1/student/courses")
+    assert response.status_code == 200
+    assert response.json() == {
+        "items": [
+            {"id": second_id, "title": "Second Published"},
+            {"id": first_id, "title": "First Published"},
+        ]
+    }
+    assert draft_id not in response.text
+    assert archived_id not in response.text
+    use(client, teacher_token)
+    use(client, student_token)
+
+
+def test_empty_published_course_collection_returns_200(client: TestClient) -> None:
+    auth(client, "empty-course-list@example.com")
+    response = client.get("/api/v1/student/courses")
+    assert response.status_code == 200
+    assert response.json() == {"items": []}
+
+
+def test_openapi_contains_exact_published_course_list_contract(client: TestClient) -> None:
+    openapi = client.get("/openapi.json").json()
+    operation = openapi["paths"]["/api/v1/student/courses"]["get"]
+    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/PublishedCourseListResponse"
+    }
