@@ -25,6 +25,10 @@ from app.education.application.publication import (
     CoursePublicationLookupService,
     PublishedCourseLookup,
 )
+from app.education.application.published_course_list import (
+    PublishedCourseListReader,
+    PublishedCourseListService,
+)
 from app.education.application.services import (
     ActivityService,
     CourseService,
@@ -38,6 +42,7 @@ from app.education.application.student_course import (
 from app.education.infrastructure.activity_publication import (
     SqlAlchemyPublishedActivityRepository,
 )
+from app.education.infrastructure.repositories import SqlAlchemyCourseRepository
 
 
 def get_activity_content_service(
@@ -80,3 +85,9 @@ def get_published_activity_lookup(
     db: Annotated[Session, Depends(get_db)],
 ) -> PublishedActivityLookup:
     return ActivityPublicationLookupService(SqlAlchemyPublishedActivityRepository(db))
+
+
+def get_published_course_list_reader(
+    db: Annotated[Session, Depends(get_db)],
+) -> PublishedCourseListReader:
+    return PublishedCourseListService(SqlAlchemyCourseRepository(db))

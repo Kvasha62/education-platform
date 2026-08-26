@@ -18,11 +18,16 @@ from app.learning.application.progress import (
     ProgressNotStartedError,
 )
 from app.learning.application.services import EnrollmentCourseNotFoundError, EnrollmentService
-from app.student_space.api.dependencies import get_student_course_service
+from app.student_space.api.dependencies import (
+    get_student_course_service,
+    get_student_published_course_list_service,
+)
 from app.student_space.api.schemas import (
     ActivityProgressResponse,
     EnrollmentReferenceResponse,
     EnrollmentResponse,
+    PublishedCourseListResponse,
+    PublishedCourseSummaryResponse,
     StudentCourseResponse,
     StudentEnrollmentListResponse,
 )
@@ -30,14 +35,31 @@ from app.student_space.application.services import (
     StudentContentUnavailableError,
     StudentCourseNotFoundError,
     StudentCourseService,
+    StudentPublishedCourseListService,
 )
 
 router = APIRouter(prefix="/api/v1/student", tags=["student-courses"])
 CurrentIdentity = Annotated[Identity, Depends(get_current_identity)]
 StudentCourses = Annotated[StudentCourseService, Depends(get_student_course_service)]
+PublishedCourseLists = Annotated[
+    StudentPublishedCourseListService, Depends(get_student_published_course_list_service)
+]
 Enrollments = Annotated[EnrollmentService, Depends(get_enrollment_service)]
 ActivityProgresses = Annotated[ActivityProgressService, Depends(get_activity_progress_service)]
 StudentEnrollments = Annotated[StudentEnrollmentReader, Depends(get_student_enrollment_reader)]
+
+
+@router.get("/courses", response_model=PublishedCourseListResponse)
+def list_published_courses(
+    _identity: CurrentIdentity,
+    courses: PublishedCourseLists,
+) -> PublishedCourseListResponse:
+    return PublishedCourseListResponse(
+        items=[
+            PublishedCourseSummaryResponse.from_summary(item)
+            for item in courses.list_published()
+        ]
+    )
 
 
 @router.get("/courses/{course_id}", response_model=StudentCourseResponse)

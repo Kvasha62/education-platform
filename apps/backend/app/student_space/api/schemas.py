@@ -3,6 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.education.application.published_course_list import PublishedCourseSummary
 from app.education.application.student_course import (
     ActivityTypeValue,
     ContentStatusValue,
@@ -147,3 +148,18 @@ class ActivityProgressResponse(BaseModel):
     @classmethod
     def from_reference(cls, reference: "ActivityProgressReference") -> "ActivityProgressResponse":
         return cls(activity_id=reference.activity_id, status=reference.status)
+
+
+class PublishedCourseSummaryResponse(BaseModel):
+    id: UUID
+    title: str
+
+    @classmethod
+    def from_summary(
+        cls, summary: "PublishedCourseSummary"
+    ) -> "PublishedCourseSummaryResponse":
+        return cls(id=summary.id, title=summary.title)
+
+
+class PublishedCourseListResponse(BaseModel):
+    items: list[PublishedCourseSummaryResponse]
