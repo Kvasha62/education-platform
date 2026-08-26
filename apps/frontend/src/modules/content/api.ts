@@ -40,4 +40,6 @@ export const contentApi = {
     }),
   publish: (contentId: string) =>
     apiRequest<Content>(`/api/v1/contents/${contentId}/publish`, { method: 'POST' }),
+  delete: (contentId: string) =>
+    apiRequest<void>(`/api/v1/contents/${contentId}`, { method: 'DELETE' }),
 }

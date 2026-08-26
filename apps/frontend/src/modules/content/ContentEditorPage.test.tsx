@@ -29,11 +29,13 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 const renderRoute = () => {
   const router = createMemoryRouter(routes, { initialEntries: [route] })
-  return render(
-    <QueryClientProvider client={createQueryClient()}>
+  const queryClient = createQueryClient()
+  const view = render(
+    <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   )
+  return { ...view, queryClient }
 }
 
 const successfulFetch = (body: ContentBody, content = metadata) =>
@@ -46,7 +48,10 @@ const successfulFetch = (body: ContentBody, content = metadata) =>
   })
 
 describe('Content Editor Foundation', () => {
-  afterEach(() => vi.unstubAllGlobals())
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
 
   it('renders the protected route and loading state', async () => {
     let resolveBody: ((response: Response) => void) | undefined
@@ -262,6 +267,76 @@ describe('Content Editor Foundation', () => {
     expect(
       fetchMock.mock.calls.some(([input]) => String(input).endsWith('/publish')),
     ).toBe(false)
+  })
+
+  it.each(['draft', 'published'])(
+    'confirms and deletes %s Content, invalidates queries, and returns to Teacher Workspace',
+    async (contentStatus) => {
+      const currentMetadata = { ...metadata, status: contentStatus }
+      const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input)
+        if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+        if (url.endsWith(bodyEndpoint)) return jsonResponse(emptyArticle)
+        if (url.endsWith(detailEndpoint) && init?.method === 'DELETE') {
+          return new Response(null, { status: 204 })
+        }
+        if (url.endsWith(detailEndpoint)) return jsonResponse(currentMetadata)
+        throw new Error(`Unexpected request: ${url}`)
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      vi.spyOn(window, 'confirm').mockReturnValue(true)
+      const user = userEvent.setup()
+      const { queryClient } = renderRoute()
+      const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+
+      await user.click(await screen.findByRole('button', { name: 'Delete Content' }))
+      expect(window.confirm).toHaveBeenCalledWith('Permanently delete "Programming Article"?')
+      expect(await screen.findByRole('heading', { name: 'Teacher Workspace' })).toBeInTheDocument()
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining(detailEndpoint),
+        expect.objectContaining({ credentials: 'include', method: 'DELETE' }),
+      )
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ['owned-content'] })
+      expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(false)
+      expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith('/publish'))).toBe(false)
+    },
+  )
+
+  it('cancels deletion without sending a mutation', async () => {
+    const fetchMock = successfulFetch(emptyArticle)
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const user = userEvent.setup()
+    renderRoute()
+
+    await user.click(await screen.findByRole('button', { name: 'Delete Content' }))
+    expect(window.confirm).toHaveBeenCalledOnce()
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(screen.getByRole('heading', { name: metadata.title })).toBeInTheDocument()
+  })
+
+  it('prevents duplicate deletion while loading and surfaces backend errors', async () => {
+    let rejectDelete: ((response: Response) => void) | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+      if (url.endsWith(bodyEndpoint)) return jsonResponse(emptyArticle)
+      if (url.endsWith(detailEndpoint) && init?.method === 'DELETE') {
+        return new Promise<Response>((resolve) => { rejectDelete = resolve })
+      }
+      if (url.endsWith(detailEndpoint)) return jsonResponse(metadata)
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    renderRoute()
+
+    await user.click(await screen.findByRole('button', { name: 'Delete Content' }))
+    expect(screen.getByRole('button', { name: 'Deleting…' })).toBeDisabled()
+    rejectDelete?.(jsonResponse({ detail: 'Content not found' }, 404))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Content not found')
+    expect(screen.getByRole('button', { name: 'Delete Content' })).toBeEnabled()
   })
 
   it('protects the Content Editor route', async () => {

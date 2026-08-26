@@ -84,3 +84,5 @@ button:disabled { cursor: wait; opacity: .65; }
 .content-block input, .content-block textarea, .content-block select, .resource-editor input, .resource-editor textarea, .editor-actions select { padding: .7rem; border: 1px solid #aeb8b0; border-radius: .5rem; background: #fff; font: inherit; }
 .content-block textarea, .resource-editor textarea { min-height: 6rem; resize: vertical; }
 .editor-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; }
+.button-danger { background: #9f2f25; }
+.button-danger:hover { background: #7f241c; }
