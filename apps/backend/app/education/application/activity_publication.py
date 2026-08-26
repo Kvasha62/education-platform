@@ -5,6 +5,7 @@ from typing import Protocol
 from uuid import UUID
 
 from app.education.application.errors import PublishedActivityNotFoundError
+from app.education.application.publication import PublishedCourseLookup
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,3 +57,27 @@ class PublishedActivityCollectionRepository(Protocol):
     def list_published(
         self, activity_ids: list[UUID], course_ids: set[UUID]
     ) -> list[PublishedActivityReference]: ...
+
+
+class PublishedCourseActivityReader(Protocol):
+    """Student-visible Activity IDs for one PUBLISHED Course."""
+
+    def list_activity_ids(self, course_id: UUID) -> list[UUID]: ...
+
+
+class PublishedCourseActivityRepository(Protocol):
+    def list_ids_for_course(self, course_id: UUID) -> list[UUID]: ...
+
+
+class PublishedCourseActivityReadService:
+    def __init__(
+        self,
+        courses: PublishedCourseLookup,
+        activities: PublishedCourseActivityRepository,
+    ) -> None:
+        self.courses = courses
+        self.activities = activities
+
+    def list_activity_ids(self, course_id: UUID) -> list[UUID]:
+        self.courses.require_published(course_id)
+        return self.activities.list_ids_for_course(course_id)

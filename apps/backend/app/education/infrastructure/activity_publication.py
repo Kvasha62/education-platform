@@ -46,3 +46,20 @@ class SqlAlchemyPublishedActivityRepository:
             )
         ).all()
         return [PublishedActivityReference(row[0], row[1], row[2]) for row in rows]
+
+    def list_ids_for_course(self, course_id: UUID) -> list[UUID]:
+        return list(
+            self.db.scalars(
+                select(ActivityModel.id)
+                .join(
+                    LearningUnitModel,
+                    ActivityModel.learning_unit_id == LearningUnitModel.id,
+                )
+                .join(SectionModel, LearningUnitModel.section_id == SectionModel.id)
+                .join(CourseModel, SectionModel.course_id == CourseModel.id)
+                .where(
+                    CourseModel.id == course_id,
+                    CourseModel.status == CourseStatus.PUBLISHED,
+                )
+            ).all()
+        )
