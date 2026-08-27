@@ -3,14 +3,12 @@ from uuid import uuid4
 
 import pytest
 from sqlalchemy import CheckConstraint, create_engine, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.assessment.application.ports import AssessmentAttemptRepository
-from app.assessment.application.results import (
-    AssessmentResultAlreadyExistsError,
-    AssessmentResultService,
-)
+from app.assessment.application.results import AssessmentResultService
 from app.assessment.domain.attempts import AssessmentAttempt, AssessmentAttemptStatus
 from app.assessment.domain.models import AssessmentDefinition
 from app.assessment.domain.results import AssessmentResult
@@ -85,7 +83,7 @@ def test_review_and_correction_persist_one_scored_result():
         assert corrected.score == 8
         assert corrected.feedback is None
         assert db.scalar(select(func.count()).select_from(AssessmentResultModel)) == 1
-        with pytest.raises(AssessmentResultAlreadyExistsError):
+        with pytest.raises(IntegrityError):
             results.add(AssessmentResult.create(attempt.id, 8, 10))
 
     table = Base.metadata.tables["assessment_results"]

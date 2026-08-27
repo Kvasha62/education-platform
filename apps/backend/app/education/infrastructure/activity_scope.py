@@ -3,6 +3,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.education.application.activity_scope import ActivityScopeResolution
 from app.education.infrastructure.models import (
     ActivityModel,
     CourseModel,
@@ -31,3 +32,15 @@ class SqlAlchemyActivityTeacherSpaceScopeRepository:
             )
             is not None
         )
+
+    def resolve_activity_scope(
+        self, activity_id: UUID, teacher_space_id: UUID
+    ) -> ActivityScopeResolution:
+        if self.belongs_to_teacher_space(activity_id, teacher_space_id):
+            return ActivityScopeResolution.IN_SCOPE
+        exists = self.db.scalar(
+            select(ActivityModel.id).where(ActivityModel.id == activity_id)
+        )
+        if exists is not None:
+            return ActivityScopeResolution.OUTSIDE_SCOPE
+        return ActivityScopeResolution.NOT_FOUND

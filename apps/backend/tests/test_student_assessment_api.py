@@ -635,6 +635,10 @@ def test_openapi_contains_exact_assessment_contract(client):
         "/api/v1/student/activities/{activity_id}/assessment-definitions/{definition_id}/attempts",
         "/api/v1/student/assessment-attempts/{attempt_id}",
         "/api/v1/student/assessment-attempts/{attempt_id}/submit",
+        "/api/v1/teacher-spaces/{teacher_space_id}/activities/{activity_id}/assessment-attempts",
+        "/api/v1/teacher-spaces/{teacher_space_id}/activities/{activity_id}/assessment-attempts/{attempt_id}",
+        "/api/v1/teacher-spaces/{teacher_space_id}/activities/{activity_id}/assessment-attempts/{attempt_id}/review",
+        "/api/v1/teacher-spaces/{teacher_space_id}/activities/{activity_id}/assessment-attempts/{attempt_id}/correction",
     }
     assert set(
         assessment_paths[

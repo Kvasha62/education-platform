@@ -10,6 +10,9 @@ from app.student_space.api import router as student_space_router
 from app.teacher_space.api import router as teacher_space_router
 from app.teacher_space.api.activity_content_router import router as activity_content_router
 from app.teacher_space.api.activity_router import router as activity_router
+from app.teacher_space.api.assessment_review_router import (
+    router as assessment_review_router,
+)
 from app.teacher_space.api.course_router import router as course_router
 from app.teacher_space.api.environment_router import router as environment_router
 from app.teacher_space.api.learning_unit_router import router as learning_unit_router
@@ -28,6 +31,7 @@ app.include_router(identity_router)
 app.include_router(content_router)
 app.include_router(student_space_router)
 app.include_router(teacher_space_router)
+app.include_router(assessment_review_router)
 app.include_router(activity_router)
 app.include_router(activity_content_router)
 app.include_router(course_router)

@@ -71,6 +71,9 @@ class Attempts:
     def list_owned(self, definition_id, student_id):
         return []
 
+    def list_by_definition(self, definition_id, *, status, offset, limit):
+        return []
+
 
 class Results:
     def __init__(self, fail_creation=False):

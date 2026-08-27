@@ -8,8 +8,17 @@ class AuthorizationDecision(StrEnum):
     DENIED = "denied"
 
 
+class ActivityScopeResolution(StrEnum):
+    IN_SCOPE = "in_scope"
+    OUTSIDE_SCOPE = "outside_scope"
+    NOT_FOUND = "not_found"
+
+
 class ActivityTeacherSpaceScopeRepository(Protocol):
     def belongs_to_teacher_space(self, activity_id: UUID, teacher_space_id: UUID) -> bool: ...
+    def resolve_activity_scope(
+        self, activity_id: UUID, teacher_space_id: UUID
+    ) -> ActivityScopeResolution: ...
 
 
 class ActivityTeacherSpaceScopeQuery:
@@ -24,3 +33,8 @@ class ActivityTeacherSpaceScopeQuery:
             if self.repository.belongs_to_teacher_space(activity_id, teacher_space_id)
             else AuthorizationDecision.DENIED
         )
+
+    def resolve_activity_scope(
+        self, activity_id: UUID, teacher_space_id: UUID
+    ) -> ActivityScopeResolution:
+        return self.repository.resolve_activity_scope(activity_id, teacher_space_id)

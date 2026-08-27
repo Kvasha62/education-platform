@@ -80,6 +80,13 @@ class Attempts:
             and attempt.student_id == student_id
         ]
 
+    def list_by_definition(self, definition_id, *, status, offset, limit):
+        return [
+            attempt
+            for attempt in self.items.values()
+            if attempt.assessment_definition_id == definition_id
+        ]
+
 
 def test_multiple_attempts_and_archived_definition_rules():
     activity_id, student_id = uuid4(), uuid4()

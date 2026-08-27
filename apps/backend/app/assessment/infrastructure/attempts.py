@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.assessment.application.attempts import AssessmentAttemptNotFoundError
-from app.assessment.domain.attempts import AssessmentAttempt
+from app.assessment.domain.attempts import AssessmentAttempt, AssessmentAttemptStatus
 from app.assessment.infrastructure.models import AssessmentAttemptModel
 
 
@@ -85,3 +85,22 @@ class SqlAlchemyAssessmentAttemptRepository:
                 )
             ).all()
         ]
+
+    def list_by_definition(
+        self,
+        definition_id,
+        *,
+        status: AssessmentAttemptStatus | None,
+        offset: int,
+        limit: int,
+    ) -> list[AssessmentAttempt]:
+        statement = select(AssessmentAttemptModel).where(
+            AssessmentAttemptModel.assessment_definition_id == definition_id,
+            AssessmentAttemptModel.status.in_(
+                [AssessmentAttemptStatus.SUBMITTED, AssessmentAttemptStatus.REVIEWED]
+            ),
+        )
+        if status is not None:
+            statement = statement.where(AssessmentAttemptModel.status == status)
+        statement = statement.order_by(AssessmentAttemptModel.id).offset(offset).limit(limit)
+        return [_domain(model) for model in self.db.scalars(statement).all()]
