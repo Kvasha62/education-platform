@@ -31,7 +31,7 @@ describe('Student Course Progress UI', () => {
 
   it.each([
     [0, 10, 0],
-    [3, 10, 37],
+    [3, 10, 30],
     [10, 10, 100],
     [0, 0, 0],
   ])(
@@ -78,6 +78,25 @@ describe('Student Course Progress UI', () => {
     renderProgress()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Course Progress not available.')
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    [{ completed_activities: 0, total_activities: 1, progress_percent: -1 }],
+    [{ completed_activities: 1, total_activities: 1, progress_percent: 101 }],
+    [{ completed_activities: -1, total_activities: 1, progress_percent: 0 }],
+    [{ completed_activities: 0, total_activities: -1, progress_percent: 0 }],
+  ])('rejects invalid Course Progress invariants without rendering values', async (values) => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ course_id: 'course-id', ...values }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    renderProgress()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Invalid Course Progress response.',
+    )
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
