@@ -23,6 +23,7 @@ export interface StudentActivity {
   type: 'lecture' | 'video' | 'homework'
   position: number
   contents: StudentContentReference[]
+  assessment_definition_id: string | null
 }
 
 export interface StudentLearningUnit {

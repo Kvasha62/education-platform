@@ -8,6 +8,7 @@ const activity = (id: string, position: number): StudentActivity => ({
   type: 'lecture',
   position,
   contents: [],
+  assessment_definition_id: null,
 })
 
 const course = (sections: StudentCourse['sections']): StudentCourse => ({

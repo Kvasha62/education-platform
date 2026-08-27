@@ -2,6 +2,7 @@ import { useQueries, useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../../shared/api'
 import { ErrorState, LoadingState } from '../../shared/ui'
+import { StudentAssessmentEntry } from '../assessment'
 import { findNextActivity } from './activityProgression'
 import { StudentActivityProgress } from './StudentActivityProgress'
 import { StudentContentBody } from './StudentContentBody'
@@ -59,6 +60,12 @@ export const StudentActivityPage = () => {
         courseId={courseId}
         nextActivity={nextActivity}
       />
+      {location.activity.assessment_definition_id && (
+        <StudentAssessmentEntry
+          activityId={location.activity.id}
+          assessmentDefinitionId={location.activity.assessment_definition_id}
+        />
+      )}
 
       {location.activity.contents.length === 0 && (
         <div className="empty-state"><h2>No published Content attached</h2></div>

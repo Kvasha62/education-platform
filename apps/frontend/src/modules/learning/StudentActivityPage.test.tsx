@@ -18,6 +18,7 @@ const activity = {
   title: 'Learn Loops',
   type: 'lecture',
   position: 0,
+  assessment_definition_id: 'definition-id',
   contents: [
     { id: 'article-id', type: 'article', status: 'published', available_for_student: true },
     { id: 'resource-id', type: 'resource', status: 'published', available_for_student: true },

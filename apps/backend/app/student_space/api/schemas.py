@@ -16,7 +16,6 @@ from app.education.application.student_course import (
     ContentTypeValue,
     StudentActivity,
     StudentContentReference,
-    StudentCourse,
     StudentLearningUnit,
     StudentSection,
 )
@@ -26,6 +25,7 @@ from app.learning.application.progress import ActivityProgressReference
 from app.learning.domain.models import Enrollment, EnrollmentStatus
 from app.learning.domain.progress import ProgressStatus
 from app.student_space.application.dashboard import StudentDashboard
+from app.student_space.application.services import StudentCourseAssessmentView
 
 
 class CreateAssessmentAttemptRequest(BaseModel):
@@ -104,9 +104,14 @@ class StudentActivityResponse(BaseModel):
     type: ActivityTypeValue
     position: int
     contents: list[StudentContentReferenceResponse]
+    assessment_definition_id: UUID | None
 
     @classmethod
-    def from_activity(cls, activity: StudentActivity) -> "StudentActivityResponse":
+    def from_activity(
+        cls,
+        activity: StudentActivity,
+        assessment_definition_id: UUID | None,
+    ) -> "StudentActivityResponse":
         return cls(
             id=activity.id,
             title=activity.title,
@@ -116,6 +121,7 @@ class StudentActivityResponse(BaseModel):
                 StudentContentReferenceResponse.from_reference(reference)
                 for reference in activity.contents
             ],
+            assessment_definition_id=assessment_definition_id,
         )
 
 
@@ -126,12 +132,22 @@ class StudentLearningUnitResponse(BaseModel):
     activities: list[StudentActivityResponse]
 
     @classmethod
-    def from_unit(cls, unit: StudentLearningUnit) -> "StudentLearningUnitResponse":
+    def from_unit(
+        cls,
+        unit: StudentLearningUnit,
+        assessment_definition_ids: dict[UUID, UUID],
+    ) -> "StudentLearningUnitResponse":
         return cls(
             id=unit.id,
             title=unit.title,
             position=unit.position,
-            activities=[StudentActivityResponse.from_activity(item) for item in unit.activities],
+            activities=[
+                StudentActivityResponse.from_activity(
+                    item,
+                    assessment_definition_ids.get(item.id),
+                )
+                for item in unit.activities
+            ],
         )
 
 
@@ -142,12 +158,22 @@ class StudentSectionResponse(BaseModel):
     units: list[StudentLearningUnitResponse]
 
     @classmethod
-    def from_section(cls, section: StudentSection) -> "StudentSectionResponse":
+    def from_section(
+        cls,
+        section: StudentSection,
+        assessment_definition_ids: dict[UUID, UUID],
+    ) -> "StudentSectionResponse":
         return cls(
             id=section.id,
             title=section.title,
             position=section.position,
-            units=[StudentLearningUnitResponse.from_unit(item) for item in section.units],
+            units=[
+                StudentLearningUnitResponse.from_unit(
+                    item,
+                    assessment_definition_ids,
+                )
+                for item in section.units
+            ],
         )
 
 
@@ -157,11 +183,18 @@ class StudentCourseResponse(BaseModel):
     sections: list[StudentSectionResponse]
 
     @classmethod
-    def from_course(cls, course: StudentCourse) -> "StudentCourseResponse":
+    def from_course(cls, view: StudentCourseAssessmentView) -> "StudentCourseResponse":
+        course = view.course
         return cls(
             id=course.id,
             title=course.title,
-            sections=[StudentSectionResponse.from_section(item) for item in course.sections],
+            sections=[
+                StudentSectionResponse.from_section(
+                    item,
+                    view.assessment_definition_ids,
+                )
+                for item in course.sections
+            ],
         )
 
 

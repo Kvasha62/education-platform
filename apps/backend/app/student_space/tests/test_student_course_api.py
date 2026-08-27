@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -6,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.assessment.composition import get_assessment_definition_id_lookup
 from app.core.config import Settings, get_settings
 from app.core.database import Base, get_db
 from app.education.application.errors import LinkedContentUnavailableError
@@ -76,6 +78,15 @@ def auth(client: TestClient, email: str) -> str:
 
 def use(client: TestClient, token: str) -> None:
     client.cookies.set(SESSION_COOKIE_NAME, token)
+
+
+class AssessmentDefinitionIds:
+    def __init__(self, activity_id: UUID, definition_id: UUID) -> None:
+        self.activity_id = activity_id
+        self.definition_id = definition_id
+
+    def get_id_for_activity(self, activity_id: UUID) -> UUID | None:
+        return self.definition_id if activity_id == self.activity_id else None
 
 
 def create_course(client: TestClient, title: str = "Course") -> tuple[str, str]:
@@ -167,6 +178,10 @@ def test_student_reads_ordered_structure_and_only_published_content(client: Test
     client.post(links, json={"content_id": draft_content["id"]}, headers=HEADERS)
     client.post(links, json={"content_id": published_content["id"]}, headers=HEADERS)
     client.post(f"{course_path}/publish", headers=HEADERS)
+    assessment_definition_id = uuid4()
+    app.dependency_overrides[get_assessment_definition_id_lookup] = lambda: (
+        AssessmentDefinitionIds(UUID(early_activity["id"]), assessment_definition_id)
+    )
 
     student_token = auth(client, "student@example.com")
     use(client, student_token)
@@ -189,7 +204,18 @@ def test_student_reads_ordered_structure_and_only_published_content(client: Test
         early_activity["id"],
         late_activity["id"],
     ]
-    assert set(returned_activities[0]) == {"id", "title", "type", "position", "contents"}
+    assert set(returned_activities[0]) == {
+        "id",
+        "title",
+        "type",
+        "position",
+        "contents",
+        "assessment_definition_id",
+    }
+    assert returned_activities[0]["assessment_definition_id"] == str(
+        assessment_definition_id
+    )
+    assert returned_activities[1]["assessment_definition_id"] is None
     assert returned_activities[1]["contents"] == []
     assert returned_activities[0]["contents"] == [
         {

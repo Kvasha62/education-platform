@@ -1,7 +1,9 @@
-"""Student-facing orchestration over Education public application contracts."""
+"""Student-facing orchestration over domain-engine application contracts."""
 
+from dataclasses import dataclass
 from uuid import UUID
 
+from app.assessment.application.definition_lookup import AssessmentDefinitionIdLookup
 from app.education.application.errors import (
     LinkedContentUnavailableError,
     PublishedContentBodyNotFoundError,
@@ -26,17 +28,37 @@ class StudentContentUnavailableError(Exception):
     pass
 
 
-class StudentCourseService:
-    def __init__(self, courses: PublishedCourseReader) -> None:
-        self.courses = courses
+@dataclass(frozen=True, slots=True)
+class StudentCourseAssessmentView:
+    course: StudentCourse
+    assessment_definition_ids: dict[UUID, UUID]
 
-    def get_published(self, course_id: UUID) -> StudentCourse:
+
+class StudentCourseService:
+    def __init__(
+        self,
+        courses: PublishedCourseReader,
+        assessments: AssessmentDefinitionIdLookup,
+    ) -> None:
+        self.courses = courses
+        self.assessments = assessments
+
+    def get_published(self, course_id: UUID) -> StudentCourseAssessmentView:
         try:
-            return self.courses.get_published(course_id)
+            course = self.courses.get_published(course_id)
         except PublishedCourseNotFoundError as error:
             raise StudentCourseNotFoundError from error
         except LinkedContentUnavailableError as error:
             raise StudentContentUnavailableError from error
+
+        definition_ids: dict[UUID, UUID] = {}
+        for section in course.sections:
+            for unit in section.units:
+                for activity in unit.activities:
+                    definition_id = self.assessments.get_id_for_activity(activity.id)
+                    if definition_id is not None:
+                        definition_ids[activity.id] = definition_id
+        return StudentCourseAssessmentView(course, definition_ids)
 
 
 class StudentPublishedCourseListService:
