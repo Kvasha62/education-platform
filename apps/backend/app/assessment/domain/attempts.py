@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 class AssessmentAttemptStatus(StrEnum):
     DRAFT = "draft"
     SUBMITTED = "submitted"
+    REVIEWED = "reviewed"
 
 
 class AssessmentAttemptImmutableError(Exception):
@@ -35,3 +36,8 @@ class AssessmentAttempt:
         if self.status is not AssessmentAttemptStatus.DRAFT:
             raise AssessmentAttemptImmutableError
         return replace(self, status=AssessmentAttemptStatus.SUBMITTED)
+
+    def review(self):
+        if self.status is not AssessmentAttemptStatus.SUBMITTED:
+            raise AssessmentAttemptImmutableError
+        return replace(self, status=AssessmentAttemptStatus.REVIEWED)

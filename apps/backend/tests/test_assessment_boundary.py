@@ -27,6 +27,18 @@ def test_assessment_definition_persistence_is_assessment_owned() -> None:
     )
 
 
+def test_assessment_result_persistence_is_assessment_owned() -> None:
+    table = Base.metadata.tables["assessment_results"]
+    assert set(table.c.keys()) == {"id", "attempt_id"}
+    assert {foreign_key.target_fullname for foreign_key in table.foreign_keys} == {
+        "assessment_attempts.id"
+    }
+    assert any(
+        constraint.name == "uq_assessment_results_attempt"
+        for constraint in table.constraints
+    )
+
+
 def test_assessment_does_not_access_other_context_persistence_or_learning() -> None:
     assessment = Path(__file__).parents[1] / "app" / "assessment"
     imports = _imports(assessment)

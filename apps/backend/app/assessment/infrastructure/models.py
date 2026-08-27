@@ -3,6 +3,7 @@ from uuid import UUID
 from sqlalchemy import Enum, ForeignKey, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.assessment.domain.attempts import AssessmentAttemptStatus
 from app.assessment.domain.models import AssessmentDefinitionStatus
 from app.core.database import Base
 
@@ -20,9 +21,6 @@ class AssessmentDefinitionModel(Base):
         )
     )
     __table_args__ = (UniqueConstraint("activity_id", name="uq_assessment_definitions_activity"),)
-
-
-from app.assessment.domain.attempts import AssessmentAttemptStatus
 
 
 class AssessmentAttemptModel(Base):
@@ -44,3 +42,14 @@ class AssessmentAttemptModel(Base):
         ),
         nullable=False,
     )
+
+
+class AssessmentResultModel(Base):
+    __tablename__ = "assessment_results"
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    attempt_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("assessment_attempts.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    __table_args__ = (UniqueConstraint("attempt_id", name="uq_assessment_results_attempt"),)

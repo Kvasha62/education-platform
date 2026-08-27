@@ -26,6 +26,7 @@ from app.education.application.activity_publication import (
     PublishedCourseActivityReader,
     PublishedCourseActivityReadService,
 )
+from app.education.application.activity_scope import ActivityTeacherSpaceScopeQuery
 from app.education.application.content_links import ActivityContentService
 from app.education.application.ports import ActivityContentLinkRepository
 from app.education.application.publication import (
@@ -53,10 +54,21 @@ from app.education.application.student_course import (
 from app.education.infrastructure.activity_publication import (
     SqlAlchemyPublishedActivityRepository,
 )
+from app.education.infrastructure.activity_scope import (
+    SqlAlchemyActivityTeacherSpaceScopeRepository,
+)
 from app.education.infrastructure.repositories import SqlAlchemyCourseRepository
 from app.education.infrastructure.student_content_body import (
     SqlAlchemyPublishedContentAssociationRepository,
 )
+
+
+def get_activity_teacher_space_scope_query(
+    db: Annotated[Session, Depends(get_db)],
+) -> ActivityTeacherSpaceScopeQuery:
+    return ActivityTeacherSpaceScopeQuery(
+        SqlAlchemyActivityTeacherSpaceScopeRepository(db)
+    )
 
 
 def get_activity_content_service(
