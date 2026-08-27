@@ -1,8 +1,17 @@
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
+from app.assessment.application.attempts import (
+    AssessmentAttemptDefinitionArchivedError,
+    AssessmentAttemptDefinitionNotFoundError,
+    AssessmentAttemptResultMissingError,
+)
+from app.assessment.domain.attempts import (
+    AssessmentAttemptImmutableError,
+    AssessmentSubmissionRequiredError,
+)
 from app.identity.api.dependencies import get_current_identity, require_trusted_origin
 from app.identity.domain.models import Identity
 from app.learning.api.dependencies import (
@@ -23,6 +32,7 @@ from app.learning.application.progress import (
 )
 from app.learning.application.services import EnrollmentCourseNotFoundError, EnrollmentService
 from app.student_space.api.dependencies import (
+    get_student_assessment_attempt_service,
     get_student_course_progress_reader,
     get_student_course_service,
     get_student_dashboard_reader,
@@ -31,15 +41,23 @@ from app.student_space.api.dependencies import (
 )
 from app.student_space.api.schemas import (
     ActivityProgressResponse,
+    AssessmentAttemptResponse,
     CourseProgressResponse,
+    CreateAssessmentAttemptRequest,
     EnrollmentReferenceResponse,
     EnrollmentResponse,
     PublishedCourseListResponse,
     PublishedCourseSummaryResponse,
+    ReplaceAssessmentAttemptRequest,
     StudentCourseResponse,
     StudentDashboardResponse,
     StudentEnrollmentListResponse,
     StudentPublishedContentBodyResponse,
+)
+from app.student_space.application.assessment_attempts import (
+    AssessmentAttemptAuthorizationError,
+    AssessmentAttemptMutationForbiddenError,
+    StudentAssessmentAttemptService,
 )
 from app.student_space.application.dashboard import StudentDashboardReader
 from app.student_space.application.services import (
@@ -69,6 +87,147 @@ PublishedCourseLists = Annotated[
 Enrollments = Annotated[EnrollmentService, Depends(get_enrollment_service)]
 ActivityProgresses = Annotated[ActivityProgressService, Depends(get_activity_progress_service)]
 StudentEnrollments = Annotated[StudentEnrollmentReader, Depends(get_student_enrollment_reader)]
+StudentAssessmentAttempts = Annotated[
+    StudentAssessmentAttemptService,
+    Depends(get_student_assessment_attempt_service),
+]
+
+
+ASSESSMENT_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    status.HTTP_401_UNAUTHORIZED: {"description": "Authentication required"},
+    status.HTTP_403_FORBIDDEN: {"description": "Assessment access denied"},
+    status.HTTP_404_NOT_FOUND: {"description": "Assessment Attempt not found"},
+    status.HTTP_409_CONFLICT: {"description": "Invalid Assessment state"},
+    status.HTTP_422_UNPROCESSABLE_CONTENT: {"description": "Invalid request or submission"},
+    status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Internal server error"},
+}
+ASSESSMENT_DETAIL_ERROR_RESPONSES = {
+    code: response
+    for code, response in ASSESSMENT_ERROR_RESPONSES.items()
+    if code != status.HTTP_409_CONFLICT
+}
+
+
+def _assessment_attempt_or_error(action):
+    try:
+        return action()
+    except (
+        AssessmentAttemptAuthorizationError,
+        AssessmentAttemptDefinitionNotFoundError,
+    ) as error:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            "Assessment Attempt not found",
+        ) from error
+    except AssessmentAttemptMutationForbiddenError as error:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Assessment access denied",
+        ) from error
+    except AssessmentAttemptDefinitionArchivedError as error:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Assessment Definition is archived",
+        ) from error
+    except AssessmentSubmissionRequiredError as error:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "Submission is required",
+        ) from error
+    except AssessmentAttemptImmutableError as error:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Assessment Attempt is immutable",
+        ) from error
+    except AssessmentAttemptResultMissingError as error:
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "Internal Server Error",
+        ) from error
+
+
+@router.post(
+    "/activities/{activity_id}/assessment-definitions/{definition_id}/attempts",
+    response_model=AssessmentAttemptResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=ASSESSMENT_ERROR_RESPONSES,
+    dependencies=[Depends(require_trusted_origin)],
+    tags=["student-assessment"],
+)
+def create_assessment_attempt(
+    activity_id: UUID,
+    definition_id: UUID,
+    payload: CreateAssessmentAttemptRequest,
+    identity: CurrentIdentity,
+    attempts: StudentAssessmentAttempts,
+) -> AssessmentAttemptResponse:
+    detail = _assessment_attempt_or_error(
+        lambda: attempts.create(
+            identity.id,
+            activity_id,
+            definition_id,
+            payload.submission,
+        )
+    )
+    return AssessmentAttemptResponse.from_detail(detail)
+
+
+@router.put(
+    "/assessment-attempts/{attempt_id}",
+    response_model=AssessmentAttemptResponse,
+    responses=ASSESSMENT_ERROR_RESPONSES,
+    dependencies=[Depends(require_trusted_origin)],
+    tags=["student-assessment"],
+)
+def replace_assessment_attempt_submission(
+    attempt_id: UUID,
+    payload: ReplaceAssessmentAttemptRequest,
+    identity: CurrentIdentity,
+    attempts: StudentAssessmentAttempts,
+) -> AssessmentAttemptResponse:
+    detail = _assessment_attempt_or_error(
+        lambda: attempts.update_submission(
+            identity.id,
+            attempt_id,
+            payload.submission,
+        )
+    )
+    return AssessmentAttemptResponse.from_detail(detail)
+
+
+@router.post(
+    "/assessment-attempts/{attempt_id}/submit",
+    response_model=AssessmentAttemptResponse,
+    responses=ASSESSMENT_ERROR_RESPONSES,
+    dependencies=[Depends(require_trusted_origin)],
+    tags=["student-assessment"],
+)
+def submit_assessment_attempt(
+    attempt_id: UUID,
+    identity: CurrentIdentity,
+    attempts: StudentAssessmentAttempts,
+) -> AssessmentAttemptResponse:
+    detail = _assessment_attempt_or_error(
+        lambda: attempts.submit(identity.id, attempt_id)
+    )
+    return AssessmentAttemptResponse.from_detail(detail)
+
+
+@router.get(
+    "/assessment-attempts/{attempt_id}",
+    response_model=AssessmentAttemptResponse,
+    responses=ASSESSMENT_DETAIL_ERROR_RESPONSES,
+    tags=["student-assessment"],
+)
+def get_assessment_attempt(
+    attempt_id: UUID,
+    identity: CurrentIdentity,
+    attempts: StudentAssessmentAttempts,
+) -> AssessmentAttemptResponse:
+    detail = _assessment_attempt_or_error(
+        lambda: attempts.get(identity.id, attempt_id)
+    )
+    return AssessmentAttemptResponse.from_detail(detail)
 
 
 @router.get("/dashboard", response_model=StudentDashboardResponse)

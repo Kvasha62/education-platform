@@ -26,6 +26,9 @@ class Repo:
         value = self.items.get(definition_id)
         return value if value and value.activity_id == activity_id else None
 
+    def get_by_id(self, definition_id):
+        return self.items.get(definition_id)
+
     def get_by_activity(self, activity_id):
         return next((v for v in self.items.values() if v.activity_id == activity_id), None)
 

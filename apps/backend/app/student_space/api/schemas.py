@@ -2,8 +2,11 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, StrictStr
 
+from app.assessment.application.attempts import AssessmentAttemptDetail
+from app.assessment.domain.attempts import AssessmentAttemptStatus
+from app.assessment.domain.results import AssessmentResult
 from app.content.body_contracts import ContentBodyPayload
 from app.education.application.published_course_list import PublishedCourseSummary
 from app.education.application.student_content_body import StudentPublishedContentBody
@@ -23,6 +26,58 @@ from app.learning.application.progress import ActivityProgressReference
 from app.learning.domain.models import Enrollment, EnrollmentStatus
 from app.learning.domain.progress import ProgressStatus
 from app.student_space.application.dashboard import StudentDashboard
+
+
+class CreateAssessmentAttemptRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    submission: StrictStr | None = None
+
+
+class ReplaceAssessmentAttemptRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    submission: StrictStr | None
+
+
+class AssessmentResultResponse(BaseModel):
+    id: UUID
+    attempt_id: UUID
+    score: int
+    max_score: int
+    feedback: str | None
+
+    @classmethod
+    def from_result(cls, result: AssessmentResult) -> "AssessmentResultResponse":
+        return cls(
+            id=result.id,
+            attempt_id=result.attempt_id,
+            score=result.score,
+            max_score=result.max_score,
+            feedback=result.feedback,
+        )
+
+
+class AssessmentAttemptResponse(BaseModel):
+    id: UUID
+    assessment_definition_id: UUID
+    submission: str | None
+    status: AssessmentAttemptStatus
+    result: AssessmentResultResponse | None
+
+    @classmethod
+    def from_detail(cls, detail: AssessmentAttemptDetail) -> "AssessmentAttemptResponse":
+        return cls(
+            id=detail.id,
+            assessment_definition_id=detail.assessment_definition_id,
+            submission=detail.submission,
+            status=detail.status,
+            result=(
+                None
+                if detail.result is None
+                else AssessmentResultResponse.from_result(detail.result)
+            ),
+        )
 
 
 class StudentContentReferenceResponse(BaseModel):

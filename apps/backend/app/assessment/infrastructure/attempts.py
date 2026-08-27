@@ -55,6 +55,17 @@ class SqlAlchemyAssessmentAttemptRepository:
         )
         return _domain(model) if model else None
 
+    def get_owned_by_id(
+        self, attempt_id, student_id
+    ) -> AssessmentAttempt | None:
+        model = self.db.scalar(
+            select(AssessmentAttemptModel).where(
+                AssessmentAttemptModel.id == attempt_id,
+                AssessmentAttemptModel.student_id == student_id,
+            )
+        )
+        return _domain(model) if model else None
+
     def update(self, attempt: AssessmentAttempt) -> AssessmentAttempt:
         model = self.db.get(AssessmentAttemptModel, attempt.id)
         if model is None:

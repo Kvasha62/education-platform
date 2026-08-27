@@ -22,6 +22,9 @@ class Definitions:
             else None
         )
 
+    def get_by_id(self, definition_id):
+        return self.definition if self.definition.id == definition_id else None
+
     def get_by_activity(self, activity_id):
         return self.definition if self.definition.activity_id == activity_id else None
 
@@ -57,6 +60,10 @@ class Attempts:
             and attempt.student_id == student_id
             else None
         )
+
+    def get_owned_by_id(self, attempt_id, student_id):
+        attempt = self.items.get(attempt_id)
+        return attempt if attempt and attempt.student_id == student_id else None
 
     def update(self, attempt):
         self.items[attempt.id] = attempt
