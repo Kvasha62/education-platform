@@ -63,10 +63,15 @@ class Attempts:
 
 
 class Results:
-    def __init__(self):
+    def __init__(self, fail_creation=False):
         self.items = {}
+        self.fail_creation = fail_creation
+        self.add_count = 0
 
     def add(self, result):
+        self.add_count += 1
+        if self.fail_creation:
+            raise RuntimeError("result creation failed")
         self.items[result.id] = result
         return result
 
@@ -95,6 +100,19 @@ def test_submitted_attempt_review_creates_exactly_one_result():
     assert attempts.items[attempt.id].status is AssessmentAttemptStatus.REVIEWED
     assert result.attempt_id == attempt.id
     assert list(results.items.values()) == [result]
+    assert results.add_count == 1
+
+
+def test_result_creation_failure_does_not_review_attempt():
+    service, attempts, _, activity_id, definition, attempt = result_service()
+    failing_results = Results(fail_creation=True)
+    service.results = failing_results
+
+    with pytest.raises(RuntimeError, match="result creation failed"):
+        service.review(attempt.id, definition.id, activity_id)
+
+    assert attempts.items[attempt.id].status is AssessmentAttemptStatus.SUBMITTED
+    assert not failing_results.items
 
 
 def test_reviewed_attempt_cannot_be_reviewed_again():
@@ -107,6 +125,7 @@ def test_reviewed_attempt_cannot_be_reviewed_again():
     reviewed = attempts.items[attempt.id]
     assert reviewed.status is AssessmentAttemptStatus.REVIEWED
     assert list(results.items.values()) == [first]
+    assert results.add_count == 1
 
 
 def test_review_is_bound_to_definition_activity_scope():

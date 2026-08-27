@@ -31,8 +31,9 @@ class AssessmentResultService:
         reviewed_attempt = self._get_attempt(attempt_id, definition_id, activity_id).review()
         if self.results.get_by_attempt(attempt_id) is not None:
             raise AssessmentResultAlreadyExistsError
+        result = self.results.add(AssessmentResult.create(attempt_id))
         self.attempts.update(reviewed_attempt)
-        return self.results.add(AssessmentResult.create(attempt_id))
+        return result
 
     def _get_attempt(
         self, attempt_id: UUID, definition_id: UUID, activity_id: UUID
