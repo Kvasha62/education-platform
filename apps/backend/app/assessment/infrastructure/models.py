@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import Enum, ForeignKey, Text, UniqueConstraint, Uuid
+from sqlalchemy import CheckConstraint, Enum, ForeignKey, Integer, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.assessment.domain.attempts import AssessmentAttemptStatus
@@ -52,4 +52,14 @@ class AssessmentResultModel(Base):
         ForeignKey("assessment_attempts.id", ondelete="RESTRICT"),
         nullable=False,
     )
-    __table_args__ = (UniqueConstraint("attempt_id", name="uq_assessment_results_attempt"),)
+    score: Mapped[int] = mapped_column(Integer, nullable=False)
+    max_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    __table_args__ = (
+        UniqueConstraint("attempt_id", name="uq_assessment_results_attempt"),
+        CheckConstraint("max_score > 0", name="ck_assessment_results_max_score_positive"),
+        CheckConstraint(
+            "score >= 0 AND score <= max_score",
+            name="ck_assessment_results_score_range",
+        ),
+    )
