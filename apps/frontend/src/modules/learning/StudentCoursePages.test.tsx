@@ -9,6 +9,11 @@ import { routes } from '../../app/router'
 vi.mock('./StudentCourseEnrollment', () => ({
   StudentCourseEnrollment: () => <div>Course enrollment</div>,
 }))
+vi.mock('./StudentCourseProgress', () => ({
+  StudentCourseProgress: ({ courseId }: { courseId: string }) => (
+    <div>Course progress for {courseId}</div>
+  ),
+}))
 
 const identity = {
   id: 'identity-id', email: 'student@example.com', status: 'active',
@@ -90,6 +95,7 @@ describe('Student Course UI', () => {
 
     expect(await screen.findByRole('heading', { name: 'Newest Course' })).toBeInTheDocument()
     expect(screen.getByText('Course enrollment')).toBeInTheDocument()
+    expect(screen.getByText('Course progress for new-course')).toBeInTheDocument()
     expect(requests.some((url) => url.includes('enrollment'))).toBe(false)
   })
 
