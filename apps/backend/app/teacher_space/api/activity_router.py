@@ -5,6 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
+from app.assessment.application.definition_lookup import AssessmentDefinitionIdLookup
 from app.education.api.activity_schemas import (
     ActivityResponse,
     CreateActivityRequest,
@@ -25,11 +26,14 @@ from app.education.application.services import (
     LearningUnitService,
     SectionService,
 )
-from app.education.domain.models import Course, CourseImmutableError, LearningUnit
+from app.education.domain.models import Activity, Course, CourseImmutableError, LearningUnit
 from app.identity.api.dependencies import get_current_identity, require_trusted_origin
 from app.identity.domain.models import Identity
 from app.teacher_space.api.course_router import course_immutable
-from app.teacher_space.api.dependencies import get_teacher_space_service
+from app.teacher_space.api.dependencies import (
+    get_teacher_activity_assessment_lookup,
+    get_teacher_space_service,
+)
 from app.teacher_space.api.environment_router import require_writable
 from app.teacher_space.api.learning_unit_router import resolve_section
 from app.teacher_space.application.services import TeacherSpaceService
@@ -49,6 +53,20 @@ Courses = Annotated[CourseService, Depends(get_course_service)]
 Sections = Annotated[SectionService, Depends(get_section_service)]
 Units = Annotated[LearningUnitService, Depends(get_learning_unit_service)]
 Activities = Annotated[ActivityService, Depends(get_activity_service)]
+Assessments = Annotated[
+    AssessmentDefinitionIdLookup,
+    Depends(get_teacher_activity_assessment_lookup),
+]
+
+
+def activity_response(
+    activity: Activity,
+    assessments: AssessmentDefinitionIdLookup,
+) -> ActivityResponse:
+    return ActivityResponse.from_activity(
+        activity,
+        assessments.get_id_for_activity(activity.id),
+    )
 
 
 def resolve_unit(
@@ -103,6 +121,7 @@ def create_activity(
     sections: Sections,
     units: Units,
     activities: Activities,
+    assessments: Assessments,
 ) -> ActivityResponse:
     unit, course, teacher_space = resolve_unit(
         teacher_space_id,
@@ -129,7 +148,7 @@ def create_activity(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Learning Unit not found") from error
     except CourseImmutableError as error:
         raise course_immutable(error) from error
-    return ActivityResponse.from_activity(activity)
+    return activity_response(activity, assessments)
 
 
 @router.get("", response_model=list[ActivityResponse])
@@ -145,6 +164,7 @@ def list_activities(
     sections: Sections,
     units: Units,
     activities: Activities,
+    assessments: Assessments,
 ) -> list[ActivityResponse]:
     unit, _, _ = resolve_unit(
         teacher_space_id,
@@ -158,7 +178,7 @@ def list_activities(
         sections,
         units,
     )
-    return [ActivityResponse.from_activity(item) for item in activities.list(unit.id)]
+    return [activity_response(item, assessments) for item in activities.list(unit.id)]
 
 
 @router.get("/{activity_id}", response_model=ActivityResponse)
@@ -175,6 +195,7 @@ def get_activity(
     sections: Sections,
     units: Units,
     activities: Activities,
+    assessments: Assessments,
 ) -> ActivityResponse:
     unit, _, _ = resolve_unit(
         teacher_space_id,
@@ -192,7 +213,7 @@ def get_activity(
         activity = activities.get(activity_id, unit.id)
     except ActivityNotFoundError as error:
         raise not_found(error) from error
-    return ActivityResponse.from_activity(activity)
+    return activity_response(activity, assessments)
 
 
 @router.patch(
@@ -214,6 +235,7 @@ def update_activity(
     sections: Sections,
     units: Units,
     activities: Activities,
+    assessments: Assessments,
 ) -> ActivityResponse:
     unit, course, teacher_space = resolve_unit(
         teacher_space_id,
@@ -244,7 +266,7 @@ def update_activity(
         raise not_found(error) from error
     except CourseImmutableError as error:
         raise course_immutable(error) from error
-    return ActivityResponse.from_activity(activity)
+    return activity_response(activity, assessments)
 
 
 @router.delete(

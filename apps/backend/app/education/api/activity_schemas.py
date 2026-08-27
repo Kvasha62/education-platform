@@ -54,9 +54,14 @@ class ActivityResponse(BaseModel):
     position: int
     created_at: datetime
     updated_at: datetime
+    assessment_definition_id: UUID | None
 
     @classmethod
-    def from_activity(cls, activity: Activity) -> "ActivityResponse":
+    def from_activity(
+        cls,
+        activity: Activity,
+        assessment_definition_id: UUID | None,
+    ) -> "ActivityResponse":
         return cls(
             id=activity.id,
             learning_unit_id=activity.learning_unit_id,
@@ -65,4 +70,5 @@ class ActivityResponse(BaseModel):
             position=activity.position,
             created_at=activity.created_at,
             updated_at=activity.updated_at,
+            assessment_definition_id=assessment_definition_id,
         )
