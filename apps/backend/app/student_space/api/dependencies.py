@@ -3,9 +3,11 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
+from app.assessment.application.definition_lookup import AssessmentDefinitionIdLookup
 from app.assessment.composition import (
     get_assessment_attempt_detail_service,
     get_assessment_attempt_service,
+    get_assessment_definition_id_lookup,
 )
 from app.core.database import get_db
 from app.education.application.published_course_list import (
@@ -50,8 +52,12 @@ def get_student_assessment_attempt_service(
 
 def get_student_course_service(
     courses: Annotated[PublishedCourseReader, Depends(get_published_course_reader)],
+    assessments: Annotated[
+        AssessmentDefinitionIdLookup,
+        Depends(get_assessment_definition_id_lookup),
+    ],
 ) -> StudentCourseService:
-    return StudentCourseService(courses)
+    return StudentCourseService(courses, assessments)
 
 
 def get_student_published_course_list_service(

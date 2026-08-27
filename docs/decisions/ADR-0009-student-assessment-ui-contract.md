@@ -44,9 +44,16 @@ The Learning module continues to own the Student Activity page. It may consume o
 integration component or interface exported by the Assessment module. Learning must not implement
 Assessment lifecycle, submission, Result, or error-mapping business logic.
 
-Global route registration remains in the application routing layer. This ADR does not approve an exact
-URL path or route-parameter schema; those depend on the separately approved Student Assessment HTTP
-API contract.
+Global route registration remains in the application routing layer. The canonical frontend Attempt
+route is:
+
+```text
+/student/activities/:activityId/assessment-attempts/:attemptId
+```
+
+`activityId` is navigation context, while `attemptId` is the canonical Attempt identity. The route does
+not contain Student or Definition identifiers. Route context is not authorization; the backend remains
+authoritative for Attempt ownership and Assessment scope.
 
 ### Assessment entry
 
@@ -125,7 +132,8 @@ A REVIEWED detail displays:
 
 - REVIEWED status;
 - the immutable submission as normal read-only text or preformatted text;
-- an AssessmentResult card.
+- an AssessmentResult card;
+- an explicit `Create another Attempt` action.
 
 The Result card displays the integer score as:
 
@@ -137,8 +145,10 @@ When `feedback` is non-null, the card displays its plain text. When `feedback` i
 section, placeholder, or inferred message is rendered.
 
 The UI exposes no Attempt editor, Save, Clear, Edit, Submit, reopen, delete, Result correction, grading,
-or Progress control in REVIEWED state. The Student cannot infer pass/fail, Activity completion, or
-Course completion from the Result.
+or Progress control for the existing REVIEWED Attempt. `Create another Attempt` creates a separate
+DRAFT through the approved Create endpoint using route `activityId` and the aggregate's
+`assessment_definition_id`; it does not mutate the REVIEWED Attempt or Result. The Student cannot infer
+pass/fail, Activity completion, or Course completion from the Result.
 
 ### REVIEWED Attempt without Result
 
@@ -156,8 +166,11 @@ Result, change Attempt status, calculate a score, submit again, or invoke any re
 
 ### Historical Attempts
 
-The UI is detail-only by known Attempt identifier. No Assessment history page, Attempt list, ordering,
-pagination, latest/current Attempt selector, or best/final Attempt designation is introduced.
+The UI is detail-only by known Attempt identifier through
+`/student/activities/:activityId/assessment-attempts/:attemptId`. No Assessment history page, Attempt
+list, ordering, pagination, latest/current Attempt selector, or best/final Attempt designation is
+introduced. The route Activity identifier remains navigation context and is not assumed to match the
+Attempt automatically.
 
 A detail reached with a known SUBMITTED or REVIEWED Attempt identifier remains compatible with
 ADR-0008 historical authorization and must not be hidden in the frontend merely because current Course
@@ -169,8 +182,8 @@ authorization rules.
 For SUBMITTED and REVIEWED Attempts, submission is rendered as normal text or preformatted text rather
 than as a disabled editor. Mutation controls for that existing Attempt are absent rather than disabled.
 
-The `Create another Attempt` action in SUBMITTED state creates a different Attempt and is not a
-mutation control for the read-only Attempt.
+The `Create another Attempt` action in SUBMITTED or REVIEWED state creates a different DRAFT Attempt
+and is not a mutation control for the read-only Attempt or its Result.
 
 ### Error states
 
@@ -220,9 +233,11 @@ does not define endpoint paths, request/response DTOs, or route parameters.
 
 ```text
 Activity page
-→ Assessment CTA
-→ Assessment-owned flow
-→ dedicated Attempt detail
+→ Assessment CTA when assessment_definition_id is present
+→ explicit Create DRAFT
+→ /student/activities/:activityId/assessment-attempts/:attemptId
+→ activityId is navigation context
+→ attemptId is Attempt identity
 
 Create DRAFT
 → explicit Student action
@@ -245,7 +260,8 @@ REVIEWED
 → read-only status and submission
 → Result card shows score / max_score
 → feedback shown only when non-null
-→ no Attempt or Result mutation controls
+→ no mutation controls for existing Attempt or Result
+→ Create another Attempt creates a new DRAFT
 
 REVIEWED without Result
 → direct GET returns 500

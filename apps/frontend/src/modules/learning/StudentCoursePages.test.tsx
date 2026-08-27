@@ -35,7 +35,14 @@ const course = {
         {
           id: 'unit-1', title: 'Welcome', position: 0,
           activities: [
-            { id: 'activity-1', title: 'First Activity', type: 'lecture', position: 0, contents: [] },
+            {
+              id: 'activity-1',
+              title: 'First Activity',
+              type: 'lecture',
+              position: 0,
+              contents: [],
+              assessment_definition_id: null,
+            },
           ],
         },
         { id: 'unit-2', title: 'Setup', position: 1, activities: [] },

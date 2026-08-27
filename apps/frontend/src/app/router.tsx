@@ -1,4 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { StudentAssessmentAttemptPage } from '../modules/assessment'
 import { ContentEditorPage, CreateContentPage } from '../modules/content'
 import { ActivitiesPage, CoursePage, CoursesPage, EducationalEnvironmentPage, LearningUnitsPage, SectionsPage } from '../modules/education'
 import { MyCoursesPage, StudentActivityPage, StudentCoursePage, StudentCoursesPage, StudentDashboardPage } from '../modules/learning'
@@ -30,6 +31,10 @@ export const routes = [
           {
             path: 'app/student/courses/:courseId/activities/:activityId',
             element: <StudentActivityPage />,
+          },
+          {
+            path: 'student/activities/:activityId/assessment-attempts/:attemptId',
+            element: <StudentAssessmentAttemptPage />,
           },
           { path: 'app/teacher-spaces', element: <TeacherSpacesPage /> },
           { path: 'app/contents/new', element: <CreateContentPage /> },
