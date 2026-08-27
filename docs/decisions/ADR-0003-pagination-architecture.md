@@ -140,6 +140,10 @@ ORDER BY created_at ASC, id ASC
 Future paginated endpoints use their approved semantic order plus `id`. For position-based
 collections this would be `position ASC, id ASC` if pagination is later approved for them.
 
+The Teacher Assessment Review collection defined in ADR-0011 uses `id ASC` as the complete ordering
+key. No additional semantic order or separate unique tie-breaker is required for that collection
+because the public entity `id` is already the sole approved ordering key.
+
 Offset-based page pagination can shift under concurrent inserts/deletes. That trade-off is accepted
 for the current MVP. Stable ordering makes results deterministic for a fixed dataset but does not
 promise snapshot isolation across separate requests.
