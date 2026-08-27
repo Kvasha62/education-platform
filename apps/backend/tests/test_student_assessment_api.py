@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi import Depends
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete, select
+from sqlalchemy import create_engine, delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -315,6 +315,15 @@ def test_create_scope_archival_and_current_access_errors(client):
     mismatch = create_attempt(client, activity_a, definition_b, None)
     assert mismatch.status_code == 404
 
+    non_enrolled_activity, _, _ = seed_scope(student_id, enrolled=False)
+    concealed_before_enrollment = create_attempt(
+        client,
+        non_enrolled_activity,
+        definition_b,
+        None,
+    )
+    assert concealed_before_enrollment.status_code == 404
+
     archived_activity, archived_definition, _ = seed_scope(
         student_id, archived_definition=True
     )
@@ -333,6 +342,8 @@ def test_create_scope_archival_and_current_access_errors(client):
 
     assert definition_a != definition_b
     assert activity_a != activity_b
+    with TestingSession() as db:
+        assert db.scalar(select(func.count()).select_from(AssessmentAttemptModel)) == 0
 
 
 def test_replace_normalization_repeat_safety_and_required_field(client):

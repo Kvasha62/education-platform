@@ -1,13 +1,16 @@
+from typing import cast
 from uuid import uuid4
 
 import pytest
 
 from app.assessment.application.attempts import (
+    AssessmentAttemptDefinitionArchivedError,
+    AssessmentAttemptDefinitionInvalidStateError,
+    AssessmentAttemptDefinitionNotFoundError,
     AssessmentAttemptService,
-    AssessmentDefinitionUnavailableError,
 )
 from app.assessment.domain.attempts import AssessmentSubmissionRequiredError
-from app.assessment.domain.models import AssessmentDefinition
+from app.assessment.domain.models import AssessmentDefinition, AssessmentDefinitionStatus
 
 
 class Definitions:
@@ -89,7 +92,7 @@ def test_multiple_attempts_and_archived_definition_rules():
 
     archived = definition.archive()
     archived_service = AssessmentAttemptService(attempts, Definitions(archived))
-    with pytest.raises(AssessmentDefinitionUnavailableError):
+    with pytest.raises(AssessmentAttemptDefinitionArchivedError):
         archived_service.create(archived.id, activity_id, student_id, None)
 
     cleared = archived_service.update_submission(
@@ -118,3 +121,30 @@ def test_multiple_attempts_and_archived_definition_rules():
     )
     assert submitted.status.value == "submitted"
     assert submitted.submission == "final answer"
+
+
+def test_definition_scope_validation_fails_before_attempt_creation():
+    definition = AssessmentDefinition.create(uuid4(), None)
+    attempts = Attempts()
+    service = AssessmentAttemptService(attempts, Definitions(definition))
+
+    with pytest.raises(AssessmentAttemptDefinitionNotFoundError):
+        service.validate_definition_scope(definition.id, uuid4())
+
+    assert not attempts.items
+
+
+def test_unsupported_definition_state_fails_closed_without_attempt_creation():
+    definition = AssessmentDefinition(
+        id=uuid4(),
+        activity_id=uuid4(),
+        instructions=None,
+        status=cast(AssessmentDefinitionStatus, "unsupported"),
+    )
+    attempts = Attempts()
+    service = AssessmentAttemptService(attempts, Definitions(definition))
+
+    with pytest.raises(AssessmentAttemptDefinitionInvalidStateError):
+        service.create(definition.id, definition.activity_id, uuid4(), "answer")
+
+    assert not attempts.items

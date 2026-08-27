@@ -31,6 +31,10 @@ class AssessmentAttemptDefinitionArchivedError(AssessmentDefinitionUnavailableEr
     pass
 
 
+class AssessmentAttemptDefinitionInvalidStateError(RuntimeError):
+    pass
+
+
 @dataclass(frozen=True, slots=True)
 class AssessmentAttemptDetail:
     id: UUID
@@ -68,11 +72,19 @@ class AssessmentAttemptService:
         definition = self.definitions.get(definition_id, activity_id)
         if definition is None:
             raise AssessmentAttemptDefinitionNotFoundError
+        if definition.status is AssessmentDefinitionStatus.ACTIVE:
+            return self.attempts.add(
+                AssessmentAttempt.create(definition_id, student_id, submission)
+            )
         if definition.status is AssessmentDefinitionStatus.ARCHIVED:
             raise AssessmentAttemptDefinitionArchivedError
-        return self.attempts.add(
-            AssessmentAttempt.create(definition_id, student_id, submission)
-        )
+        raise AssessmentAttemptDefinitionInvalidStateError
+
+    def validate_definition_scope(
+        self, definition_id: UUID, activity_id: UUID
+    ) -> None:
+        if self.definitions.get(definition_id, activity_id) is None:
+            raise AssessmentAttemptDefinitionNotFoundError
 
     def update_submission(
         self,

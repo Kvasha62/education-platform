@@ -4,6 +4,7 @@ from uuid import uuid4
 import pytest
 
 from app.assessment.application.attempts import (
+    AssessmentAttemptDefinitionNotFoundError,
     AssessmentAttemptDetailService,
     AssessmentAttemptService,
 )
@@ -176,6 +177,17 @@ def test_create_requires_published_activity_and_enrollment():
     unenrolled, _, _, _, _ = service_for(definition, enrolled=False)
     with pytest.raises(AssessmentAttemptMutationForbiddenError):
         unenrolled.create(uuid4(), definition.activity_id, definition.id, None)
+
+
+def test_invalid_definition_scope_precedes_enrollment_denial():
+    definition = AssessmentDefinition.create(uuid4(), None)
+    service, activities, attempts, _, _ = service_for(definition, enrolled=False)
+
+    with pytest.raises(AssessmentAttemptDefinitionNotFoundError):
+        service.create(uuid4(), uuid4(), definition.id, None)
+
+    assert activities.read_count == 0
+    assert not attempts.items
 
 
 def test_create_is_non_idempotent_and_returns_complete_draft_detail():

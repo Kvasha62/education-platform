@@ -70,6 +70,7 @@ class StudentAssessmentAttemptService:
         definition_id: UUID,
         submission: str | None,
     ) -> AssessmentAttemptDetail:
+        self.attempts.validate_definition_scope(definition_id, activity_id)
         self._authorize_create(student_id, activity_id)
         attempt = self.attempts.create(
             definition_id, activity_id, student_id, submission
