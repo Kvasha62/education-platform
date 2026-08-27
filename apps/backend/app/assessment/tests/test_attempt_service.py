@@ -34,6 +34,10 @@ class Attempts:
         self.items[a.id] = a
         return a
 
+    def get(self, i, d):
+        a = self.items.get(i)
+        return a if a and a.assessment_definition_id == d else None
+
     def get_owned(self, i, d, s):
         a = self.items.get(i)
         return a if a and a.assessment_definition_id == d and a.student_id == s else None

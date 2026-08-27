@@ -21,6 +21,24 @@ def test_draft_edit_submit_and_immutability():
         a.submit()
 
 
+def test_submitted_attempt_can_be_reviewed_once_and_is_immutable():
+    reviewed = AssessmentAttempt.create(uuid4(), uuid4(), "answer").submit().review()
+
+    assert reviewed.status is AssessmentAttemptStatus.REVIEWED
+    for operation in (
+        lambda: reviewed.update_submission("changed"),
+        reviewed.submit,
+        reviewed.review,
+    ):
+        with pytest.raises(AssessmentAttemptImmutableError):
+            operation()
+
+
+def test_draft_attempt_cannot_be_reviewed():
+    with pytest.raises(AssessmentAttemptImmutableError):
+        AssessmentAttempt.create(uuid4(), uuid4(), None).review()
+
+
 def test_resubmission_is_new_attempt():
     d, s = uuid4(), uuid4()
     old = AssessmentAttempt.create(d, s, "one").submit()

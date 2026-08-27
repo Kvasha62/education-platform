@@ -28,6 +28,15 @@ class SqlAlchemyAssessmentAttemptRepository:
         self.db.flush()
         return _domain(m)
 
+    def get(self, i, d):
+        m = self.db.scalar(
+            select(AssessmentAttemptModel).where(
+                AssessmentAttemptModel.id == i,
+                AssessmentAttemptModel.assessment_definition_id == d,
+            )
+        )
+        return _domain(m) if m else None
+
     def get_owned(self, i, d, s):
         m = self.db.scalar(
             select(AssessmentAttemptModel).where(

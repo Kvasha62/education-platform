@@ -103,6 +103,12 @@ class AttemptRepository:
         self.items[value.id] = value
         return value
 
+    def get(self, attempt_id, definition_id):
+        value = self.items.get(attempt_id)
+        return (
+            value if value and value.assessment_definition_id == definition_id else None
+        )
+
     def get_owned(self, attempt_id, definition_id, student_id):
         value = self.items.get(attempt_id)
         return (
