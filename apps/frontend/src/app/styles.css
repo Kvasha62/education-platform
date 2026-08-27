@@ -112,6 +112,11 @@ button:disabled { cursor: wait; opacity: .65; }
 .student-enrollment { display: grid; justify-items: start; gap: .75rem; padding: 1rem 1.2rem; border: 1px solid #d9dccf; border-radius: .8rem; background: #fff; }
 .student-enrollment h2, .student-enrollment p { margin: 0; }
 .enrollment-status { color: #1d5b43; font-weight: 800; }
+.student-course-progress { display: grid; gap: .75rem; padding: 1rem 1.2rem; border: 1px solid #d9dccf; border-radius: .8rem; background: #fff; }
+.student-course-progress h2, .student-course-progress p { margin: 0; }
+.course-progress-summary { display: grid; gap: .5rem; }
+.course-progress-summary strong { color: #1d5b43; font-size: 1.4rem; }
+.course-progress-summary progress { width: 100%; accent-color: #1d5b43; }
 .my-courses { display: grid; gap: 2rem; }
 .my-course-list { display: grid; gap: .75rem; margin: 0; padding: 0; list-style: none; }
 .my-course-list li { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 1rem 1.2rem; border: 1px solid #d9dccf; border-radius: .8rem; background: #fff; }
