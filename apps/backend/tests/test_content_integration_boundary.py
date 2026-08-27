@@ -179,6 +179,7 @@ def test_student_space_uses_only_education_application_boundary() -> None:
     }
     education_imports = {name for name in imports if name.startswith("app.education")}
     assert education_imports <= {
+        "app.education.application.activity_publication",
         "app.education.application.errors",
         "app.education.application.published_course_list",
         "app.education.application.student_content_body",

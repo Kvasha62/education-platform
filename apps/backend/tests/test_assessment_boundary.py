@@ -38,6 +38,7 @@ def test_assessment_does_not_access_other_context_persistence_or_learning() -> N
                 "app.education.infrastructure",
                 "app.teacher_space.infrastructure",
                 "app.learning",
+                "app.student_space.infrastructure",
             )
         )
     }
