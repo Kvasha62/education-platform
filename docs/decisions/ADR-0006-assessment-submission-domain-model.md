@@ -201,6 +201,44 @@ Teacher may:
 This ADR grants no cross-owner or global Teacher access and does not replace existing backend
 authorization checks.
 
+### Teacher authorization context across modules
+
+A Teacher operation on an AssessmentDefinition carries this authorization context:
+
+```text
+teacher_id
+teacher_space_id
+activity_id
+```
+
+`teacher_space_id` is authorization context only. It is not AssessmentDefinition domain state;
+AssessmentDefinition retains `activity_id` as its only Education Activity reference and does not store
+`teacher_id`, `teacher_space_id`, or `owner_user_id`.
+
+Authorization is the conjunction of two existing ownership checks:
+
+```text
+Teacher Space
+  teacher_id owns teacher_space_id
+        +
+Education
+  activity_id belongs to teacher_space_id through
+  Activity → LearningUnit → Section → Course → EducationalEnvironment
+        =
+ALLOWED
+```
+
+Teacher Space owns and evaluates TeacherSpace ownership. Education owns and evaluates Activity scope
+within the educational hierarchy. A create, update, or archive operation is denied when either check
+fails. Assessment consumes the authorization context/result required by its application operation but
+does not determine or persist either ownership relationship.
+
+This is an internal application/module boundary, not an HTTP API. Teacher Space may depend on
+Education as already permitted. Education must not import Teacher Space, query Teacher Space
+persistence, or access `TeacherSpaceModel`. Assessment must not access either bounded context's private
+persistence, duplicate owner state, or introduce a direct `teacher_id + activity_id` ownership query in
+Education.
+
 ## Persistence boundaries
 
 Assessment persistence belongs exclusively to Assessment. Assessment must not access Education private
