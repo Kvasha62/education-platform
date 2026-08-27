@@ -45,6 +45,12 @@ class SqlAlchemyTeacherSpaceRepository:
         ).all()
         return [_to_domain(model) for model in models]
 
+    def get_by_id(self, teacher_space_id: UUID) -> TeacherSpace | None:
+        model = self.db.scalar(
+            select(TeacherSpaceModel).where(TeacherSpaceModel.id == teacher_space_id)
+        )
+        return _to_domain(model) if model else None
+
     def get_owned(self, teacher_space_id: UUID, owner_user_id: UUID) -> TeacherSpace | None:
         model = self.db.scalar(
             select(TeacherSpaceModel).where(

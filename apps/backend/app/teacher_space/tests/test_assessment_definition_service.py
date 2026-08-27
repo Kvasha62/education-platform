@@ -4,7 +4,10 @@ from uuid import uuid4
 import pytest
 
 from app.assessment.application.services import AssessmentDefinitionService
-from app.education.application.activity_scope import ActivityTeacherSpaceScopeQuery
+from app.education.application.activity_scope import (
+    ActivityScopeResolution,
+    ActivityTeacherSpaceScopeQuery,
+)
 from app.teacher_space.application.assessment_definitions import (
     AssessmentDefinitionAuthorizationError,
     TeacherAssessmentDefinitionService,
@@ -35,6 +38,13 @@ class Scope:
 
     def belongs_to_teacher_space(self, activity_id, teacher_space_id):
         return self.allowed
+
+    def resolve_activity_scope(self, activity_id, teacher_space_id):
+        return (
+            ActivityScopeResolution.IN_SCOPE
+            if self.allowed
+            else ActivityScopeResolution.OUTSIDE_SCOPE
+        )
 
 
 class Definitions:

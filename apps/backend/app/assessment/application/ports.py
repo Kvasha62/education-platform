@@ -1,7 +1,7 @@
 from typing import Protocol
 from uuid import UUID
 
-from app.assessment.domain.attempts import AssessmentAttempt
+from app.assessment.domain.attempts import AssessmentAttempt, AssessmentAttemptStatus
 from app.assessment.domain.models import AssessmentDefinition
 from app.assessment.domain.results import AssessmentResult
 
@@ -27,6 +27,14 @@ class AssessmentAttemptRepository(Protocol):
     ) -> AssessmentAttempt | None: ...
     def update(self, attempt: AssessmentAttempt) -> AssessmentAttempt: ...
     def list_owned(self, definition_id: UUID, student_id: UUID) -> list[AssessmentAttempt]: ...
+    def list_by_definition(
+        self,
+        definition_id: UUID,
+        *,
+        status: AssessmentAttemptStatus | None,
+        offset: int,
+        limit: int,
+    ) -> list[AssessmentAttempt]: ...
 
 
 class AssessmentResultRepository(Protocol):

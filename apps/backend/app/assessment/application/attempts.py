@@ -7,7 +7,7 @@ from app.assessment.application.ports import (
     AssessmentResultRepository,
 )
 from app.assessment.domain.attempts import AssessmentAttempt, AssessmentAttemptStatus
-from app.assessment.domain.models import AssessmentDefinitionStatus
+from app.assessment.domain.models import AssessmentDefinition, AssessmentDefinitionStatus
 from app.assessment.domain.results import AssessmentResult
 
 
@@ -38,10 +38,17 @@ class AssessmentAttemptDefinitionInvalidStateError(RuntimeError):
 @dataclass(frozen=True, slots=True)
 class AssessmentAttemptDetail:
     id: UUID
+    student_id: UUID
     assessment_definition_id: UUID
     submission: str | None
     status: AssessmentAttemptStatus
     result: AssessmentResult | None
+
+
+@dataclass(frozen=True, slots=True)
+class AssessmentAttemptPage:
+    items: list[AssessmentAttemptDetail]
+    has_next: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +92,30 @@ class AssessmentAttemptService:
     ) -> None:
         if self.definitions.get(definition_id, activity_id) is None:
             raise AssessmentAttemptDefinitionNotFoundError
+
+    def get_definition_by_activity(self, activity_id: UUID) -> AssessmentDefinition | None:
+        return self.definitions.get_by_activity(activity_id)
+
+    def get_for_definition(self, attempt_id: UUID, definition_id: UUID) -> AssessmentAttempt:
+        attempt = self.attempts.get(attempt_id, definition_id)
+        if attempt is None:
+            raise AssessmentAttemptNotFoundError
+        return attempt
+
+    def list_for_definition(
+        self,
+        definition_id: UUID,
+        *,
+        status: AssessmentAttemptStatus | None,
+        offset: int,
+        limit: int,
+    ) -> list[AssessmentAttempt]:
+        return self.attempts.list_by_definition(
+            definition_id,
+            status=status,
+            offset=offset,
+            limit=limit,
+        )
 
     def update_submission(
         self,
@@ -163,6 +194,7 @@ class AssessmentAttemptDetailService:
 
         return AssessmentAttemptDetail(
             id=attempt.id,
+            student_id=attempt.student_id,
             assessment_definition_id=attempt.assessment_definition_id,
             submission=attempt.submission,
             status=attempt.status,
@@ -176,4 +208,31 @@ class AssessmentAttemptDetailService:
         return AssessmentAttemptDetailContext(
             self.from_attempt(context.attempt),
             context.activity_id,
+        )
+
+    def get_for_definition(
+        self, attempt_id: UUID, definition_id: UUID
+    ) -> AssessmentAttemptDetail:
+        attempt = self.attempts.get_for_definition(attempt_id, definition_id)
+        if attempt.status is AssessmentAttemptStatus.DRAFT:
+            raise AssessmentAttemptNotFoundError
+        return self.from_attempt(attempt)
+
+    def list_for_definition(
+        self,
+        definition_id: UUID,
+        *,
+        status: AssessmentAttemptStatus | None,
+        page: int,
+        page_size: int,
+    ) -> AssessmentAttemptPage:
+        attempts = self.attempts.list_for_definition(
+            definition_id,
+            status=status,
+            offset=(page - 1) * page_size,
+            limit=page_size + 1,
+        )
+        return AssessmentAttemptPage(
+            items=[self.from_attempt(attempt) for attempt in attempts[:page_size]],
+            has_next=len(attempts) > page_size,
         )

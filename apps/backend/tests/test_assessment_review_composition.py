@@ -41,7 +41,7 @@ from app.education.infrastructure.repositories import (
 )
 from app.identity.domain.models import IdentityStatus
 from app.identity.infrastructure.models import IdentityModel
-from app.teacher_space.api.dependencies import get_teacher_assessment_result_service
+from app.teacher_space.api.dependencies import get_teacher_assessment_review_service
 from app.teacher_space.domain.models import TeacherSpace
 from app.teacher_space.infrastructure.repositories import SqlAlchemyTeacherSpaceRepository
 
@@ -130,100 +130,128 @@ def seed_submitted_attempt(db: Session) -> ReviewContext:
     return owner_id, teacher_space.id, activity.id, definition.id, attempt.id
 
 
-def test_production_composition_commits_review_and_denies_repeated_review():
+def assert_reviewed_once(db: Session, attempt_id: UUID) -> AssessmentResult:
+    attempt = db.scalar(
+        select(AssessmentAttemptModel).where(AssessmentAttemptModel.id == attempt_id)
+    )
+    assert attempt is not None
+    assert attempt.status is AssessmentAttemptStatus.REVIEWED
+    result = SqlAlchemyAssessmentResultRepository(db).get_by_attempt(attempt_id)
+    assert result is not None
+    assert db.scalar(select(func.count()).select_from(AssessmentResultModel)) == 1
+    return result
+
+
+def test_production_composition_joins_request_transaction_after_authentication():
     engine = create_schema()
     with Session(engine) as db, db.begin():
-        owner_id, space_id, activity_id, definition_id, attempt_id = (
+        owner_id, space_id, activity_id, _definition_id, attempt_id = (
             seed_submitted_attempt(db)
         )
 
     with Session(engine) as db:
-        first_result = get_teacher_assessment_result_service(db).review(
+        # Simulate authentication/authorization reads already using the request Session.
+        assert db.scalar(select(func.count()).select_from(IdentityModel)) >= 1
+        assert db.in_transaction()
+
+        first_result = get_teacher_assessment_review_service(db).review(
             owner_id,
             space_id,
             activity_id,
-            definition_id,
             attempt_id,
             7,
             10,
             "Good work",
         )
-        assert not db.in_transaction()
+        db.commit()
 
     with Session(engine) as db:
+        stored = assert_reviewed_once(db, attempt_id)
+        assert stored == first_result
+        assert stored.score == 7
+        assert stored.max_score == 10
+        assert stored.feedback == "Good work"
+
+
+def test_production_composition_denies_repeated_review_without_partial_state():
+    engine = create_schema()
+    with Session(engine) as db, db.begin():
+        owner_id, space_id, activity_id, _definition_id, attempt_id = (
+            seed_submitted_attempt(db)
+        )
+
+    with Session(engine) as db:
+        first = get_teacher_assessment_review_service(db).review(
+            owner_id,
+            space_id,
+            activity_id,
+            attempt_id,
+            7,
+            10,
+        )
+        db.commit()
+
+    with Session(engine) as db:
+        assert db.scalar(select(func.count()).select_from(IdentityModel)) >= 1
+        assert db.in_transaction()
         with pytest.raises(AssessmentAttemptImmutableError):
-            get_teacher_assessment_result_service(db).review(
+            get_teacher_assessment_review_service(db).review(
                 owner_id,
                 space_id,
                 activity_id,
-                definition_id,
                 attempt_id,
                 8,
                 10,
             )
-        assert not db.in_transaction()
+        db.rollback()
 
     with Session(engine) as db:
-        attempt = SqlAlchemyAssessmentAttemptRepository(db).get(
-            attempt_id, definition_id
-        )
-        assert attempt is not None
-        assert attempt.status is AssessmentAttemptStatus.REVIEWED
-        assert SqlAlchemyAssessmentResultRepository(db).get_by_attempt(
-            attempt_id
-        ) == first_result
-        assert first_result.score == 7
-        assert first_result.max_score == 10
-        assert first_result.feedback == "Good work"
-        assert db.scalar(select(func.count()).select_from(AssessmentResultModel)) == 1
+        stored = assert_reviewed_once(db, attempt_id)
+        assert stored == first
+        assert stored.score == 7
 
 
 def test_production_composition_corrects_existing_result_atomically():
     engine = create_schema()
     with Session(engine) as db, db.begin():
-        owner_id, space_id, activity_id, definition_id, attempt_id = (
+        owner_id, space_id, activity_id, _definition_id, attempt_id = (
             seed_submitted_attempt(db)
         )
 
     with Session(engine) as db:
-        original = get_teacher_assessment_result_service(db).review(
+        original = get_teacher_assessment_review_service(db).review(
             owner_id,
             space_id,
             activity_id,
-            definition_id,
             attempt_id,
             4,
             10,
             "Initial",
         )
+        db.commit()
 
     with Session(engine) as db:
-        corrected = get_teacher_assessment_result_service(db).correct(
+        assert db.scalar(select(func.count()).select_from(IdentityModel)) >= 1
+        assert db.in_transaction()
+        corrected = get_teacher_assessment_review_service(db).correct(
             owner_id,
             space_id,
             activity_id,
-            definition_id,
             attempt_id,
             original.id,
             8,
             "   ",
         )
-        assert not db.in_transaction()
+        db.commit()
 
     with Session(engine) as db:
-        attempt = SqlAlchemyAssessmentAttemptRepository(db).get(
-            attempt_id, definition_id
-        )
-        assert attempt is not None
-        assert attempt.status is AssessmentAttemptStatus.REVIEWED
-        stored = SqlAlchemyAssessmentResultRepository(db).get_by_attempt(attempt_id)
+        stored = assert_reviewed_once(db, attempt_id)
         assert stored == corrected
         assert corrected.id == original.id
         assert corrected.attempt_id == original.attempt_id
         assert corrected.max_score == original.max_score == 10
         assert corrected.score == 8
         assert corrected.feedback is None
-        assert db.scalar(select(func.count()).select_from(AssessmentResultModel)) == 1
         assert db.scalar(select(func.count()).select_from(AssessmentAttemptModel)) == 1
 
 
@@ -235,7 +263,9 @@ def test_production_composition_rolls_back_failed_result_creation():
         )
 
     with Session(engine) as db:
-        service = get_teacher_assessment_result_service(db)
+        assert db.scalar(select(func.count()).select_from(IdentityModel)) >= 1
+        assert db.in_transaction()
+        service = get_teacher_assessment_review_service(db)
         service.results.results = cast(
             AssessmentResultRepository,
             FailingResultCreationRepository(
@@ -247,12 +277,11 @@ def test_production_composition_rolls_back_failed_result_creation():
                 owner_id,
                 space_id,
                 activity_id,
-                definition_id,
                 attempt_id,
                 7,
                 10,
             )
-        assert not db.in_transaction()
+        db.rollback()
 
     with Session(engine) as db:
         attempt = SqlAlchemyAssessmentAttemptRepository(db).get(
@@ -271,19 +300,21 @@ def test_production_composition_rolls_back_failed_result_correction():
         )
 
     with Session(engine) as db:
-        original = get_teacher_assessment_result_service(db).review(
+        original = get_teacher_assessment_review_service(db).review(
             owner_id,
             space_id,
             activity_id,
-            definition_id,
             attempt_id,
             4,
             10,
             "Initial",
         )
+        db.commit()
 
     with Session(engine) as db:
-        service = get_teacher_assessment_result_service(db)
+        assert db.scalar(select(func.count()).select_from(IdentityModel)) >= 1
+        assert db.in_transaction()
+        service = get_teacher_assessment_review_service(db)
         service.results.results = cast(
             AssessmentResultRepository,
             FailingResultUpdateRepository(
@@ -295,13 +326,12 @@ def test_production_composition_rolls_back_failed_result_correction():
                 owner_id,
                 space_id,
                 activity_id,
-                definition_id,
                 attempt_id,
                 original.id,
                 9,
                 "Changed",
             )
-        assert not db.in_transaction()
+        db.rollback()
 
     with Session(engine) as db:
         attempt = SqlAlchemyAssessmentAttemptRepository(db).get(

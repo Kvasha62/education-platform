@@ -17,6 +17,12 @@ class TeacherSpaceService:
     def list_owned(self, owner_user_id: UUID) -> list[TeacherSpace]:
         return self.repository.list_owned(owner_user_id)
 
+    def get_by_id(self, teacher_space_id: UUID) -> TeacherSpace:
+        teacher_space = self.repository.get_by_id(teacher_space_id)
+        if teacher_space is None:
+            raise TeacherSpaceNotFoundError
+        return teacher_space
+
     def get_owned(self, teacher_space_id: UUID, owner_user_id: UUID) -> TeacherSpace:
         teacher_space = self.repository.get_owned(teacher_space_id, owner_user_id)
         if teacher_space is None:
