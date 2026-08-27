@@ -13,3 +13,4 @@ Add an ADR here when an approved architectural decision needs to be recorded.
 - [`ADR-0005 — Activity Publication and Student Visibility`](./ADR-0005-activity-publication-student-visibility.md)
 - [`ADR-0006 — Assessment & Submission Domain Model`](./ADR-0006-assessment-submission-domain-model.md)
 - [`ADR-0007 — Assessment Result Semantics`](./ADR-0007-assessment-result-semantics.md)
+- [`ADR-0008 — Student Assessment Submission Contract`](./ADR-0008-student-assessment-submission-contract.md)
