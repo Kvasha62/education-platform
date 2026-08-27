@@ -17,3 +17,4 @@ Add an ADR here when an approved architectural decision needs to be recorded.
 - [`ADR-0009 — Student Assessment UI Contract`](./ADR-0009-student-assessment-ui-contract.md)
 - [`ADR-0010 — Student Assessment HTTP API Contract`](./ADR-0010-student-assessment-http-api-contract.md)
 - [`ADR-0011 — Teacher Assessment Review Contract`](./ADR-0011-teacher-assessment-review-contract.md)
+- [`ADR-0012 — Teacher Assessment Review UI Contract`](./ADR-0012-teacher-assessment-review-ui-contract.md)
