@@ -40,6 +40,11 @@ The Assessment module owns Assessment-specific UI, local form behavior, server-s
 mutations, validation presentation, Attempt status presentation, and Result presentation. Backend HTTP
 communication continues to use the shared API client required by ADR-0002.
 
+ADR-0011 extends this ownership to Teacher Assessment Review. Teacher Review queue, detail, review,
+and correction UI belong to the Assessment module but must remain separated from Student/Learning
+Assessment UI and must not share per-user state, query cache keys, mutation flows, or component
+internals with the Student Attempt flow.
+
 The Learning module continues to own the Student Activity page. It may consume only a minimal public
 integration component or interface exported by the Assessment module. Learning must not implement
 Assessment lifecycle, submission, Result, or error-mapping business logic.
