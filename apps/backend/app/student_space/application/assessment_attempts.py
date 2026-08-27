@@ -2,8 +2,8 @@ from app.assessment.application.attempts import (
     AssessmentAttemptDetailService,
     AssessmentAttemptNotFoundError,
     AssessmentAttemptService,
-    AssessmentAttemptStatus,
 )
+from app.assessment.domain.attempts import AssessmentAttemptStatus
 from app.education.application.activity_publication import PublishedActivityLookup
 from app.education.application.errors import PublishedActivityNotFoundError
 from app.learning.application.progress import EnrollmentVerifier
