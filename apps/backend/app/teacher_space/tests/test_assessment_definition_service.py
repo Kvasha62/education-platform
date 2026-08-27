@@ -1,3 +1,4 @@
+from typing import cast
 from uuid import uuid4
 
 import pytest
@@ -8,25 +9,24 @@ from app.teacher_space.application.assessment_definitions import (
     AssessmentDefinitionAuthorizationError,
     TeacherAssessmentDefinitionService,
 )
+from app.teacher_space.application.errors import TeacherSpaceNotFoundError
 from app.teacher_space.application.services import TeacherSpaceService
 from app.teacher_space.domain.models import TeacherSpace
 
 
-class Spaces:
+class TeacherSpaces:
+    """Service-level double matching TeacherSpaceService.get_owned()."""
+
     def __init__(self, space):
         self.space = space
 
-    def get_owned(self, sid, owner):
-        return self.space if self.space.id == sid and self.space.owner_user_id == owner else None
-
-    def add(self, value):
-        return value
-
-    def list_owned(self, owner):
-        return []
-
-    def update(self, value):
-        return value
+    def get_owned(self, teacher_space_id, owner_user_id):
+        if (
+            self.space.id != teacher_space_id
+            or self.space.owner_user_id != owner_user_id
+        ):
+            raise TeacherSpaceNotFoundError
+        return self.space
 
 
 class Scope:
@@ -41,27 +41,30 @@ class Definitions:
     def __init__(self):
         self.items = {}
 
-    def add(self, v):
-        self.items[v.id] = v
-        return v
+    def add(self, value):
+        self.items[value.id] = value
+        return value
 
-    def get(self, i, a):
-        v = self.items.get(i)
-        return v if v and v.activity_id == a else None
+    def get(self, definition_id, activity_id):
+        value = self.items.get(definition_id)
+        return value if value and value.activity_id == activity_id else None
 
-    def get_by_activity(self, a):
-        return next((v for v in self.items.values() if v.activity_id == a), None)
+    def get_by_activity(self, activity_id):
+        return next(
+            (value for value in self.items.values() if value.activity_id == activity_id),
+            None,
+        )
 
-    def update(self, v):
-        self.items[v.id] = v
-        return v
+    def update(self, value):
+        self.items[value.id] = value
+        return value
 
 
-def orchestrator(owner, allowed=True):
+def orchestrator(owner, activity_allowed=True):
     space = TeacherSpace.create(owner, "Space")
     return TeacherAssessmentDefinitionService(
-        TeacherSpaceService(Spaces(space)),
-        ActivityTeacherSpaceScopeQuery(Scope(allowed)),
+        cast(TeacherSpaceService, TeacherSpaces(space)),
+        ActivityTeacherSpaceScopeQuery(Scope(activity_allowed)),
         AssessmentDefinitionService(Definitions()),
     ), space
 
@@ -75,9 +78,17 @@ def test_authorized_teacher_manages_definition():
     assert service.archive(owner, space.id, activity, value.id).status.value == "archived"
 
 
-@pytest.mark.parametrize("wrong_owner,allowed", [(True, True), (False, False)])
-def test_either_authorization_denial_rejects_operation(wrong_owner, allowed):
+def test_wrong_teacher_is_rejected_by_teacher_space_authorization():
     owner = uuid4()
-    service, space = orchestrator(owner, allowed)
+    service, space = orchestrator(owner, activity_allowed=True)
+
     with pytest.raises(AssessmentDefinitionAuthorizationError):
-        service.create(uuid4() if wrong_owner else owner, space.id, uuid4(), None)
+        service.create(uuid4(), space.id, uuid4(), None)
+
+
+def test_activity_outside_teacher_space_is_rejected_by_education_scope():
+    owner = uuid4()
+    service, space = orchestrator(owner, activity_allowed=False)
+
+    with pytest.raises(AssessmentDefinitionAuthorizationError):
+        service.create(owner, space.id, uuid4(), None)
