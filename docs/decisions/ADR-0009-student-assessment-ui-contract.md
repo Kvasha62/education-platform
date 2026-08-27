@@ -100,8 +100,8 @@ The confirmation dialog communicates that the submitted Attempt becomes immutabl
 dialog sends no submit request and leaves the DRAFT unchanged.
 
 Backend validation failure (`422`) is rendered as an inline validation error associated with the
-submission/submit operation. Unexpected submit failure leaves the current Attempt view available and
-o successful status transition is inferred by the frontend.
+submission/submit operation. Unexpected submit failure leaves the current Attempt view available.
+No successful status transition is inferred by the frontend.
 
 ### SUBMITTED state
 
@@ -180,13 +180,25 @@ The Assessment module maps normalized API errors to the following feature behavi
 unexpected/5xx → retryable Assessment error
 ```
 
-A retryable Assessment read error provides a Retry action. Retrying a mutation must follow the future
-API's explicit idempotency and failure contract and must never infer success from an unexpected error.
+A retryable Assessment read error provides a Retry action.
+
+The UI must not infer mutation success from an unexpected error.
+Retry semantics for mutations are deferred to the Student Assessment API contract.
+
 The UI must not treat 403, 404, validation failure, or an unexpected backend failure as an empty
 successful state. Existing application-level authentication/session behavior remains owned by the
 Identity/application shell contract and is not redefined here.
 
 ### Student Assessment HTTP API sequencing
+
+The required milestone order is:
+
+```text
+ADR-0009
+→ Student Assessment API decision/contract
+→ Student Assessment API implementation
+→ Student Assessment UI implementation
+```
 
 No Student Assessment UI implementation begins against an invented or mocked production contract. A
 separate milestone must first define and implement the Student Assessment HTTP API required for:
