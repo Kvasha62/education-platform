@@ -201,6 +201,92 @@ Teacher may:
 This ADR grants no cross-owner or global Teacher access and does not replace existing backend
 authorization checks.
 
+### Teacher authorization orchestration across modules
+
+**Teacher Space is the application orchestrator for Teacher AssessmentDefinition operations.** A
+Teacher operation carries this authorization context:
+
+```text
+teacher_id
+teacher_space_id
+activity_id
+```
+
+`teacher_space_id` is operation/authorization context only. It is not AssessmentDefinition domain
+state. AssessmentDefinition retains `activity_id` as its only Education Activity reference and does
+not store `teacher_id`, `teacher_space_id`, or `owner_user_id`.
+
+Teacher Space performs the orchestration in this order:
+
+```text
+Teacher
+  │
+  ▼
+Teacher Space
+  ├── verifies teacher_id owns teacher_space_id
+  │
+  ├── asks Education whether activity_id belongs to teacher_space_id
+  │
+  └── if both checks return ALLOWED
+          │
+          ▼
+      Assessment
+          └── performs the AssessmentDefinition operation
+```
+
+Teacher Space owns and evaluates only this authorization decision:
+
+```text
+teacher_id owns teacher_space_id → ALLOWED | DENIED
+```
+
+Education owns and evaluates only Activity scope through its educational hierarchy:
+
+```text
+Activity
+→ LearningUnit
+→ Section
+→ Course
+→ EducationalEnvironment
+→ teacher_space_id
+```
+
+The minimal internal Education application query is:
+
+```text
+verifyActivityBelongsToTeacherSpace(
+    activity_id,
+    teacher_space_id
+) → ALLOWED | DENIED
+```
+
+`ALLOWED` means the Activity is inside the educational hierarchy of the specified Teacher Space.
+`DENIED` means it does not belong to that Teacher Space or is unavailable in that scope. Education
+does not check `teacher_id` and does not know `TeacherSpace.owner_user_id`.
+
+Assessment receives the authorization context/result through this orchestration flow and performs its
+own operation only after both checks allow it. Assessment does not evaluate Teacher Space ownership,
+access `TeacherSpaceModel`, know `TeacherSpace.owner_user_id`, or persist either ownership
+relationship.
+
+These are internal application/module boundaries, not HTTP APIs. The dependency directions are:
+
+```text
+Teacher Space → Education
+Teacher Space → Assessment
+```
+
+The reverse directions are forbidden:
+
+```text
+Education ✗→ Teacher Space
+Assessment ✗→ Teacher Space
+Assessment ✗→ Education private persistence
+```
+
+No cycle, shared ownership table, duplicated owner state, or direct Education query combining Teacher
+identity with Activity ownership is introduced.
+
 ## Persistence boundaries
 
 Assessment persistence belongs exclusively to Assessment. Assessment must not access Education private
