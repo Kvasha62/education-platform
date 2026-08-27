@@ -44,6 +44,10 @@ class SqlAlchemyAssessmentDefinitionRepository:
         )
         return _domain(model) if model else None
 
+    def get_by_id(self, definition_id: UUID) -> AssessmentDefinition | None:
+        model = self.db.get(AssessmentDefinitionModel, definition_id)
+        return _domain(model) if model else None
+
     def get_by_activity(self, activity_id: UUID) -> AssessmentDefinition | None:
         model = self.db.scalar(
             select(AssessmentDefinitionModel).where(

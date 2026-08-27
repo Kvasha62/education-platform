@@ -77,6 +77,16 @@ def test_assessment_does_not_access_other_context_persistence_or_learning() -> N
     }
 
 
+def test_student_space_does_not_access_assessment_persistence() -> None:
+    student_space = Path(__file__).parents[1] / "app" / "student_space"
+    imports = _imports(student_space)
+    assert not {
+        name
+        for name in imports
+        if name.startswith("app.assessment.infrastructure")
+    }
+
+
 def test_education_scope_boundary_does_not_import_teacher_space() -> None:
     education_scope = Path(__file__).parents[1] / "app" / "education" / "application" / "activity_scope.py"
     assert not {

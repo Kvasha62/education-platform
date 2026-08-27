@@ -27,7 +27,7 @@ from app.learning.application.enrollment_read import (
     StudentEnrollmentReader,
     StudentEnrollmentReadService,
 )
-from app.learning.application.progress import ActivityProgressService
+from app.learning.application.progress import ActivityProgressService, EnrollmentVerifier
 from app.learning.application.services import EnrollmentService
 from app.learning.infrastructure.progress import (
     SqlAlchemyEnrollmentVerifier,
@@ -47,6 +47,12 @@ def get_student_enrollment_reader(
     db: Annotated[Session, Depends(get_db)],
 ) -> StudentEnrollmentReader:
     return StudentEnrollmentReadService(SqlAlchemyEnrollmentRepository(db))
+
+
+def get_enrollment_verifier(
+    db: Annotated[Session, Depends(get_db)],
+) -> EnrollmentVerifier:
+    return SqlAlchemyEnrollmentVerifier(db)
 
 
 def get_activity_progress_service(

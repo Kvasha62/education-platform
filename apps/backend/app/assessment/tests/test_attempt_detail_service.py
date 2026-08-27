@@ -7,6 +7,7 @@ from app.assessment.application.attempts import (
     AssessmentAttemptDetailService,
     AssessmentAttemptNotFoundError,
     AssessmentAttemptResultMissingError,
+    AssessmentAttemptService,
 )
 from app.assessment.application.ports import (
     AssessmentAttemptRepository,
@@ -25,8 +26,16 @@ class Definitions:
     def get(self, definition_id, activity_id):
         return (
             self.definition
-            if self.definition.id == definition_id
+            if self.definition
+            and self.definition.id == definition_id
             and self.definition.activity_id == activity_id
+            else None
+        )
+
+    def get_by_id(self, definition_id):
+        return (
+            self.definition
+            if self.definition and self.definition.id == definition_id
             else None
         )
 
@@ -35,12 +44,10 @@ class Attempts:
     def __init__(self, attempt):
         self.attempt = attempt
 
-    def get_owned(self, attempt_id, definition_id, student_id):
+    def get_owned_by_id(self, attempt_id, student_id):
         return (
             self.attempt
-            if self.attempt.id == attempt_id
-            and self.attempt.assessment_definition_id == definition_id
-            and self.attempt.student_id == student_id
+            if self.attempt.id == attempt_id and self.attempt.student_id == student_id
             else None
         )
 
@@ -55,7 +62,7 @@ class Results:
         return self.result if self.result and self.result.attempt_id == attempt_id else None
 
 
-def detail_service(attempt, result=None):
+def detail_service(attempt, result=None, include_definition=True):
     definition = AssessmentDefinition.create(uuid4(), None)
     attempt = AssessmentAttempt(
         attempt.id,
@@ -64,6 +71,8 @@ def detail_service(attempt, result=None):
         attempt.submission,
         attempt.status,
     )
+    definitions = Definitions(definition if include_definition else None)
+    attempts = Attempts(attempt)
     results = Results(result)
     if result is not None:
         results.result = AssessmentResult(
@@ -73,9 +82,12 @@ def detail_service(attempt, result=None):
             result.max_score,
             result.feedback,
         )
+    attempt_service = AssessmentAttemptService(
+        cast(AssessmentAttemptRepository, attempts),
+        cast(AssessmentDefinitionRepository, definitions),
+    )
     service = AssessmentAttemptDetailService(
-        cast(AssessmentAttemptRepository, Attempts(attempt)),
-        cast(AssessmentDefinitionRepository, Definitions(definition)),
+        attempt_service,
         cast(AssessmentResultRepository, results),
     )
     return service, definition, attempt, results
@@ -88,13 +100,10 @@ def test_draft_and_submitted_detail_have_no_result(submitted):
         attempt = attempt.submit()
     service, definition, attempt, results = detail_service(attempt)
 
-    detail = service.get_owned(
-        attempt.id,
-        definition.id,
-        definition.activity_id,
-        attempt.student_id,
-    )
+    context = service.get_owned(attempt.id, attempt.student_id)
+    detail = context.detail
 
+    assert context.activity_id == definition.activity_id
     assert detail.id == attempt.id
     assert detail.assessment_definition_id == definition.id
     assert detail.submission == "answer"
@@ -106,14 +115,9 @@ def test_draft_and_submitted_detail_have_no_result(submitted):
 def test_reviewed_detail_contains_complete_result():
     attempt = AssessmentAttempt.create(uuid4(), uuid4(), "answer").submit().review()
     result = AssessmentResult.create(attempt.id, 8, 10, "Good work")
-    service, definition, attempt, _ = detail_service(attempt, result)
+    service, _, attempt, _ = detail_service(attempt, result)
 
-    detail = service.get_owned(
-        attempt.id,
-        definition.id,
-        definition.activity_id,
-        attempt.student_id,
-    )
+    detail = service.get_owned(attempt.id, attempt.student_id).detail
 
     assert detail.result is not None
     assert detail.result.id == result.id
@@ -123,36 +127,25 @@ def test_reviewed_detail_contains_complete_result():
     assert detail.result.feedback == "Good work"
 
 
-def test_detail_enforces_ownership_and_assessment_scope():
+def test_detail_enforces_ownership():
     attempt = AssessmentAttempt.create(uuid4(), uuid4(), "answer")
-    service, definition, attempt, _ = detail_service(attempt)
+    service, _, attempt, _ = detail_service(attempt)
 
-    for operation in (
-        lambda: service.get_owned(
-            attempt.id,
-            definition.id,
-            uuid4(),
-            attempt.student_id,
-        ),
-        lambda: service.get_owned(
-            attempt.id,
-            definition.id,
-            definition.activity_id,
-            uuid4(),
-        ),
-    ):
-        with pytest.raises(AssessmentAttemptNotFoundError):
-            operation()
+    with pytest.raises(AssessmentAttemptNotFoundError):
+        service.get_owned(attempt.id, uuid4())
+
+
+def test_detail_requires_valid_definition_scope_binding():
+    attempt = AssessmentAttempt.create(uuid4(), uuid4(), "answer")
+    service, _, attempt, _ = detail_service(attempt, include_definition=False)
+
+    with pytest.raises(AssessmentAttemptNotFoundError):
+        service.get_owned(attempt.id, attempt.student_id)
 
 
 def test_reviewed_detail_requires_its_result():
     attempt = AssessmentAttempt.create(uuid4(), uuid4(), "answer").submit().review()
-    service, definition, attempt, _ = detail_service(attempt)
+    service, _, attempt, _ = detail_service(attempt)
 
     with pytest.raises(AssessmentAttemptResultMissingError):
-        service.get_owned(
-            attempt.id,
-            definition.id,
-            definition.activity_id,
-            attempt.student_id,
-        )
+        service.get_owned(attempt.id, attempt.student_id)
