@@ -2,7 +2,7 @@ from typing import cast
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import CheckConstraint, create_engine, func, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
@@ -43,7 +43,7 @@ def create_schema():
     return engine
 
 
-def test_review_atomically_commits_one_result_and_reviewed_attempt():
+def test_review_and_correction_persist_one_scored_result():
     engine = create_schema()
     activity_id = uuid4()
     with Session(engine) as db, db.begin():
@@ -54,8 +54,22 @@ def test_review_atomically_commits_one_result_and_reviewed_attempt():
         attempt = attempts.add(
             AssessmentAttempt.create(definition.id, uuid4(), "answer").submit()
         )
-        result = AssessmentResultService(results, attempts, definitions).review(
-            attempt.id, definition.id, activity_id
+        service = AssessmentResultService(results, attempts, definitions)
+        result = service.review(
+            attempt.id,
+            definition.id,
+            activity_id,
+            4,
+            10,
+            "Initial",
+        )
+        corrected = service.correct(
+            result.id,
+            attempt.id,
+            definition.id,
+            activity_id,
+            8,
+            " ",
         )
 
     with Session(engine) as db:
@@ -64,12 +78,27 @@ def test_review_atomically_commits_one_result_and_reviewed_attempt():
         stored_attempt = attempts.get(attempt.id, definition.id)
         assert stored_attempt is not None
         assert stored_attempt.status is AssessmentAttemptStatus.REVIEWED
-        assert results.get_by_attempt(attempt.id) == result
+        assert results.get_by_attempt(attempt.id) == corrected
+        assert corrected.id == result.id
+        assert corrected.attempt_id == result.attempt_id
+        assert corrected.max_score == result.max_score == 10
+        assert corrected.score == 8
+        assert corrected.feedback is None
         assert db.scalar(select(func.count()).select_from(AssessmentResultModel)) == 1
         with pytest.raises(AssessmentResultAlreadyExistsError):
-            results.add(AssessmentResult.create(attempt.id))
+            results.add(AssessmentResult.create(attempt.id, 8, 10))
 
     table = Base.metadata.tables["assessment_results"]
+    assert set(table.c.keys()) == {
+        "id",
+        "attempt_id",
+        "score",
+        "max_score",
+        "feedback",
+    }
+    assert not table.c.score.nullable
+    assert not table.c.max_score.nullable
+    assert table.c.feedback.nullable
     assert {foreign_key.target_fullname for foreign_key in table.foreign_keys} == {
         "assessment_attempts.id"
     }
@@ -77,6 +106,15 @@ def test_review_atomically_commits_one_result_and_reviewed_attempt():
         constraint.name == "uq_assessment_results_attempt"
         for constraint in table.constraints
     )
+    check_constraints = {
+        constraint.name
+        for constraint in table.constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+    assert check_constraints == {
+        "ck_assessment_results_max_score_positive",
+        "ck_assessment_results_score_range",
+    }
 
 
 def test_review_transaction_rolls_back_result_when_attempt_update_fails():
@@ -101,7 +139,7 @@ def test_review_transaction_rolls_back_result_when_attempt_update_fails():
             SqlAlchemyAssessmentDefinitionRepository(db),
         )
         with pytest.raises(RuntimeError, match="attempt update failed"), db.begin():
-            service.review(attempt.id, definition.id, activity_id)
+            service.review(attempt.id, definition.id, activity_id, 7, 10)
 
     with Session(engine) as db:
         stored_attempt = SqlAlchemyAssessmentAttemptRepository(db).get(

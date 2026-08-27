@@ -17,7 +17,10 @@ from app.assessment.domain.models import AssessmentDefinition
 from app.assessment.domain.results import AssessmentResult
 from app.assessment.infrastructure import models as assessment_models  # noqa: F401
 from app.assessment.infrastructure.attempts import SqlAlchemyAssessmentAttemptRepository
-from app.assessment.infrastructure.models import AssessmentResultModel
+from app.assessment.infrastructure.models import (
+    AssessmentAttemptModel,
+    AssessmentResultModel,
+)
 from app.assessment.infrastructure.repositories import SqlAlchemyAssessmentDefinitionRepository
 from app.assessment.infrastructure.results import SqlAlchemyAssessmentResultRepository
 from app.core.database import Base
@@ -42,6 +45,8 @@ from app.teacher_space.api.dependencies import get_teacher_assessment_result_ser
 from app.teacher_space.domain.models import TeacherSpace
 from app.teacher_space.infrastructure.repositories import SqlAlchemyTeacherSpaceRepository
 
+ReviewContext = tuple[UUID, UUID, UUID, UUID, UUID]
+
 
 class FailingResultCreationRepository:
     def __init__(self, delegate: SqlAlchemyAssessmentResultRepository) -> None:
@@ -51,8 +56,32 @@ class FailingResultCreationRepository:
         self.delegate.add(result)
         raise RuntimeError("result creation failed")
 
+    def get(self, result_id: UUID, attempt_id: UUID) -> AssessmentResult | None:
+        return self.delegate.get(result_id, attempt_id)
+
     def get_by_attempt(self, attempt_id: UUID) -> AssessmentResult | None:
         return self.delegate.get_by_attempt(attempt_id)
+
+    def update(self, result: AssessmentResult) -> AssessmentResult:
+        return self.delegate.update(result)
+
+
+class FailingResultUpdateRepository:
+    def __init__(self, delegate: SqlAlchemyAssessmentResultRepository) -> None:
+        self.delegate = delegate
+
+    def add(self, result: AssessmentResult) -> AssessmentResult:
+        return self.delegate.add(result)
+
+    def get(self, result_id: UUID, attempt_id: UUID) -> AssessmentResult | None:
+        return self.delegate.get(result_id, attempt_id)
+
+    def get_by_attempt(self, attempt_id: UUID) -> AssessmentResult | None:
+        return self.delegate.get_by_attempt(attempt_id)
+
+    def update(self, result: AssessmentResult) -> AssessmentResult:
+        self.delegate.update(result)
+        raise RuntimeError("result correction failed")
 
 
 def create_schema():
@@ -65,7 +94,7 @@ def create_schema():
     return engine
 
 
-def seed_submitted_attempt(db: Session):
+def seed_submitted_attempt(db: Session) -> ReviewContext:
     owner_id = uuid4()
     now = datetime.now(UTC)
     db.add(
@@ -115,6 +144,9 @@ def test_production_composition_commits_review_and_denies_repeated_review():
             activity_id,
             definition_id,
             attempt_id,
+            7,
+            10,
+            "Good work",
         )
         assert not db.in_transaction()
 
@@ -126,6 +158,8 @@ def test_production_composition_commits_review_and_denies_repeated_review():
                 activity_id,
                 definition_id,
                 attempt_id,
+                8,
+                10,
             )
         assert not db.in_transaction()
 
@@ -138,7 +172,59 @@ def test_production_composition_commits_review_and_denies_repeated_review():
         assert SqlAlchemyAssessmentResultRepository(db).get_by_attempt(
             attempt_id
         ) == first_result
+        assert first_result.score == 7
+        assert first_result.max_score == 10
+        assert first_result.feedback == "Good work"
         assert db.scalar(select(func.count()).select_from(AssessmentResultModel)) == 1
+
+
+def test_production_composition_corrects_existing_result_atomically():
+    engine = create_schema()
+    with Session(engine) as db, db.begin():
+        owner_id, space_id, activity_id, definition_id, attempt_id = (
+            seed_submitted_attempt(db)
+        )
+
+    with Session(engine) as db:
+        original = get_teacher_assessment_result_service(db).review(
+            owner_id,
+            space_id,
+            activity_id,
+            definition_id,
+            attempt_id,
+            4,
+            10,
+            "Initial",
+        )
+
+    with Session(engine) as db:
+        corrected = get_teacher_assessment_result_service(db).correct(
+            owner_id,
+            space_id,
+            activity_id,
+            definition_id,
+            attempt_id,
+            original.id,
+            8,
+            "   ",
+        )
+        assert not db.in_transaction()
+
+    with Session(engine) as db:
+        attempt = SqlAlchemyAssessmentAttemptRepository(db).get(
+            attempt_id, definition_id
+        )
+        assert attempt is not None
+        assert attempt.status is AssessmentAttemptStatus.REVIEWED
+        stored = SqlAlchemyAssessmentResultRepository(db).get_by_attempt(attempt_id)
+        assert stored == corrected
+        assert corrected.id == original.id
+        assert corrected.attempt_id == original.attempt_id
+        assert corrected.max_score == original.max_score == 10
+        assert corrected.score == 8
+        assert corrected.feedback is None
+        assert db.scalar(select(func.count()).select_from(AssessmentResultModel)) == 1
+        assert db.scalar(select(func.count()).select_from(AssessmentAttemptModel)) == 1
 
 
 def test_production_composition_rolls_back_failed_result_creation():
@@ -163,6 +249,8 @@ def test_production_composition_rolls_back_failed_result_creation():
                 activity_id,
                 definition_id,
                 attempt_id,
+                7,
+                10,
             )
         assert not db.in_transaction()
 
@@ -173,3 +261,54 @@ def test_production_composition_rolls_back_failed_result_creation():
         assert attempt is not None
         assert attempt.status is AssessmentAttemptStatus.SUBMITTED
         assert SqlAlchemyAssessmentResultRepository(db).get_by_attempt(attempt_id) is None
+
+
+def test_production_composition_rolls_back_failed_result_correction():
+    engine = create_schema()
+    with Session(engine) as db, db.begin():
+        owner_id, space_id, activity_id, definition_id, attempt_id = (
+            seed_submitted_attempt(db)
+        )
+
+    with Session(engine) as db:
+        original = get_teacher_assessment_result_service(db).review(
+            owner_id,
+            space_id,
+            activity_id,
+            definition_id,
+            attempt_id,
+            4,
+            10,
+            "Initial",
+        )
+
+    with Session(engine) as db:
+        service = get_teacher_assessment_result_service(db)
+        service.results.results = cast(
+            AssessmentResultRepository,
+            FailingResultUpdateRepository(
+                cast(SqlAlchemyAssessmentResultRepository, service.results.results)
+            ),
+        )
+        with pytest.raises(RuntimeError, match="result correction failed"):
+            service.correct(
+                owner_id,
+                space_id,
+                activity_id,
+                definition_id,
+                attempt_id,
+                original.id,
+                9,
+                "Changed",
+            )
+        assert not db.in_transaction()
+
+    with Session(engine) as db:
+        attempt = SqlAlchemyAssessmentAttemptRepository(db).get(
+            attempt_id, definition_id
+        )
+        assert attempt is not None
+        assert attempt.status is AssessmentAttemptStatus.REVIEWED
+        stored = SqlAlchemyAssessmentResultRepository(db).get_by_attempt(attempt_id)
+        assert stored == original
+        assert db.scalar(select(func.count()).select_from(AssessmentResultModel)) == 1
