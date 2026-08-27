@@ -73,3 +73,77 @@ def test_authorized_student_operations_are_delegated():
         and service.submit(s, a, d, i) == "submitted"
         and service.get(s, a, d, i) == "read"
     )
+
+
+class DefinitionRepository:
+    def __init__(self, definitions):
+        self.definitions = definitions
+
+    def get(self, definition_id, activity_id):
+        return next(
+            (d for d in self.definitions if d.id == definition_id and d.activity_id == activity_id),
+            None,
+        )
+
+    def get_by_activity(self, activity_id):
+        return next((d for d in self.definitions if d.activity_id == activity_id), None)
+
+    def add(self, value):
+        return value
+
+    def update(self, value):
+        return value
+
+
+class AttemptRepository:
+    def __init__(self):
+        self.items = {}
+
+    def add(self, value):
+        self.items[value.id] = value
+        return value
+
+    def get_owned(self, attempt_id, definition_id, student_id):
+        value = self.items.get(attempt_id)
+        return (
+            value
+            if value
+            and value.assessment_definition_id == definition_id
+            and value.student_id == student_id
+            else None
+        )
+
+    def update(self, value):
+        self.items[value.id] = value
+        return value
+
+    def list_owned(self, definition_id, student_id):
+        return []
+
+
+def test_existing_attempt_operations_deny_mismatched_authorized_activity():
+    from app.assessment.domain.models import AssessmentDefinition
+
+    student_id, activity_a, activity_b = uuid4(), uuid4(), uuid4()
+    definition_a = AssessmentDefinition.create(activity_a, None)
+    definition_b = AssessmentDefinition.create(activity_b, None)
+    definitions = DefinitionRepository([definition_a, definition_b])
+    attempts = AttemptRepository()
+    assessment = AssessmentAttemptService(attempts, definitions)
+    attempt_a = assessment.create(definition_a.id, activity_a, student_id, "a")
+    attempt_b = assessment.create(definition_b.id, activity_b, student_id, "b")
+    assert attempt_a.id != attempt_b.id
+    student = StudentAssessmentAttemptService(Activities(), Enrollments(True), assessment)
+
+    operations = (
+        lambda: student.get(student_id, activity_a, definition_b.id, attempt_b.id),
+        lambda: student.update_submission(
+            student_id, activity_a, definition_b.id, attempt_b.id, "x"
+        ),
+        lambda: student.submit(student_id, activity_a, definition_b.id, attempt_b.id),
+    )
+    for operation in operations:
+        with pytest.raises(AssessmentAttemptAuthorizationError):
+            operation()
+
+    assert student.get(student_id, activity_a, definition_a.id, attempt_a.id) == attempt_a

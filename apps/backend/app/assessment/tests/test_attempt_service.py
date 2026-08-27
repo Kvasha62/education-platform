@@ -60,4 +60,4 @@ def test_multiple_attempts_and_archived_definition_rules():
     blocked = AssessmentAttemptService(attempts, Definitions(archived))
     with pytest.raises(AssessmentDefinitionUnavailableError):
         blocked.create(archived.id, activity, student, None)
-    assert blocked.submit(draft.id, archived.id, student).status.value == "submitted"
+    assert blocked.submit(draft.id, archived.id, activity, student).status.value == "submitted"

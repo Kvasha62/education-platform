@@ -41,5 +41,6 @@ class AssessmentAttemptModel(Base):
             AssessmentAttemptStatus,
             name="assessment_attempt_status",
             values_callable=lambda values: [value.value for value in values],
-        )
+        ),
+        nullable=False,
     )

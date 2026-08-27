@@ -1,4 +1,7 @@
-from app.assessment.application.attempts import AssessmentAttemptService
+from app.assessment.application.attempts import (
+    AssessmentAttemptNotFoundError,
+    AssessmentAttemptService,
+)
 from app.education.application.activity_publication import PublishedActivityLookup
 from app.education.application.errors import PublishedActivityNotFoundError
 from app.learning.application.progress import EnrollmentVerifier
@@ -35,12 +38,21 @@ class StudentAssessmentAttemptService:
 
     def update_submission(self, sid, aid, did, attempt_id, data):
         self._authorize(sid, aid)
-        return self.attempts.update_submission(attempt_id, did, sid, data)
+        return self._existing(
+            lambda: self.attempts.update_submission(attempt_id, did, aid, sid, data)
+        )
 
     def submit(self, sid, aid, did, attempt_id):
         self._authorize(sid, aid)
-        return self.attempts.submit(attempt_id, did, sid)
+        return self._existing(lambda: self.attempts.submit(attempt_id, did, aid, sid))
 
     def get(self, sid, aid, did, attempt_id):
         self._authorize(sid, aid)
-        return self.attempts.get(attempt_id, did, sid)
+        return self._existing(lambda: self.attempts.get(attempt_id, did, aid, sid))
+
+    @staticmethod
+    def _existing(action):
+        try:
+            return action()
+        except AssessmentAttemptNotFoundError as error:
+            raise AssessmentAttemptAuthorizationError from error
