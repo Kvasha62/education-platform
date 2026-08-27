@@ -1,7 +1,9 @@
 from app.assessment.application.attempts import (
+    AssessmentAttemptDetailService,
     AssessmentAttemptNotFoundError,
     AssessmentAttemptService,
 )
+from app.assessment.domain.attempts import AssessmentAttemptStatus
 from app.education.application.activity_publication import PublishedActivityLookup
 from app.education.application.errors import PublishedActivityNotFoundError
 from app.learning.application.progress import EnrollmentVerifier
@@ -18,37 +20,72 @@ class StudentAssessmentAttemptService:
         activities: PublishedActivityLookup,
         enrollments: EnrollmentVerifier,
         attempts: AssessmentAttemptService,
+        attempt_details: AssessmentAttemptDetailService,
     ):
-        self.activities, self.enrollments, self.attempts = activities, enrollments, attempts
+        self.activities = activities
+        self.enrollments = enrollments
+        self.attempts = attempts
+        self.attempt_details = attempt_details
 
-    def _authorize(self, student_id, activity_id):
+    def _authorize_current_access(self, student_id, activity_id):
         try:
             activity = self.activities.require_published(activity_id)
-        except PublishedActivityNotFoundError as e:
-            raise AssessmentAttemptAuthorizationError from e
+        except PublishedActivityNotFoundError as error:
+            raise AssessmentAttemptAuthorizationError from error
         if (
             self.enrollments.get_status(student_id, activity.course_id)
             is not EnrollmentStatus.ENROLLED
         ):
             raise AssessmentAttemptAuthorizationError
 
-    def create(self, sid, aid, did, data):
-        self._authorize(sid, aid)
-        return self.attempts.create(did, aid, sid, data)
-
-    def update_submission(self, sid, aid, did, attempt_id, data):
-        self._authorize(sid, aid)
-        return self._existing(
-            lambda: self.attempts.update_submission(attempt_id, did, aid, sid, data)
+    def create(self, student_id, activity_id, definition_id, submission):
+        self._authorize_current_access(student_id, activity_id)
+        return self.attempts.create(
+            definition_id, activity_id, student_id, submission
         )
 
-    def submit(self, sid, aid, did, attempt_id):
-        self._authorize(sid, aid)
-        return self._existing(lambda: self.attempts.submit(attempt_id, did, aid, sid))
+    def update_submission(
+        self,
+        student_id,
+        activity_id,
+        definition_id,
+        attempt_id,
+        submission,
+    ):
+        self._authorize_current_access(student_id, activity_id)
+        return self._existing(
+            lambda: self.attempts.update_submission(
+                attempt_id,
+                definition_id,
+                activity_id,
+                student_id,
+                submission,
+            )
+        )
 
-    def get(self, sid, aid, did, attempt_id):
-        self._authorize(sid, aid)
-        return self._existing(lambda: self.attempts.get(attempt_id, did, aid, sid))
+    def submit(self, student_id, activity_id, definition_id, attempt_id):
+        self._authorize_current_access(student_id, activity_id)
+        return self._existing(
+            lambda: self.attempts.submit(
+                attempt_id,
+                definition_id,
+                activity_id,
+                student_id,
+            )
+        )
+
+    def get(self, student_id, activity_id, definition_id, attempt_id):
+        detail = self._existing(
+            lambda: self.attempt_details.get_owned(
+                attempt_id,
+                definition_id,
+                activity_id,
+                student_id,
+            )
+        )
+        if detail.status is AssessmentAttemptStatus.DRAFT:
+            self._authorize_current_access(student_id, activity_id)
+        return detail
 
     @staticmethod
     def _existing(action):
