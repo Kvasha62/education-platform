@@ -1,3 +1,5 @@
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 from uuid import UUID
 
 from app.assessment.application.results import AssessmentResultService
@@ -14,16 +16,21 @@ class AssessmentResultAuthorizationError(Exception):
     pass
 
 
+ReviewTransaction = Callable[[], AbstractContextManager[object]]
+
+
 class TeacherAssessmentResultService:
     def __init__(
         self,
         teacher_spaces: TeacherSpaceService,
         activity_scope: ActivityTeacherSpaceScopeQuery,
         results: AssessmentResultService,
+        transaction: ReviewTransaction,
     ) -> None:
         self.teacher_spaces = teacher_spaces
         self.activity_scope = activity_scope
         self.results = results
+        self.transaction = transaction
 
     def review(
         self,
@@ -33,8 +40,9 @@ class TeacherAssessmentResultService:
         definition_id: UUID,
         attempt_id: UUID,
     ) -> AssessmentResult:
-        self._authorize(teacher_id, teacher_space_id, activity_id)
-        return self.results.review(attempt_id, definition_id, activity_id)
+        with self.transaction():
+            self._authorize(teacher_id, teacher_space_id, activity_id)
+            return self.results.review(attempt_id, definition_id, activity_id)
 
     def _authorize(self, teacher_id: UUID, teacher_space_id: UUID, activity_id: UUID) -> None:
         try:

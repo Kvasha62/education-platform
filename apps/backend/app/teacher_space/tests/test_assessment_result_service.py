@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from typing import cast
 from uuid import uuid4
 
@@ -52,6 +53,7 @@ def orchestrator(owner, attempt_id, activity_allowed=True):
         cast(TeacherSpaceService, TeacherSpaces(space)),
         ActivityTeacherSpaceScopeQuery(Scope(activity_allowed)),
         cast(AssessmentResultService, results),
+        nullcontext,
     )
     return service, space, results
 
