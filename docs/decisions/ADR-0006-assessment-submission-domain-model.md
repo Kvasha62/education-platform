@@ -1,6 +1,6 @@
 # ADR-0006 — Assessment & Submission Domain Model
 
-- **Status:** Accepted
+- **Status:** Proposed
 - **Date:** 2026-08-27
 - **Issue:** EDU-056 / #113
 - **Decision:** Define Assessment as an independent bounded context for manual assessment definitions, Student attempts/submissions, results, scoring, and feedback, without coupling assessment outcomes to Learning Activity Progress.
@@ -97,8 +97,9 @@ ACTIVE
 ARCHIVED
 ```
 
-An ACTIVE Definition accepts new Attempts. An ARCHIVED Definition accepts no new Attempts but remains
-available for historical reads of its existing Attempts and Results.
+An ACTIVE Definition may be changed by an authorized Teacher and accepts new Attempts. An ARCHIVED
+Definition is immutable, accepts no new Attempts, and preserves its existing Attempts and Results for
+historical reads. MVP does not support restoration or reactivation.
 
 This ADR does not add assessment types, passing scores, rubrics, automated criteria, or automated
 grading. Exact submission-content and instruction fields are deferred to a scoped implementation
@@ -126,12 +127,32 @@ does not designate one as current, final, or best.
 
 ## AssessmentResult
 
-An AssessmentResult represents the completed manual assessment of one specific submitted Attempt. It
-is created by an authorized Teacher as part of completing review; the associated Attempt becomes
-REVIEWED. There is at most one Result per Attempt.
+An AssessmentResult represents the completed manual assessment of one specific submitted Attempt. The
+relationship remains:
+
+```text
+AssessmentAttempt 1 ─── 0..1 AssessmentResult
+```
+
+The lifecycle invariant is:
+
+```text
+DRAFT
+→ no Result
+
+SUBMITTED
+→ no Result until Teacher review is completed
+
+SUBMITTED → REVIEWED
+→ exactly one AssessmentResult
+```
+
+A Result cannot exist for a DRAFT Attempt, without an Attempt, or more than once for the same Attempt.
+It is created by an authorized Teacher as part of completing review; the associated Attempt becomes
+REVIEWED.
 
 The Teacher may correct an existing Result after creation. Correction updates that Result rather than
-creating another Result or another Attempt. MVP does not model Result lifecycle states, versions, or
+creating a second Result or another Attempt. MVP does not model Result lifecycle states, versions, or
 change history.
 
 ## Scoring
@@ -200,9 +221,21 @@ REVIEWED  != ActivityProgress.COMPLETED
 AssessmentResult != ActivityProgress
 ```
 
+The following independence rules are mandatory:
+
+```text
+AssessmentAttempt does not require ActivityProgress.
+AssessmentResult does not require ActivityProgress.
+Assessment operations do not create ActivityProgress.
+Assessment operations do not update ActivityProgress.
+Learning operations do not create AssessmentResult.
+
+AssessmentResult != ActivityProgress.COMPLETED
+```
+
 Assessment never automatically mutates `ActivityProgress`. A Result with `score == max_score` does not
-complete an Activity. Activity Progress may exist without an AssessmentResult, and Assessment Attempts
-or Results do not require or create Activity Progress records.
+transition Activity Progress to `COMPLETED`. Activity Progress may exist without an AssessmentResult.
+No integration event, callback, or implicit synchronization between these lifecycles is introduced.
 
 Any future rule connecting assessment success to learning completion requires a separate explicit
 architectural and product decision.
@@ -251,7 +284,7 @@ This decision does not implement or define:
 
 ## Open questions
 
-The approved domain semantics above are complete for architectural implementation planning. The
+The approved domain semantics are sufficient to begin scoped implementation-contract design. The
 following implementation contracts remain deliberately unspecified and require scoped follow-up
 Issues:
 
