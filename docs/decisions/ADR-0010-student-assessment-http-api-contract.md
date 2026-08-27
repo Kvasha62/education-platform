@@ -301,14 +301,18 @@ Assessment error, while an immutable submission already present in client cache 
 
 #### Create
 
-Create is non-idempotent. Every separately confirmed successful POST creates another DRAFT. The API
-does not add an idempotency key, client-generated Attempt identifier, deduplication key, or Attempt
-collection for recovery.
+Create is intentionally non-idempotent. Every separately confirmed successful POST creates another
+DRAFT. The API does not add an idempotency key, client-generated Attempt identifier, or deduplication
+key.
 
-After an ambiguous transport/server failure, the client must not automatically retry Create because a
-first request may have committed even if its response was not received. Before issuing another Create,
-the client must determine the outcome through another separately approved mechanism. This minimal
-contract does not define or add a discovery mechanism for an Attempt whose identifier was not received.
+If the client does not receive the created Attempt identifier because of an ambiguous transport or
+server failure, the client must not automatically retry Create. The minimal API provides no
+collection/history endpoint and no separate recovery/discovery endpoint for finding an Attempt whose
+Create response was lost. The client must not infer or discover that Attempt through current, best,
+latest, or final Attempt semantics.
+
+A later explicit Create action by the Student is a new Create operation and may create an additional
+DRAFT Attempt. This is an intentional limitation of the minimal API contract.
 
 #### Replace
 
@@ -377,7 +381,10 @@ Create route
 → activity_id + definition_id
 → optional submission field
 → 201 + complete aggregate
-→ non-idempotent
+→ intentionally non-idempotent
+→ ambiguous failure forbids automatic retry
+→ no collection/history or recovery/discovery endpoint
+→ later explicit Create is a new operation and may create another DRAFT
 
 Replace route
 → attempt_id only
@@ -446,9 +453,11 @@ Rejected. Unknown Attempt, wrong owner, and invalid Assessment scope are conceal
 Rejected. Missing required Result is a server invariant violation and returns 500 without a new error
 DTO.
 
-### Idempotent or automatically retried Create
+### Idempotent, automatically retried, or discoverable Create
 
-Rejected. Create is non-idempotent and this milestone adds no idempotency infrastructure.
+Rejected. Create is intentionally non-idempotent, automatic retry after an ambiguous failure is
+forbidden, and this minimal API adds neither idempotency infrastructure nor a discovery/recovery
+endpoint. A later explicit Student action is a new Create and may produce another DRAFT.
 
 ### Idempotent repeated Submit
 
@@ -471,8 +480,9 @@ Rejected. The API is detail-only by known Attempt identifier.
 - Stable aggregate and nested Result shapes avoid status-dependent response schemas.
 - Wrong ownership and scope remain concealed while an owned DRAFT's current-access denial can be shown
   as forbidden.
-- Non-idempotent Create cannot be automatically retried after an ambiguous outcome and has no recovery
-  discovery operation in this minimal API.
+- Non-idempotent Create cannot be automatically retried after an ambiguous outcome and has no
+  collection/history or recovery/discovery operation in this minimal API; a later explicit Create may
+  produce an additional DRAFT.
 - Repeat-safe PUT supports explicit Save without idempotency persistence.
 - Strict repeated-Submit conflict requires GET after an ambiguous Submit result.
 - A missing REVIEWED Result remains a server error; cached UI state is optional and no partial error
