@@ -142,14 +142,17 @@ Course completion from the Result.
 
 ### REVIEWED Attempt without Result
 
-A REVIEWED Attempt without its required Result is an inconsistent backend state. The UI must:
+A REVIEWED Attempt without its required Result is an inconsistent backend state. The Student
+Assessment API maps a direct aggregate read of that state to `500 Internal Server Error`; it must not
+return a valid `200` aggregate with `result = null`.
 
-- keep the immutable submission and REVIEWED status visible;
-- display `Result unavailable` instead of a fabricated or partial Result;
-- provide Retry for the Result/detail read.
+For direct navigation, the UI displays a retryable Assessment error and does not expect an Attempt
+snapshot in the error response. If the immutable Attempt submission was loaded previously and remains
+in local or TanStack Query cache state, the UI may keep that cached submission visible beside the error
+state. If no snapshot is available, the submission is not required to remain visible.
 
-Retry repeats the read only. It does not create a Result, change Attempt status, calculate a score,
-submit again, or invoke any recovery mutation.
+No partial Attempt or new error DTO is required. Retry repeats the read only. It does not create a
+Result, change Attempt status, calculate a score, submit again, or invoke any recovery mutation.
 
 ### Historical Attempts
 
@@ -245,9 +248,11 @@ REVIEWED
 → no Attempt or Result mutation controls
 
 REVIEWED without Result
-→ submission remains visible
-→ Result unavailable
-→ read Retry only
+→ direct GET returns 500
+→ retryable Assessment error
+→ cached submission may remain visible
+→ no Attempt snapshot required in error response
+→ no valid 200 aggregate
 
 Historical UI
 → detail by known Attempt ID only
@@ -290,9 +295,11 @@ controls.
 
 Rejected. Null feedback is omitted from the Result card.
 
-### Hide the whole Attempt when Result is missing
+### Require a partial Attempt snapshot in the invariant-error response
 
-Rejected. The historical submission remains visible with `Result unavailable` and read Retry.
+Rejected. A direct inconsistent read returns `500` without a new error DTO. Previously loaded cached
+submission may remain visible, but direct navigation without a snapshot shows the retryable error
+without requiring submission content.
 
 ### Attempt history/list
 
@@ -323,8 +330,8 @@ Rejected. The separate Student Assessment API milestone precedes UI implementati
   best Attempt semantics.
 - REVIEWED Result presentation remains limited to the approved score, maximum score, and optional
   feedback.
-- Missing Result handling preserves historical submission visibility without inventing recovery or
-  scoring behavior.
+- Missing Result handling uses a retryable `500` error without a new error DTO; submission remains
+  visible only when an immutable snapshot is already available in local/cache state.
 - Detail-only history avoids new collection, ordering, and pagination contracts, but the UI cannot
   provide general historical discovery.
 - Status-specific error presentation depends on an API contract that preserves the required HTTP/error
