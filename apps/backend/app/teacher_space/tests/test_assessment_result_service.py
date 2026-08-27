@@ -39,15 +39,9 @@ class Scope:
 class Results:
     def __init__(self, attempt_id):
         self.result = AssessmentResult.create(attempt_id)
-        self.correct_count = 0
 
     def review(self, attempt_id, definition_id, activity_id):
         assert attempt_id == self.result.attempt_id
-        return self.result
-
-    def correct(self, result_id, attempt_id, definition_id, activity_id):
-        assert result_id == self.result.id and attempt_id == self.result.attempt_id
-        self.correct_count += 1
         return self.result
 
 
@@ -62,7 +56,7 @@ def orchestrator(owner, attempt_id, activity_allowed=True):
     return service, space, results
 
 
-def test_authorized_teacher_reviews_and_corrects_same_result():
+def test_authorized_teacher_reviews_attempt():
     owner = uuid4()
     activity_id, definition_id, attempt_id = uuid4(), uuid4(), uuid4()
     service, space, results = orchestrator(owner, attempt_id)
@@ -70,41 +64,20 @@ def test_authorized_teacher_reviews_and_corrects_same_result():
     reviewed = service.review(
         owner, space.id, activity_id, definition_id, attempt_id
     )
-    corrected = service.correct(
-        owner,
-        space.id,
-        activity_id,
-        definition_id,
-        attempt_id,
-        reviewed.id,
-    )
 
-    assert corrected == reviewed
-    assert results.correct_count == 1
+    assert reviewed == results.result
 
 
 @pytest.mark.parametrize("wrong_teacher,activity_allowed", [(True, True), (False, False)])
-def test_every_result_operation_requires_teacher_and_activity_authorization(
+def test_review_requires_teacher_and_activity_authorization(
     wrong_teacher, activity_allowed
 ):
     owner = uuid4()
     activity_id, definition_id, attempt_id = uuid4(), uuid4(), uuid4()
-    service, space, results = orchestrator(owner, attempt_id, activity_allowed)
+    service, space, _ = orchestrator(owner, attempt_id, activity_allowed)
     teacher_id = uuid4() if wrong_teacher else owner
 
-    operations = (
-        lambda: service.review(
+    with pytest.raises(AssessmentResultAuthorizationError):
+        service.review(
             teacher_id, space.id, activity_id, definition_id, attempt_id
-        ),
-        lambda: service.correct(
-            teacher_id,
-            space.id,
-            activity_id,
-            definition_id,
-            attempt_id,
-            results.result.id,
-        ),
-    )
-    for operation in operations:
-        with pytest.raises(AssessmentResultAuthorizationError):
-            operation()
+        )

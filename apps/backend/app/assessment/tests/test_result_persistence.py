@@ -20,7 +20,7 @@ from app.assessment.infrastructure.results import SqlAlchemyAssessmentResultRepo
 from app.core.database import Base
 
 
-def test_review_and_correction_persist_one_result_for_attempt():
+def test_review_persists_one_result_for_attempt():
     engine = create_engine("sqlite+pysqlite://", poolclass=StaticPool)
     Base.metadata.create_all(engine)
     with Session(engine) as db:
@@ -35,10 +35,9 @@ def test_review_and_correction_persist_one_result_for_attempt():
         service = AssessmentResultService(results, attempts, definitions)
 
         result = service.review(attempt.id, definition.id, activity_id)
-        corrected = service.correct(result.id, attempt.id, definition.id, activity_id)
 
         assert attempts.get(attempt.id, definition.id).status is AssessmentAttemptStatus.REVIEWED
-        assert corrected == result
+        assert results.get_by_attempt(attempt.id) == result
         assert db.scalar(select(func.count()).select_from(AssessmentResultModel)) == 1
         with pytest.raises(AssessmentResultAlreadyExistsError):
             results.add(AssessmentResult.create(attempt.id))

@@ -36,18 +36,6 @@ class TeacherAssessmentResultService:
         self._authorize(teacher_id, teacher_space_id, activity_id)
         return self.results.review(attempt_id, definition_id, activity_id)
 
-    def correct(
-        self,
-        teacher_id: UUID,
-        teacher_space_id: UUID,
-        activity_id: UUID,
-        definition_id: UUID,
-        attempt_id: UUID,
-        result_id: UUID,
-    ) -> AssessmentResult:
-        self._authorize(teacher_id, teacher_space_id, activity_id)
-        return self.results.correct(result_id, attempt_id, definition_id, activity_id)
-
     def _authorize(self, teacher_id: UUID, teacher_space_id: UUID, activity_id: UUID) -> None:
         try:
             self.teacher_spaces.get_owned(teacher_space_id, teacher_id)
