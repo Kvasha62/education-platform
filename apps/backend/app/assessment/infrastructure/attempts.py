@@ -6,9 +6,13 @@ from app.assessment.domain.attempts import AssessmentAttempt
 from app.assessment.infrastructure.models import AssessmentAttemptModel
 
 
-def _domain(m):
+def _domain(model: AssessmentAttemptModel) -> AssessmentAttempt:
     return AssessmentAttempt(
-        m.id, m.assessment_definition_id, m.student_id, m.submission_data, m.status
+        model.id,
+        model.assessment_definition_id,
+        model.student_id,
+        model.submission,
+        model.status,
     )
 
 
@@ -16,52 +20,57 @@ class SqlAlchemyAssessmentAttemptRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def add(self, a):
-        m = AssessmentAttemptModel(
-            id=a.id,
-            assessment_definition_id=a.assessment_definition_id,
-            student_id=a.student_id,
-            submission_data=a.submission_data,
-            status=a.status,
+    def add(self, attempt: AssessmentAttempt) -> AssessmentAttempt:
+        model = AssessmentAttemptModel(
+            id=attempt.id,
+            assessment_definition_id=attempt.assessment_definition_id,
+            student_id=attempt.student_id,
+            submission=attempt.submission,
+            status=attempt.status,
         )
-        self.db.add(m)
+        self.db.add(model)
         self.db.flush()
-        return _domain(m)
+        return _domain(model)
 
-    def get(self, i, d):
-        m = self.db.scalar(
+    def get(
+        self, attempt_id, definition_id
+    ) -> AssessmentAttempt | None:
+        model = self.db.scalar(
             select(AssessmentAttemptModel).where(
-                AssessmentAttemptModel.id == i,
-                AssessmentAttemptModel.assessment_definition_id == d,
+                AssessmentAttemptModel.id == attempt_id,
+                AssessmentAttemptModel.assessment_definition_id == definition_id,
             )
         )
-        return _domain(m) if m else None
+        return _domain(model) if model else None
 
-    def get_owned(self, i, d, s):
-        m = self.db.scalar(
+    def get_owned(
+        self, attempt_id, definition_id, student_id
+    ) -> AssessmentAttempt | None:
+        model = self.db.scalar(
             select(AssessmentAttemptModel).where(
-                AssessmentAttemptModel.id == i,
-                AssessmentAttemptModel.assessment_definition_id == d,
-                AssessmentAttemptModel.student_id == s,
+                AssessmentAttemptModel.id == attempt_id,
+                AssessmentAttemptModel.assessment_definition_id == definition_id,
+                AssessmentAttemptModel.student_id == student_id,
             )
         )
-        return _domain(m) if m else None
+        return _domain(model) if model else None
 
-    def update(self, a):
-        m = self.db.get(AssessmentAttemptModel, a.id)
-        if m is None:
+    def update(self, attempt: AssessmentAttempt) -> AssessmentAttempt:
+        model = self.db.get(AssessmentAttemptModel, attempt.id)
+        if model is None:
             raise AssessmentAttemptNotFoundError
-        m.submission_data, m.status = a.submission_data, a.status
+        model.submission = attempt.submission
+        model.status = attempt.status
         self.db.flush()
-        return _domain(m)
+        return _domain(model)
 
-    def list_owned(self, d, s):
+    def list_owned(self, definition_id, student_id) -> list[AssessmentAttempt]:
         return [
-            _domain(m)
-            for m in self.db.scalars(
+            _domain(model)
+            for model in self.db.scalars(
                 select(AssessmentAttemptModel).where(
-                    AssessmentAttemptModel.assessment_definition_id == d,
-                    AssessmentAttemptModel.student_id == s,
+                    AssessmentAttemptModel.assessment_definition_id == definition_id,
+                    AssessmentAttemptModel.student_id == student_id,
                 )
             ).all()
         ]

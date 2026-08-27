@@ -33,7 +33,7 @@ class AssessmentAttemptModel(Base):
         index=True,
     )
     student_id: Mapped[UUID] = mapped_column(Uuid, nullable=False, index=True)
-    submission_data: Mapped[str | None] = mapped_column(Text, nullable=True)
+    submission: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[AssessmentAttemptStatus] = mapped_column(
         Enum(
             AssessmentAttemptStatus,

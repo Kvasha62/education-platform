@@ -6,62 +6,108 @@ from app.assessment.application.attempts import (
     AssessmentAttemptService,
     AssessmentDefinitionUnavailableError,
 )
+from app.assessment.domain.attempts import AssessmentSubmissionRequiredError
 from app.assessment.domain.models import AssessmentDefinition
 
 
 class Definitions:
-    def __init__(self, d):
-        self.d = d
+    def __init__(self, definition):
+        self.definition = definition
 
-    def get(self, i, a):
-        return self.d if self.d.id == i and self.d.activity_id == a else None
+    def get(self, definition_id, activity_id):
+        return (
+            self.definition
+            if self.definition.id == definition_id
+            and self.definition.activity_id == activity_id
+            else None
+        )
 
-    def get_by_activity(self, a):
-        return self.d if self.d.activity_id == a else None
+    def get_by_activity(self, activity_id):
+        return self.definition if self.definition.activity_id == activity_id else None
 
-    def add(self, d):
-        return d
+    def add(self, definition):
+        return definition
 
-    def update(self, d):
-        return d
+    def update(self, definition):
+        return definition
 
 
 class Attempts:
     def __init__(self):
         self.items = {}
 
-    def add(self, a):
-        self.items[a.id] = a
-        return a
+    def add(self, attempt):
+        self.items[attempt.id] = attempt
+        return attempt
 
-    def get(self, i, d):
-        a = self.items.get(i)
-        return a if a and a.assessment_definition_id == d else None
+    def get(self, attempt_id, definition_id):
+        attempt = self.items.get(attempt_id)
+        return (
+            attempt
+            if attempt and attempt.assessment_definition_id == definition_id
+            else None
+        )
 
-    def get_owned(self, i, d, s):
-        a = self.items.get(i)
-        return a if a and a.assessment_definition_id == d and a.student_id == s else None
+    def get_owned(self, attempt_id, definition_id, student_id):
+        attempt = self.items.get(attempt_id)
+        return (
+            attempt
+            if attempt
+            and attempt.assessment_definition_id == definition_id
+            and attempt.student_id == student_id
+            else None
+        )
 
-    def update(self, a):
-        self.items[a.id] = a
-        return a
+    def update(self, attempt):
+        self.items[attempt.id] = attempt
+        return attempt
 
-    def list_owned(self, d, s):
+    def list_owned(self, definition_id, student_id):
         return [
-            a for a in self.items.values() if a.assessment_definition_id == d and a.student_id == s
+            attempt
+            for attempt in self.items.values()
+            if attempt.assessment_definition_id == definition_id
+            and attempt.student_id == student_id
         ]
 
 
 def test_multiple_attempts_and_archived_definition_rules():
-    activity, student = uuid4(), uuid4()
-    definition = AssessmentDefinition.create(activity, None)
+    activity_id, student_id = uuid4(), uuid4()
+    definition = AssessmentDefinition.create(activity_id, None)
     attempts = Attempts()
     service = AssessmentAttemptService(attempts, Definitions(definition))
-    draft = service.create(definition.id, activity, student, "one")
-    second = service.create(definition.id, activity, student, "two")
+    draft = service.create(definition.id, activity_id, student_id, "one")
+    second = service.create(definition.id, activity_id, student_id, "two")
     assert draft.id != second.id
+
     archived = definition.archive()
-    blocked = AssessmentAttemptService(attempts, Definitions(archived))
+    archived_service = AssessmentAttemptService(attempts, Definitions(archived))
     with pytest.raises(AssessmentDefinitionUnavailableError):
-        blocked.create(archived.id, activity, student, None)
-    assert blocked.submit(draft.id, archived.id, activity, student).status.value == "submitted"
+        archived_service.create(archived.id, activity_id, student_id, None)
+
+    cleared = archived_service.update_submission(
+        draft.id,
+        archived.id,
+        activity_id,
+        student_id,
+        "   ",
+    )
+    assert cleared.submission is None
+    with pytest.raises(AssessmentSubmissionRequiredError):
+        archived_service.submit(draft.id, archived.id, activity_id, student_id)
+
+    edited = archived_service.update_submission(
+        draft.id,
+        archived.id,
+        activity_id,
+        student_id,
+        "final answer",
+    )
+    submitted = archived_service.submit(
+        edited.id,
+        archived.id,
+        activity_id,
+        student_id,
+    )
+    assert submitted.status.value == "submitted"
+    assert submitted.submission == "final answer"

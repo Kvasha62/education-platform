@@ -27,6 +27,21 @@ def test_assessment_definition_persistence_is_assessment_owned() -> None:
     )
 
 
+def test_assessment_attempt_persistence_is_assessment_owned() -> None:
+    table = Base.metadata.tables["assessment_attempts"]
+    assert set(table.c.keys()) == {
+        "id",
+        "assessment_definition_id",
+        "student_id",
+        "submission",
+        "status",
+    }
+    assert {foreign_key.target_fullname for foreign_key in table.foreign_keys} == {
+        "assessment_definitions.id"
+    }
+    assert not table.c.student_id.foreign_keys
+
+
 def test_assessment_result_persistence_is_assessment_owned() -> None:
     table = Base.metadata.tables["assessment_results"]
     assert set(table.c.keys()) == {
