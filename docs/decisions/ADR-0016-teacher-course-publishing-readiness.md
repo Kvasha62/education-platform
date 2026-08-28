@@ -3,11 +3,11 @@
 - **Status:** Proposed
 - **Date:** 2026-08-28
 - **Issue:** EDU-078 / #147
-- **Decision:** A Course is publication-ready only when its Education-owned hierarchy is structurally complete and every Activity has at least one Content item that is published and available to students. Assessment and Learning participation are not publication prerequisites.
+- **Decision:** A Course is publication-ready only when its Education-owned hierarchy is structurally complete and every Activity has at least one Content item that the approved Content publication/availability boundary exposes as suitable for Student consumption. Assessment and Learning participation are not publication prerequisites.
 
 ## Context
 
-Education owns `EducationalEnvironment`, `Course`, `Section`, `LearningUnit`, and `Activity`. Content owns Content publication and student availability. ADR-0005 makes Course publication the boundary for Activity visibility, while Content availability remains independent. The current Course domain supports `DRAFT → PUBLISHED → ARCHIVED`; its existing `publish()` transition does not evaluate publication readiness.
+Education owns `EducationalEnvironment`, `Course`, `Section`, `LearningUnit`, and `Activity`. Content owns Content publication and availability. ADR-0005 makes Course publication the boundary for Activity visibility, while Content availability remains independent. The current Course domain supports `DRAFT → PUBLISHED → ARCHIVED`; its existing `publish()` transition does not evaluate publication readiness.
 
 EDU-078 defines the product and architecture rule before enforcement is implemented.
 
@@ -31,16 +31,11 @@ No additional minimum count is imposed.
 
 ### 2. Activity Content readiness
 
-Every Activity must have at least one associated Content item valid for Student consumption. Under the current Content contract, that Content must be:
+Every Activity must have at least one associated Content item that the approved Content public/application boundary identifies as valid for Student consumption.
 
-```text
-status = PUBLISHED
-available_for_student = true
-```
+For the current approved integration semantics, required Content must be published and student-available. A DRAFT, unavailable, missing, or stale Content association does not satisfy readiness.
 
-Missing, stale, DRAFT, or unavailable Content does not satisfy readiness.
-
-Content's own body publishability remains authoritative. Education must consume Content readiness through its approved public/application boundary and must not access Content private persistence or duplicate Content-body validation.
+Content's own body publishability remains authoritative. Education must not duplicate Content-body validation or access Content private persistence.
 
 ### 3. Assessment
 
@@ -85,7 +80,7 @@ EDU-078 does not prescribe a new HTTP error envelope or semantic error-code syst
 
 ### 7. Ownership
 
-Publishing readiness is an Education application policy. It composes Education-owned structural checks with the Content public/application read boundary.
+Publishing readiness is an Education application policy. It composes Education-owned structural checks with the approved Content public/application read boundary.
 
 ```text
 Teacher Space
@@ -99,7 +94,7 @@ The HTTP router maps transport concerns and does not own the educational readine
 
 ### 8. Publication-time consistency
 
-Readiness is evaluated against the Course state observed by the publication operation. The future implementation must not commit a published Course if a required readiness condition is invalidated within the publication transaction boundary.
+Readiness is evaluated against the Course state observed by the publication operation. The future implementation must not commit a published Course when a required readiness condition is invalidated within the publication transaction boundary.
 
 No new transaction or concurrency abstraction is introduced by this ADR; the implementation must follow existing repository conventions.
 
@@ -109,7 +104,7 @@ The existing architecture defines a `PUBLISHED` Course and its educational struc
 
 After publication, Course, Section, Learning Unit, Activity, and Activity ↔ Content association mutations remain forbidden through the teacher-facing Education mutation surface.
 
-Course revisions, republishing, scheduling, or editable published structures require a separate architectural decision.
+Course revisions, republishing, scheduling, or editable published structures require a separate architecture decision.
 
 ### 10. Archive interaction
 
@@ -130,10 +125,10 @@ Every Learning Unit has ≥ 1 Activity
 AND
 Every Activity has ≥ 1 associated Content item
 AND
-Every required associated Content item is PUBLISHED
-AND
-Every required associated Content item is student-available
+Every required associated Content item is valid for Student consumption
 ```
+
+Under the approved Content publication/availability semantics, that final condition means the required Content is published and student-available.
 
 Otherwise:
 
@@ -152,8 +147,7 @@ No other prerequisite is introduced by this ADR.
 | Every Section has a Learning Unit | Yes | Education |
 | Every Learning Unit has an Activity | Yes | Education |
 | Every Activity has Content | Yes | Education Activity/Content association |
-| Required Content is PUBLISHED | Yes | Content |
-| Required Content is student-available | Yes | Content |
+| Required Content is valid for Student consumption | Yes | Content public/application boundary |
 | AssessmentDefinition exists | No | Assessment |
 | AssessmentDefinition is ACTIVE | No | Assessment |
 | AssessmentAttempt exists | No | Assessment |
@@ -168,7 +162,7 @@ No other prerequisite is introduced by this ADR.
 
 - Course publication has one deterministic readiness predicate.
 - Structurally incomplete Courses are not publication-ready.
-- Published Courses require valid Student-available Content for every Activity.
+- Published Courses require valid Student-consumable Content for every Activity.
 - Content publication remains owned by Content.
 - Assessment remains optional and independent from Course publication.
 - Learning Progress and Enrollment remain outside the publishing boundary.
@@ -185,9 +179,9 @@ Rejected. The published Course is the Student-visible boundary for its Activitie
 
 Rejected. The Course model explicitly represents Section and Learning Unit hierarchy; readiness validates every required level.
 
-### Allow Activities without Student-available Content
+### Allow Activities without Student-consumable Content
 
-Rejected. A Student-visible Activity without valid Student-available material is not publication-ready under the current Course/Content model.
+Rejected. A Student-visible Activity without valid Student-consumable material is not publication-ready under the approved Course/Content integration boundary.
 
 ### Require Assessment for every Activity
 
