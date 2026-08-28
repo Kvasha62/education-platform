@@ -14,10 +14,19 @@ from app.assessment.application.definition_lookup import (
     AssessmentDefinitionIdLookupService,
 )
 from app.assessment.application.results import AssessmentResultService
+from app.assessment.application.services import AssessmentDefinitionService
 from app.assessment.infrastructure.attempts import SqlAlchemyAssessmentAttemptRepository
 from app.assessment.infrastructure.repositories import SqlAlchemyAssessmentDefinitionRepository
 from app.assessment.infrastructure.results import SqlAlchemyAssessmentResultRepository
 from app.core.database import get_db
+
+
+def get_assessment_definition_service(
+    db: Annotated[Session, Depends(get_db)],
+) -> AssessmentDefinitionService:
+    return AssessmentDefinitionService(
+        SqlAlchemyAssessmentDefinitionRepository(db)
+    )
 
 
 def get_assessment_definition_id_lookup(

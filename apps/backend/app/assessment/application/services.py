@@ -21,6 +21,12 @@ class AssessmentDefinitionService:
             raise AssessmentDefinitionAlreadyExistsError
         return self.repository.add(AssessmentDefinition.create(activity_id, instructions))
 
+    def get(self, activity_id: UUID) -> AssessmentDefinition:
+        definition = self.repository.get_by_activity(activity_id)
+        if definition is None:
+            raise AssessmentDefinitionNotFoundError
+        return definition
+
     def update_instructions(
         self, definition_id: UUID, activity_id: UUID, instructions: str | None
     ) -> AssessmentDefinition:
