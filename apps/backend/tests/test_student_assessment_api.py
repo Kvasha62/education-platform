@@ -639,6 +639,8 @@ def test_openapi_contains_exact_assessment_contract(client):
         "/api/v1/teacher-spaces/{teacher_space_id}/activities/{activity_id}/assessment-attempts/{attempt_id}",
         "/api/v1/teacher-spaces/{teacher_space_id}/activities/{activity_id}/assessment-attempts/{attempt_id}/review",
         "/api/v1/teacher-spaces/{teacher_space_id}/activities/{activity_id}/assessment-attempts/{attempt_id}/correction",
+        "/api/v1/teacher-spaces/{teacher_space_id}/activities/{activity_id}/assessment-definition",
+        "/api/v1/teacher-spaces/{teacher_space_id}/activities/{activity_id}/assessment-definition/archive",
     }
     assert set(
         assessment_paths[
@@ -651,6 +653,18 @@ def test_openapi_contains_exact_assessment_contract(client):
     ) == {"get", "put"}
     assert set(
         assessment_paths["/api/v1/student/assessment-attempts/{attempt_id}/submit"]
+    ) == {"post"}
+    assert set(
+        assessment_paths[
+            "/api/v1/teacher-spaces/{teacher_space_id}/activities/"
+            "{activity_id}/assessment-definition"
+        ]
+    ) == {"get", "post", "patch"}
+    assert set(
+        assessment_paths[
+            "/api/v1/teacher-spaces/{teacher_space_id}/activities/"
+            "{activity_id}/assessment-definition/archive"
+        ]
     ) == {"post"}
 
     schemas = openapi["components"]["schemas"]

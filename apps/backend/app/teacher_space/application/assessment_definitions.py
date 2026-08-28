@@ -3,14 +3,17 @@ from uuid import UUID
 from app.assessment.application.services import AssessmentDefinitionService
 from app.assessment.domain.models import AssessmentDefinition
 from app.education.application.activity_scope import (
+    ActivityScopeResolution,
     ActivityTeacherSpaceScopeQuery,
-    AuthorizationDecision,
 )
-from app.teacher_space.application.errors import TeacherSpaceNotFoundError
 from app.teacher_space.application.services import TeacherSpaceService
 
 
 class AssessmentDefinitionAuthorizationError(Exception):
+    pass
+
+
+class TeacherAssessmentDefinitionActivityNotFoundError(Exception):
     pass
 
 
@@ -28,17 +31,22 @@ class TeacherAssessmentDefinitionService:
         )
 
     def _authorize(self, teacher_id: UUID, teacher_space_id: UUID, activity_id: UUID) -> None:
-        try:
-            self.teacher_spaces.get_owned(teacher_space_id, teacher_id)
-        except TeacherSpaceNotFoundError as error:
-            raise AssessmentDefinitionAuthorizationError from error
-        if (
-            self.activity_scope.verify_activity_belongs_to_teacher_space(
-                activity_id, teacher_space_id
-            )
-            is AuthorizationDecision.DENIED
-        ):
+        teacher_space = self.teacher_spaces.get_by_id(teacher_space_id)
+        if teacher_space.owner_user_id != teacher_id:
             raise AssessmentDefinitionAuthorizationError
+        resolution = self.activity_scope.resolve_activity_scope(
+            activity_id, teacher_space_id
+        )
+        if resolution is ActivityScopeResolution.NOT_FOUND:
+            raise TeacherAssessmentDefinitionActivityNotFoundError
+        if resolution is ActivityScopeResolution.OUTSIDE_SCOPE:
+            raise AssessmentDefinitionAuthorizationError
+
+    def get(
+        self, teacher_id: UUID, teacher_space_id: UUID, activity_id: UUID
+    ) -> AssessmentDefinition:
+        self._authorize(teacher_id, teacher_space_id, activity_id)
+        return self.definitions.get(activity_id)
 
     def create(
         self, teacher_id: UUID, teacher_space_id: UUID, activity_id: UUID, instructions: str | None
@@ -51,14 +59,15 @@ class TeacherAssessmentDefinitionService:
         teacher_id: UUID,
         teacher_space_id: UUID,
         activity_id: UUID,
-        definition_id: UUID,
         instructions: str | None,
     ) -> AssessmentDefinition:
         self._authorize(teacher_id, teacher_space_id, activity_id)
-        return self.definitions.update_instructions(definition_id, activity_id, instructions)
+        definition = self.definitions.get(activity_id)
+        return self.definitions.update_instructions(definition.id, activity_id, instructions)
 
     def archive(
-        self, teacher_id: UUID, teacher_space_id: UUID, activity_id: UUID, definition_id: UUID
+        self, teacher_id: UUID, teacher_space_id: UUID, activity_id: UUID
     ) -> AssessmentDefinition:
         self._authorize(teacher_id, teacher_space_id, activity_id)
-        return self.definitions.archive(definition_id, activity_id)
+        definition = self.definitions.get(activity_id)
+        return self.definitions.archive(definition.id, activity_id)
