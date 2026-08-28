@@ -1,6 +1,6 @@
 # ADR-0006 — Assessment & Submission Domain Model
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-27
 - **Issue:** EDU-056 / #113
 - **Decision:** Define Assessment as an independent bounded context for manual assessment definitions, Student attempts/submissions, results, scoring, and feedback, without coupling assessment outcomes to Learning Activity Progress.
