@@ -1,6 +1,6 @@
 # ADR-0014 — Teacher AssessmentDefinition Management Contract
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-28
 - **Issue:** EDU-075
 - **Decision:** Define the normative Teacher-facing HTTP/application contract for reading, creating, updating, and archiving the AssessmentDefinition associated with an Activity inside an authorized Teacher Space.
