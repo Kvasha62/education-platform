@@ -22,3 +22,4 @@ Add an ADR here when an approved architectural decision needs to be recorded.
 - [`ADR-0013 Amendment 001 — Teacher AssessmentDefinition Management Read API`](./ADR-0013-amendment-001-teacher-assessment-definition-management.md)
 - [`ADR-0014 — Teacher AssessmentDefinition Management Contract`](./ADR-0014-teacher-assessment-definition-management-contract.md)
 - [`ADR-0015 — Assessment Success & Learning Completion Decision`](./ADR-0015-assessment-success-learning-completion-decision.md)
+- [`ADR-0016 — Teacher Course Publishing Readiness`](./ADR-0016-teacher-course-publishing-readiness.md)
