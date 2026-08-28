@@ -10,6 +10,7 @@ export interface Activity {
   position: number
   created_at: string
   updated_at: string
+  assessment_definition_id: string | null
 }
 
 export interface CreateActivityInput {

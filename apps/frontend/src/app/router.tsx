@@ -1,5 +1,9 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
-import { StudentAssessmentAttemptPage } from '../modules/assessment'
+import {
+  StudentAssessmentAttemptPage,
+  TeacherAssessmentAttemptPage,
+  TeacherAssessmentReviewQueuePage,
+} from '../modules/assessment'
 import { ContentEditorPage, CreateContentPage } from '../modules/content'
 import { ActivitiesPage, CoursePage, CoursesPage, EducationalEnvironmentPage, LearningUnitsPage, SectionsPage } from '../modules/education'
 import { MyCoursesPage, StudentActivityPage, StudentCoursePage, StudentCoursesPage, StudentDashboardPage } from '../modules/learning'
@@ -63,6 +67,14 @@ export const routes = [
           {
             path: 'app/teacher-spaces/:teacherSpaceId/environment/courses/:courseId/sections/:sectionId/learning-units/:learningUnitId/activities',
             element: <ActivitiesPage />,
+          },
+          {
+            path: 'app/teacher-spaces/:teacherSpaceId/activities/:activityId/assessment-review',
+            element: <TeacherAssessmentReviewQueuePage />,
+          },
+          {
+            path: 'app/teacher-spaces/:teacherSpaceId/activities/:activityId/assessment-review/:attemptId',
+            element: <TeacherAssessmentAttemptPage />,
           },
         ],
       },

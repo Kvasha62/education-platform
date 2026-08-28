@@ -16,7 +16,7 @@ const identity = {
 }
 const firstActivity = {
   id: 'activity-1', learning_unit_id: 'unit-id', title: 'Lecture One', type: 'lecture', position: 0,
-  created_at: '2026-08-25T00:00:00Z', updated_at: '2026-08-25T00:00:00Z',
+  created_at: '2026-08-25T00:00:00Z', updated_at: '2026-08-25T00:00:00Z', assessment_definition_id: null,
 }
 const secondActivity = { ...firstActivity, id: 'activity-2', title: 'Video One', type: 'video', position: 2 }
 const route = '/app/teacher-spaces/space-id/environment/courses/course-id/sections/section-id/learning-units/unit-id/activities'

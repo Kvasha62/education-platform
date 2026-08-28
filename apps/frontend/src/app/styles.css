@@ -142,3 +142,12 @@ button:disabled { cursor: wait; opacity: .65; }
 .dashboard-course-list li, .continue-learning-card { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 1rem 1.2rem; border: 1px solid #d9dccf; border-radius: .8rem; background: #fff; }
 .dashboard-course-list li div, .continue-learning-card div { display: grid; gap: .2rem; }
 .dashboard-course-list span, .continue-learning-card span { color: #667168; font-size: .82rem; }
+.teacher-assessment-queue, .teacher-assessment-attempt { display: grid; gap: 2rem; }
+.teacher-assessment-queue h1, .teacher-assessment-attempt h1 { font-size: clamp(2rem, 7vw, 4rem); }
+.teacher-assessment-entry { display: inline-flex; justify-self: start; padding: .7rem 1rem; border-radius: .55rem; background: #1d5b43; color: #fff; font-weight: 750; text-decoration: none; }
+.teacher-assessment-entry:hover { background: #164b36; }
+.assessment-filter, .assessment-navigation { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.assessment-pagination { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.teacher-assessment-queue .section-row { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
+.teacher-assessment-queue .section-row div { display: grid; gap: .2rem; }
+.teacher-assessment-queue .section-row p { margin: 0; }
