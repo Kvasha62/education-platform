@@ -151,7 +151,9 @@ def test_production_composition_joins_request_transaction_after_authentication()
 
     with Session(engine) as db:
         # Simulate authentication/authorization reads already using the request Session.
-        assert db.scalar(select(func.count()).select_from(IdentityModel)) >= 1
+        identity_count = db.scalar(select(func.count()).select_from(IdentityModel))
+        assert identity_count is not None
+        assert identity_count >= 1
         assert db.in_transaction()
 
         first_result = get_teacher_assessment_review_service(db).review(
@@ -192,7 +194,9 @@ def test_production_composition_denies_repeated_review_without_partial_state():
         db.commit()
 
     with Session(engine) as db:
-        assert db.scalar(select(func.count()).select_from(IdentityModel)) >= 1
+        identity_count = db.scalar(select(func.count()).select_from(IdentityModel))
+        assert identity_count is not None
+        assert identity_count >= 1
         assert db.in_transaction()
         with pytest.raises(AssessmentAttemptImmutableError):
             get_teacher_assessment_review_service(db).review(
@@ -231,7 +235,9 @@ def test_production_composition_corrects_existing_result_atomically():
         db.commit()
 
     with Session(engine) as db:
-        assert db.scalar(select(func.count()).select_from(IdentityModel)) >= 1
+        identity_count = db.scalar(select(func.count()).select_from(IdentityModel))
+        assert identity_count is not None
+        assert identity_count >= 1
         assert db.in_transaction()
         corrected = get_teacher_assessment_review_service(db).correct(
             owner_id,
@@ -263,7 +269,9 @@ def test_production_composition_rolls_back_failed_result_creation():
         )
 
     with Session(engine) as db:
-        assert db.scalar(select(func.count()).select_from(IdentityModel)) >= 1
+        identity_count = db.scalar(select(func.count()).select_from(IdentityModel))
+        assert identity_count is not None
+        assert identity_count >= 1
         assert db.in_transaction()
         service = get_teacher_assessment_review_service(db)
         service.results.results = cast(
@@ -312,7 +320,9 @@ def test_production_composition_rolls_back_failed_result_correction():
         db.commit()
 
     with Session(engine) as db:
-        assert db.scalar(select(func.count()).select_from(IdentityModel)) >= 1
+        identity_count = db.scalar(select(func.count()).select_from(IdentityModel))
+        assert identity_count is not None
+        assert identity_count >= 1
         assert db.in_transaction()
         service = get_teacher_assessment_review_service(db)
         service.results.results = cast(

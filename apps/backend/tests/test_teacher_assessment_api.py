@@ -191,7 +191,9 @@ def stored_submission(attempt_id: UUID) -> str | None:
 
 def result_count() -> int:
     with TestingSession() as db:
-        return db.scalar(select(func.count()).select_from(AssessmentResultModel))
+        count = db.scalar(select(func.count()).select_from(AssessmentResultModel))
+        assert count is not None
+        return count
 
 
 def test_all_teacher_assessment_endpoints_require_authentication(client):
@@ -503,9 +505,9 @@ def test_correction_updates_single_result_and_keeps_attempt_reviewed(client):
     assert result_count() == 1
 
     with TestingSession.begin() as db:
-        result_id = str(
-            SqlAlchemyAssessmentResultRepository(db).get_by_attempt(attempt_id).id  # type: ignore[union-attr]
-        )
+        result = SqlAlchemyAssessmentResultRepository(db).get_by_attempt(attempt_id)
+        assert result is not None
+        result_id = str(result.id)
 
     corrected = client.post(
         path,
