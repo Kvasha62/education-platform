@@ -3,6 +3,7 @@ import { FormEvent, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../../shared/api'
 import { ErrorState, LoadingState } from '../../shared/ui'
+import { TeacherAssessmentReviewEntry } from '../assessment'
 import { ActivityContentPanel } from './ActivityContentPanel'
 import { activityApi } from './activityApi'
 import type { Activity, ActivityType } from './activityApi'
@@ -33,6 +34,7 @@ const ActivityRow = ({
 }: ActivityRowProps) => {
   const queryClient = useQueryClient()
   const queryKey = activityKeys.all(teacherSpaceId, courseId, sectionId, learningUnitId)
+  const activityBackTo = `/app/teacher-spaces/${teacherSpaceId}/environment/courses/${courseId}/sections/${sectionId}/learning-units/${learningUnitId}/activities`
   const [title, setTitle] = useState(activity.title)
   const [position, setPosition] = useState(activity.position)
   const updateActivity = useMutation({
@@ -89,6 +91,13 @@ const ActivityRow = ({
           >
             {deleteActivity.isPending ? 'Deleting…' : 'Delete'}
           </button>
+          {activity.assessment_definition_id !== null && (
+            <TeacherAssessmentReviewEntry
+              backTo={activityBackTo}
+              teacherSpaceId={teacherSpaceId}
+              activityId={activity.id}
+            />
+          )}
         </div>
       </form>
       {updateActivity.isError && <ErrorState message={errorMessage(updateActivity.error)} />}
