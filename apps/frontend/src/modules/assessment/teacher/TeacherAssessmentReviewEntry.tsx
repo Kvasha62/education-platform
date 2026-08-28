@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { safeBackTo } from './navigation'
 
 interface TeacherAssessmentReviewEntryProps {
   teacherSpaceId: string
@@ -11,7 +12,8 @@ export const TeacherAssessmentReviewEntry = ({
   activityId,
   backTo,
 }: TeacherAssessmentReviewEntryProps) => {
-  const search = backTo ? `?backTo=${encodeURIComponent(backTo)}` : ''
+  const safeBack = safeBackTo(backTo)
+  const search = safeBack ? `?backTo=${encodeURIComponent(safeBack)}` : ''
   return (
     <Link
       className="teacher-assessment-entry"

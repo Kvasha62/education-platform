@@ -9,6 +9,7 @@ import type {
   TeacherAssessmentResult,
 } from './api'
 import { teacherAssessmentErrorMessage, isRetryableTeacherAssessmentError } from './errors'
+import { safeBackTo } from './navigation'
 import { teacherAssessmentKeys } from './queries'
 
 interface ReviewFormValue {
@@ -45,7 +46,7 @@ export const TeacherAssessmentAttemptPage = () => {
     attemptId: string
   }>()
   const [searchParams] = useSearchParams()
-  const backTo = searchParams.get('backTo') ?? undefined
+  const backTo = safeBackTo(searchParams.get('backTo'))
   const status = searchParams.get('status') ?? undefined
   const page = Number(searchParams.get('page') ?? '1')
   const queryClient = useQueryClient()

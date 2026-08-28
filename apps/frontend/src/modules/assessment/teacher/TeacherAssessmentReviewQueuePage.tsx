@@ -4,6 +4,7 @@ import { ErrorState, LoadingState } from '../../../shared/ui'
 import { teacherAssessmentApi } from './api'
 import type { TeacherAssessmentStatusFilter } from './api'
 import { teacherAssessmentErrorMessage, isRetryableTeacherAssessmentError } from './errors'
+import { safeBackTo } from './navigation'
 import { teacherAssessmentKeys } from './queries'
 
 const PAGE_SIZE = 20
@@ -26,7 +27,7 @@ export const TeacherAssessmentReviewQueuePage = () => {
     activityId: string
   }>()
   const [searchParams, setSearchParams] = useSearchParams()
-  const backTo = searchParams.get('backTo') ?? undefined
+  const backTo = safeBackTo(searchParams.get('backTo'))
   const rawStatus = searchParams.get('status') ?? ''
   const status: TeacherAssessmentStatusFilter =
     rawStatus === 'submitted' || rawStatus === 'reviewed' ? rawStatus : undefined
@@ -46,22 +47,25 @@ export const TeacherAssessmentReviewQueuePage = () => {
   })
 
   const selectFilter = (nextStatus: TeacherAssessmentStatusFilter) => {
-    const next = new URLSearchParams(searchParams)
+    const next = new URLSearchParams()
     if (nextStatus) next.set('status', nextStatus)
-    else next.delete('status')
-    next.delete('page')
+    if (backTo) next.set('backTo', backTo)
     setSearchParams(next)
   }
 
   const selectPage = (next: number) => {
-    const nextParams = new URLSearchParams(searchParams)
+    const nextParams = new URLSearchParams()
+    if (status) nextParams.set('status', status)
     nextParams.set('page', String(next))
+    if (backTo) nextParams.set('backTo', backTo)
     setSearchParams(nextParams)
   }
 
   const detailPath = (attemptId: string) => {
-    const next = new URLSearchParams(searchParams)
+    const next = new URLSearchParams()
+    if (status) next.set('status', status)
     next.set('page', String(page))
+    if (backTo) next.set('backTo', backTo)
     return `/app/teacher-spaces/${teacherSpaceId}/activities/${activityId}/assessment-review/${attemptId}?${next.toString()}`
   }
 

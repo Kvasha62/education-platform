@@ -9,6 +9,7 @@ import type {
   TeacherAssessmentAttemptDetail,
   TeacherAssessmentResult,
 } from './api'
+import { TeacherAssessmentReviewEntry } from './TeacherAssessmentReviewEntry'
 
 const identity = {
   id: 'identity-id',
@@ -114,6 +115,25 @@ const renderRoute = (entry: string) => {
   return { ...rendered, router }
 }
 
+const renderEntry = (backTo?: string) => {
+  const router = createMemoryRouter(
+    [
+      {
+        path: '/',
+        element: (
+          <TeacherAssessmentReviewEntry
+            teacherSpaceId={teacherSpaceId}
+            activityId={activityId}
+            backTo={backTo}
+          />
+        ),
+      },
+    ],
+    { initialEntries: ['/'] },
+  )
+  return render(<RouterProvider router={router} />)
+}
+
 const authResponse = (url: string) =>
   url.endsWith('/api/v1/auth/me') ? jsonResponse(identity) : null
 
@@ -165,6 +185,57 @@ describe('Teacher Assessment Review UI', () => {
       expect.stringContaining(`${queueListUrl()}?`),
       expect.objectContaining({ credentials: 'include' }),
     )
+  })
+
+  it('preserves a valid relative backTo and rejects absolute/protocol-relative URLs on the entry', () => {
+    const validRelative = '/app/teacher-spaces/space-1/environment/courses/course-1'
+
+    const { unmount: unmountValid } = renderEntry(validRelative)
+    const validLink = screen.getByRole('link', { name: 'Assessment review' })
+    expect(validLink.getAttribute('href')).toContain(`backTo=${encodeURIComponent(validRelative)}`)
+    expect(asUrl(validLink.getAttribute('href') ?? '').searchParams.get('backTo')).toBe(validRelative)
+    unmountValid()
+
+    const { unmount: unmountAbsolute } = renderEntry('https://evil.example/redirect')
+    const absoluteLink = screen.getByRole('link', { name: 'Assessment review' })
+    expect(absoluteLink.getAttribute('href')).toBe(queueRoute())
+    expect(absoluteLink.getAttribute('href')).not.toContain('backTo=')
+    unmountAbsolute()
+
+    const { unmount: unmountProtocolRelative } = renderEntry('//evil.example/redirect')
+    const protocolRelativeLink = screen.getByRole('link', { name: 'Assessment review' })
+    expect(protocolRelativeLink.getAttribute('href')).toBe(queueRoute())
+    expect(protocolRelativeLink.getAttribute('href')).not.toContain('backTo=')
+    unmountProtocolRelative()
+  })
+
+  it('never uses an external or protocol-relative backTo as a navigation target in the queue', async () => {
+    const emptyQueueFetch = () =>
+      vi.fn(async (input: RequestInfo | URL) =>
+        authResponse(String(input)) ?? jsonResponse({ items: [], page: 1, page_size: 20, has_next: false }),
+      )
+
+    vi.stubGlobal('fetch', emptyQueueFetch())
+    const absoluteView = renderRoute(`${queueRoute()}?backTo=${encodeURIComponent('https://evil.example/redirect')}`)
+    expect(await screen.findByRole('heading', { name: 'Assessment review' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Back to Activity' })).not.toBeInTheDocument()
+    absoluteView.unmount()
+
+    vi.unstubAllGlobals()
+    vi.stubGlobal('fetch', emptyQueueFetch())
+    const protocolRelativeView = renderRoute(`${queueRoute()}?backTo=${encodeURIComponent('//evil.example/redirect')}`)
+    expect(await screen.findByRole('heading', { name: 'Assessment review' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Back to Activity' })).not.toBeInTheDocument()
+    protocolRelativeView.unmount()
+
+    vi.unstubAllGlobals()
+    vi.stubGlobal('fetch', emptyQueueFetch())
+    const validRelative = '/app/teacher-spaces/space-1/environment/courses/course-1'
+    const validView = renderRoute(`${queueRoute()}?backTo=${encodeURIComponent(validRelative)}`)
+    expect(
+      await screen.findByRole('link', { name: 'Back to Activity' }),
+    ).toHaveAttribute('href', validRelative)
+    validView.unmount()
   })
 
   it('loads, renders, and paginates the Review Queue with API params', async () => {
