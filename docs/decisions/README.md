@@ -19,3 +19,5 @@ Add an ADR here when an approved architectural decision needs to be recorded.
 - [`ADR-0011 — Teacher Assessment Review Contract`](./ADR-0011-teacher-assessment-review-contract.md)
 - [`ADR-0012 — Teacher Assessment Review UI Contract`](./ADR-0012-teacher-assessment-review-ui-contract.md)
 - [`ADR-0013 — Teacher Activity Assessment Entry Contract`](./ADR-0013-teacher-activity-assessment-entry-contract.md)
+- [`ADR-0013 Amendment 001 — Teacher AssessmentDefinition Management Read API`](./ADR-0013-amendment-001-teacher-assessment-definition-management.md)
+- [`ADR-0014 — Teacher AssessmentDefinition Management Contract`](./ADR-0014-teacher-assessment-definition-management-contract.md)
