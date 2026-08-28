@@ -102,11 +102,13 @@ def seed_scope(
     *,
     create_definition: bool = True,
     definition_status: str = "active",
+    space_status: str = "active",
 ) -> tuple[UUID, UUID, UUID | None]:
     with TestingSession.begin() as db:
-        space = SqlAlchemyTeacherSpaceRepository(db).add(
-            TeacherSpace.create(owner_id, "Teacher Space")
-        )
+        space_repository = SqlAlchemyTeacherSpaceRepository(db)
+        space = space_repository.add(TeacherSpace.create(owner_id, "Teacher Space"))
+        if space_status == "disabled":
+            space = space_repository.update(space.disable())
         environment = SqlAlchemyEnvironmentRepository(db).add(
             EducationalEnvironment.create(space.id, "Environment")
         )
@@ -165,11 +167,10 @@ def definition_count() -> int:
 
 def test_all_definition_endpoints_require_authentication(client):
     space_id, activity_id, _ = seed_scope(uuid4())
-    for path in (
-        definition_path(space_id, activity_id),
-        definition_path(space_id, activity_id),
-    ):
-        assert client.get(path, headers=HEADERS).status_code == 401
+    assert (
+        client.get(definition_path(space_id, activity_id), headers=HEADERS).status_code
+        == 401
+    )
     for path, payload in (
         (definition_path(space_id, activity_id), {"instructions": "x"}),
         (definition_path(space_id, activity_id), {"instructions": "x"}),
@@ -560,3 +561,68 @@ def test_mutations_require_trusted_origin_but_reads_do_not(client):
     assert (
         client.post(archive_path(space_id, activity_id), json={}).status_code == 403
     )
+
+
+def test_disabled_teacher_space_allows_read(client):
+    owner, token = auth(client, "disabled-read@example.com")
+    space_id, activity_id, _ = seed_scope(owner, space_status="disabled")
+    use(client, token)
+
+    response = client.get(definition_path(space_id, activity_id), headers=HEADERS)
+    assert response.status_code == 200
+    assert response.json()["status"] == "active"
+
+
+def test_disabled_teacher_space_rejects_create(client):
+    owner, token = auth(client, "disabled-create@example.com")
+    space_id, activity_id, _ = seed_scope(owner, create_definition=False, space_status="disabled")
+    use(client, token)
+
+    response = client.post(
+        definition_path(space_id, activity_id),
+        json={"instructions": "x"},
+        headers=HEADERS,
+    )
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Disabled Teacher Space is read-only"}
+    assert definition_count() == 0
+
+
+def test_disabled_teacher_space_rejects_update(client):
+    owner, token = auth(client, "disabled-update@example.com")
+    space_id, activity_id, _ = seed_scope(owner, space_status="disabled")
+    use(client, token)
+
+    response = client.patch(
+        definition_path(space_id, activity_id),
+        json={"instructions": "changed"},
+        headers=HEADERS,
+    )
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Disabled Teacher Space is read-only"}
+    assert stored_definition(activity_id) == ("Initial instructions", "active")
+
+
+def test_disabled_teacher_space_rejects_archive(client):
+    owner, token = auth(client, "disabled-archive@example.com")
+    space_id, activity_id, _ = seed_scope(owner, space_status="disabled")
+    use(client, token)
+
+    response = client.post(archive_path(space_id, activity_id), json={}, headers=HEADERS)
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Disabled Teacher Space is read-only"}
+    assert stored_definition(activity_id) == ("Initial instructions", "active")
+
+
+def test_patch_empty_body_returns_422(client):
+    owner, token = auth(client, "patch-empty@example.com")
+    space_id, activity_id, _ = seed_scope(owner)
+    use(client, token)
+
+    response = client.patch(
+        definition_path(space_id, activity_id),
+        json={},
+        headers=HEADERS,
+    )
+    assert response.status_code == 422
+    assert stored_definition(activity_id) == ("Initial instructions", "active")

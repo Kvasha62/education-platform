@@ -85,6 +85,10 @@ def _definition_or_error(
         raise HTTPException(
             status.HTTP_409_CONFLICT, "Assessment Definition already exists"
         ) from error
+    except TeacherSpaceDisabledError as error:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Disabled Teacher Space is read-only"
+        ) from error
     except AssessmentDefinitionImmutableError as error:
         raise HTTPException(status.HTTP_409_CONFLICT, immutable_detail) from error
 
