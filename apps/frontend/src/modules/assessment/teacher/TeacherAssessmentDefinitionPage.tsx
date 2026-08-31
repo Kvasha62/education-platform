@@ -108,9 +108,11 @@ export const TeacherAssessmentDefinitionPage = () => {
   const [editDraft, setEditDraft] = useState('')
 
   const applyDefinition = (definition: TeacherAssessmentDefinition) => {
+    // The mutation response is the immediate source of truth for this page:
+    // it carries the complete normative Definition representation (ADR-0014),
+    // so it is written straight into the cache without an invalidating re-GET.
     queryClient.setQueryData(definitionKey, definition)
     setEditing(false)
-    void queryClient.invalidateQueries({ queryKey: definitionKey })
   }
 
   const create = useMutation({

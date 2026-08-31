@@ -1,12 +1,11 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createQueryClient } from '../../../app/providers'
 import { routes } from '../../../app/router'
 import type { TeacherAssessmentDefinition } from './api'
-import { teacherAssessmentKeys } from './queries'
 
 const identity = {
   id: 'identity-id',
@@ -46,10 +45,10 @@ const jsonResponse = (body: unknown, status = 200) =>
     headers: { 'Content-Type': 'application/json' },
   })
 
-const renderRoute = (entry: string, client?: QueryClient) => {
+const renderRoute = (entry: string) => {
   const router = createMemoryRouter(routes, { initialEntries: [entry] })
   const rendered = render(
-    <QueryClientProvider client={client ?? createQueryClient()}>
+    <QueryClientProvider client={createQueryClient()}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   )
@@ -99,7 +98,7 @@ describe('Teacher Assessment Definition management UI', () => {
     expect(screen.queryByRole('heading', { name: 'Set up assessment' })).not.toBeInTheDocument()
   })
 
-  it('creates a Definition with null instructions for empty input, invalidates the definition key, and shows the view state', async () => {
+  it('creates a Definition with null instructions and shows the POST response without a follow-up GET', async () => {
     let current: TeacherAssessmentDefinition | null = null
     const bodies: unknown[] = []
     let reads = 0
@@ -121,10 +120,8 @@ describe('Teacher Assessment Definition management UI', () => {
       throw new Error(`Unexpected request: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
-    const client = createQueryClient()
-    const invalidateSpy = vi.spyOn(client, 'invalidateQueries')
     const user = userEvent.setup()
-    renderRoute(definitionRoute(), client)
+    renderRoute(definitionRoute())
 
     await user.click(await screen.findByRole('button', { name: 'Create assessment' }))
 
@@ -132,13 +129,8 @@ describe('Teacher Assessment Definition management UI', () => {
     expect(bodies).toEqual([{ instructions: null }])
     expect(screen.getByText('No instructions')).toBeInTheDocument()
     expect(screen.getByText('ACTIVE')).toBeInTheDocument()
-    expect(
-      invalidateSpy.mock.calls.some(([options]) =>
-        JSON.stringify(options?.queryKey) ===
-        JSON.stringify(teacherAssessmentKeys.definition(teacherSpaceId, activityId)),
-      ),
-    ).toBe(true)
-    await waitFor(() => expect(reads).toBeGreaterThanOrEqual(2))
+    // The POST response is the source of truth: the initial 404 read is the only GET.
+    expect(reads).toBe(1)
   })
 
   it('sends typed instructions exactly as entered', async () => {
@@ -236,9 +228,10 @@ describe('Teacher Assessment Definition management UI', () => {
     expect(requests.every(({ method }) => method === 'GET')).toBe(true)
   })
 
-  it('updates instructions and supports clearing them to null', async () => {
+  it('updates instructions, shows the PATCH response immediately, and supports clearing to null without a follow-up GET', async () => {
     let current: TeacherAssessmentDefinition = activeDefinition
     const bodies: unknown[] = []
+    let reads = 0
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       const auth = authResponse(url)
@@ -249,7 +242,10 @@ describe('Teacher Assessment Definition management UI', () => {
         current = { ...current, instructions: body.instructions }
         return jsonResponse(current)
       }
-      if (url.endsWith(definitionUrl())) return jsonResponse(current)
+      if (url.endsWith(definitionUrl())) {
+        reads += 1
+        return jsonResponse(current)
+      }
       throw new Error(`Unexpected request: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -274,11 +270,14 @@ describe('Teacher Assessment Definition management UI', () => {
 
     expect(await screen.findByText('No instructions')).toBeInTheDocument()
     expect(bodies).toEqual([{ instructions: 'Answer the questions.' }, { instructions: null }])
+    // Both views after PATCH come from mutation responses: still only the initial GET.
+    expect(reads).toBe(1)
   })
 
-  it('archives only after confirmation and switches to the read-only archived view', async () => {
+  it('archives only after confirmation and shows the archived POST response without a follow-up GET', async () => {
     let current: TeacherAssessmentDefinition = activeDefinition
     const archiveBodies: unknown[] = []
+    let reads = 0
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -290,7 +289,10 @@ describe('Teacher Assessment Definition management UI', () => {
           current = archivedDefinition
           return jsonResponse(current)
         }
-        if (url.endsWith(definitionUrl())) return jsonResponse(current)
+        if (url.endsWith(definitionUrl())) {
+          reads += 1
+          return jsonResponse(current)
+        }
         throw new Error(`Unexpected request: ${url}`)
       }),
     )
@@ -305,6 +307,40 @@ describe('Teacher Assessment Definition management UI', () => {
     expect(screen.queryByRole('button', { name: 'Edit instructions' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Archive assessment' })).not.toBeInTheDocument()
     expect(archiveBodies).toHaveLength(1)
+    // The archived read-only view renders the archive POST response: no extra GET.
+    expect(reads).toBe(1)
+  })
+
+  it('surfaces a raced archive-during-update conflict as an error and keeps the current view', async () => {
+    let reads = 0
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input)
+        const auth = authResponse(url)
+        if (auth) return auth
+        if (url.endsWith(definitionUrl()) && init?.method === 'PATCH') {
+          return jsonResponse({ detail: 'Assessment Definition is archived' }, 409)
+        }
+        if (url.endsWith(definitionUrl())) {
+          reads += 1
+          return jsonResponse(activeDefinition)
+        }
+        throw new Error(`Unexpected request: ${url}`)
+      }),
+    )
+    const user = userEvent.setup()
+    renderRoute(definitionRoute())
+
+    await user.click(await screen.findByRole('button', { name: 'Edit instructions' }))
+    const editor = screen.getByLabelText('Instructions')
+    await user.clear(editor)
+    await user.type(editor, 'Too late.')
+    await user.click(screen.getByRole('button', { name: 'Save instructions' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid assessment state')
+    expect(screen.getByLabelText('Instructions')).toBeInTheDocument()
+    expect(reads).toBe(1)
   })
 
   it('sends no archive request when the confirmation is cancelled', async () => {
