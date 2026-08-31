@@ -28,4 +28,8 @@ export const courseApi = {
     apiRequest<Course>(`${coursesPath(teacherSpaceId)}/${courseId}/publish`, {
       method: 'POST',
     }),
+  archive: (teacherSpaceId: string, courseId: string) =>
+    apiRequest<Course>(`${coursesPath(teacherSpaceId)}/${courseId}/archive`, {
+      method: 'POST',
+    }),
 }

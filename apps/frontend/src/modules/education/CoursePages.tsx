@@ -119,10 +119,27 @@ export const CoursePage = () => {
       ])
     },
   })
+  const archive = useMutation({
+    mutationFn: () => courseApi.archive(scopeId, selectedCourseId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: courseKeys.detail(scopeId, selectedCourseId),
+        }),
+        queryClient.invalidateQueries({ queryKey: courseKeys.all(scopeId) }),
+      ])
+    },
+  })
 
   const confirmPublish = () => {
     if (course.data && window.confirm(`Publish "${course.data.title}"?`)) {
       publish.mutate()
+    }
+  }
+
+  const confirmArchive = () => {
+    if (course.data && window.confirm(`Archive "${course.data.title}"?`)) {
+      archive.mutate()
     }
   }
 
@@ -149,12 +166,23 @@ export const CoursePage = () => {
               {publish.isPending ? 'Publishing…' : 'Publish Course'}
             </button>
           )}
+          {course.data.status === 'published' && (
+            <button
+              className="button-secondary"
+              disabled={archive.isPending}
+              onClick={confirmArchive}
+              type="button"
+            >
+              {archive.isPending ? 'Archiving…' : 'Archive Course'}
+            </button>
+          )}
           <Link className="primary-link" to={`/app/teacher-spaces/${scopeId}/environment/courses/${selectedCourseId}/sections`}>
             Open Sections
           </Link>
         </div>
       )}
       {publish.isError && <ErrorState message={errorMessage(publish.error)} />}
+      {archive.isError && <ErrorState message={errorMessage(archive.error)} />}
     </section>
   )
 }
