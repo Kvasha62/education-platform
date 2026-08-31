@@ -13,6 +13,7 @@ from app.core.database import Base, get_db
 from app.education.application.errors import LinkedContentUnavailableError
 from app.education.composition import get_published_course_reader
 from app.identity.api.dependencies import SESSION_COOKIE_NAME
+from app.identity.api.rate_limit import login_limiter, register_limiter
 from app.main import app
 
 engine = create_engine(
@@ -49,6 +50,8 @@ def settings() -> Settings:
 
 @pytest.fixture
 def client() -> Generator[TestClient, None, None]:
+    login_limiter.reset()
+    register_limiter.reset()
     Base.metadata.create_all(engine)
     app.dependency_overrides[get_db] = override_db
     app.dependency_overrides[get_settings] = settings
@@ -114,6 +117,7 @@ def test_authentication_and_published_visibility(client: TestClient) -> None:
 
     use(client, teacher_token)
     course_path, _ = course_paths(space_id, draft_id)
+    create_activity_in_course(client, space_id, draft_id, "Visible")
     assert client.post(f"{course_path}/publish", headers=HEADERS).status_code == 200
     use(client, student_token)
     assert client.get(f"/api/v1/student/courses/{draft_id}").status_code == 200
@@ -151,6 +155,22 @@ def test_student_reads_ordered_structure_and_only_published_content(client: Test
     early_activity = client.post(
         activities,
         json={"title": "Early Activity", "type": "lecture", "position": 0},
+        headers=HEADERS,
+    ).json()
+    late_unit_activity = client.post(
+        f"{early_units}/{late_unit['id']}/activities",
+        json={"title": "Late Unit Activity", "type": "homework", "position": 4},
+        headers=HEADERS,
+    ).json()
+    late_section_units = f"{sections_path}/{late_section['id']}/units"
+    late_section_unit = client.post(
+        late_section_units,
+        json={"title": "Late Section Unit", "position": 0},
+        headers=HEADERS,
+    ).json()
+    late_section_activity = client.post(
+        f"{late_section_units}/{late_section_unit['id']}/activities",
+        json={"title": "Late Section Activity", "type": "lecture", "position": 0},
         headers=HEADERS,
     ).json()
 
@@ -197,8 +217,15 @@ def test_student_reads_ordered_structure_and_only_published_content(client: Test
         early_unit["id"],
         late_unit["id"],
     ]
-    assert payload["sections"][1]["units"] == []
-    assert payload["sections"][0]["units"][1]["activities"] == []
+    assert [item["id"] for item in payload["sections"][1]["units"]] == [
+        late_section_unit["id"]
+    ]
+    assert [
+        item["id"] for item in payload["sections"][1]["units"][0]["activities"]
+    ] == [late_section_activity["id"]]
+    assert [item["id"] for item in payload["sections"][0]["units"][1]["activities"]] == [
+        late_unit_activity["id"]
+    ]
     returned_activities = payload["sections"][0]["units"][0]["activities"]
     assert [item["id"] for item in returned_activities] == [
         early_activity["id"],
@@ -234,16 +261,19 @@ def test_student_reads_ordered_structure_and_only_published_content(client: Test
     use(client, teacher_token)
 
 
-def test_published_course_with_empty_structure_returns_empty_lists(client: TestClient) -> None:
+def test_empty_course_cannot_be_published_and_stays_student_invisible(
+    client: TestClient,
+) -> None:
     teacher_token = auth(client, "teacher@example.com")
     space_id, course_id = create_course(client, "Empty")
     course_path, _ = course_paths(space_id, course_id)
-    client.post(f"{course_path}/publish", headers=HEADERS)
+
+    response = client.post(f"{course_path}/publish", headers=HEADERS)
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Course is not ready for publication"}
 
     auth(client, "student@example.com")
-    response = client.get(f"/api/v1/student/courses/{course_id}")
-    assert response.status_code == 200
-    assert response.json()["sections"] == []
+    assert client.get(f"/api/v1/student/courses/{course_id}").status_code == 404
     use(client, teacher_token)
 
 
@@ -278,12 +308,15 @@ def test_published_course_collection_auth_visibility_ordering_and_shape(
     _draft_space, draft_id = create_course(client, "Draft")
     first_space, first_id = create_course(client, "First Published")
     first_path, _ = course_paths(first_space, first_id)
+    create_activity_in_course(client, first_space, first_id, "First")
     client.post(f"{first_path}/publish", headers=HEADERS)
     second_space, second_id = create_course(client, "Second Published")
     second_path, _ = course_paths(second_space, second_id)
+    create_activity_in_course(client, second_space, second_id, "Second")
     client.post(f"{second_path}/publish", headers=HEADERS)
     archived_space, archived_id = create_course(client, "Archived")
     archived_path, _ = course_paths(archived_space, archived_id)
+    create_activity_in_course(client, archived_space, archived_id, "Archived")
     client.post(f"{archived_path}/publish", headers=HEADERS)
     client.post(f"{archived_path}/archive", headers=HEADERS)
 

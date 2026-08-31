@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.core.config import Settings, get_settings
 from app.core.database import Base, get_db
 from app.identity.api.dependencies import SESSION_COOKIE_NAME
+from app.identity.api.rate_limit import login_limiter, register_limiter
 from app.learning.infrastructure.models import EnrollmentModel
 from app.main import app
 
@@ -47,6 +48,8 @@ def settings() -> Settings:
 
 @pytest.fixture
 def client() -> Generator[TestClient, None, None]:
+    login_limiter.reset()
+    register_limiter.reset()
     Base.metadata.create_all(engine)
     app.dependency_overrides[get_db] = override_db
     app.dependency_overrides[get_settings] = settings
@@ -100,8 +103,10 @@ def test_authentication_and_course_visibility(client: TestClient) -> None:
 
     client.cookies.set(SESSION_COOKIE_NAME, teacher)
     published_path, published_id = create_course(client, "Published")
+    create_activity(client, published_path)
     assert client.post(f"{published_path}/publish", headers=HEADERS).status_code == 200
     archived_path, archived_id = create_course(client, "Archived")
+    create_activity(client, archived_path)
     client.post(f"{archived_path}/publish", headers=HEADERS)
     client.post(f"{archived_path}/archive", headers=HEADERS)
 
@@ -113,6 +118,7 @@ def test_authentication_and_course_visibility(client: TestClient) -> None:
 def test_enrollment_is_idempotent_and_isolated_by_user(client: TestClient) -> None:
     teacher = auth(client, "teacher@example.com")
     course_path, course_id = create_course(client, "Published")
+    create_activity(client, course_path)
     client.post(f"{course_path}/publish", headers=HEADERS)
 
     first_user = auth(client, "first@example.com")
@@ -158,6 +164,8 @@ def test_student_lists_only_own_enrollments_and_empty_list(client: TestClient) -
     teacher = auth(client, "teacher-list@example.com")
     first_path, first_id = create_course(client, "First")
     second_path, second_id = create_course(client, "Second")
+    create_activity(client, first_path)
+    create_activity(client, second_path)
     client.post(f"{first_path}/publish", headers=HEADERS)
     client.post(f"{second_path}/publish", headers=HEADERS)
 
@@ -349,19 +357,21 @@ def test_student_course_progress_contract_and_calculation(client: TestClient) ->
     assert client.get(endpoint).status_code == 404
 
 
-def test_student_course_progress_zero_activity_course(client: TestClient) -> None:
+def test_student_course_progress_zero_activity_course_cannot_be_published(
+    client: TestClient,
+) -> None:
     teacher = auth(client, "empty-progress-teacher@example.com")
     course_path, course_id = create_course(client, "Empty Course")
-    client.post(f"{course_path}/publish", headers=HEADERS)
-    auth(client, "empty-progress-student@example.com")
-    client.post(enrollment_path(course_id), headers=HEADERS)
 
-    assert client.get(f"/api/v1/student/courses/{course_id}/progress").json() == {
-        "course_id": course_id,
-        "completed_activities": 0,
-        "total_activities": 0,
-        "progress_percent": 0,
-    }
+    response = client.post(f"{course_path}/publish", headers=HEADERS)
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Course is not ready for publication"}
+
+    auth(client, "empty-progress-student@example.com")
+    assert client.post(enrollment_path(course_id), headers=HEADERS).status_code == 404
+    assert (
+        client.get(f"/api/v1/student/courses/{course_id}/progress").status_code == 404
+    )
     client.cookies.set(SESSION_COOKIE_NAME, teacher)
 
 
@@ -398,6 +408,7 @@ def test_student_dashboard_composes_enrollment_and_continue_learning(
     client.post(f"{course_path}/publish", headers=HEADERS)
 
     other_path, _other_course_id = create_course(client, "Not Enrolled")
+    create_activity(client, other_path)
     client.post(f"{other_path}/publish", headers=HEADERS)
 
     student = auth(client, "dashboard-student@example.com")
@@ -434,6 +445,7 @@ def test_student_dashboard_composes_enrollment_and_continue_learning(
 def test_student_dashboard_excludes_archived_enrolled_course(client: TestClient) -> None:
     teacher = auth(client, "stale-dashboard-teacher@example.com")
     course_path, course_id = create_course(client, "Archived Enrollment")
+    create_activity(client, course_path)
     client.post(f"{course_path}/publish", headers=HEADERS)
     student = auth(client, "stale-dashboard-student@example.com")
     client.post(enrollment_path(course_id), headers=HEADERS)

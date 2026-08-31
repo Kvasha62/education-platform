@@ -9,6 +9,7 @@ from sqlalchemy.pool import StaticPool
 from app.core.config import Settings, get_settings
 from app.core.database import Base, get_db
 from app.identity.api.dependencies import SESSION_COOKIE_NAME
+from app.identity.api.rate_limit import login_limiter, register_limiter
 from app.main import app
 
 engine = create_engine(
@@ -45,6 +46,8 @@ def override_settings() -> Settings:
 
 @pytest.fixture
 def client() -> Generator[TestClient, None, None]:
+    login_limiter.reset()
+    register_limiter.reset()
     Base.metadata.create_all(engine)
     app.dependency_overrides[get_db] = override_db
     app.dependency_overrides[get_settings] = override_settings
@@ -98,6 +101,26 @@ def create_course(client: TestClient, teacher_space_id: str, title: str):
         json={"title": title},
         headers=MUTATION_HEADERS,
     )
+
+
+def make_course_ready(client: TestClient, teacher_space_id: str, course_id: str) -> None:
+    course_path = f"{courses_path(teacher_space_id)}/{course_id}"
+    section = client.post(
+        f"{course_path}/sections",
+        json={"title": "Section", "position": 0},
+        headers=MUTATION_HEADERS,
+    ).json()
+    unit = client.post(
+        f"{course_path}/sections/{section['id']}/units",
+        json={"title": "Unit", "position": 0},
+        headers=MUTATION_HEADERS,
+    ).json()
+    response = client.post(
+        f"{course_path}/sections/{section['id']}/units/{unit['id']}/activities",
+        json={"title": "Activity", "type": "lecture", "position": 0},
+        headers=MUTATION_HEADERS,
+    )
+    assert response.status_code == 201
 
 
 @pytest.mark.parametrize("method", ["post", "get", "patch"])
@@ -184,6 +207,7 @@ def test_owner_publish_archive_and_idempotency(client: TestClient) -> None:
     teacher_space_id = create_teacher_space(client, "Space")
     create_environment(client, teacher_space_id)
     course = create_course(client, teacher_space_id, "Lifecycle").json()
+    make_course_ready(client, teacher_space_id, course["id"])
     base = f"{courses_path(teacher_space_id)}/{course['id']}"
 
     published = client.post(f"{base}/publish", headers=MUTATION_HEADERS)
@@ -205,12 +229,119 @@ def test_invalid_lifecycle_transitions_return_conflict(client: TestClient) -> No
     teacher_space_id = create_teacher_space(client, "Space")
     create_environment(client, teacher_space_id)
     course = create_course(client, teacher_space_id, "Lifecycle").json()
+    make_course_ready(client, teacher_space_id, course["id"])
     base = f"{courses_path(teacher_space_id)}/{course['id']}"
 
     assert client.post(f"{base}/archive", headers=MUTATION_HEADERS).status_code == 409
     assert client.post(f"{base}/publish", headers=MUTATION_HEADERS).status_code == 200
     assert client.post(f"{base}/archive", headers=MUTATION_HEADERS).status_code == 200
     assert client.post(f"{base}/publish", headers=MUTATION_HEADERS).status_code == 409
+
+
+def test_publish_without_sections_returns_409_and_keeps_draft(client: TestClient) -> None:
+    authenticate(client, "owner@example.com")
+    teacher_space_id = create_teacher_space(client, "Space")
+    create_environment(client, teacher_space_id)
+    course = create_course(client, teacher_space_id, "Empty").json()
+    base = f"{courses_path(teacher_space_id)}/{course['id']}"
+
+    response = client.post(f"{base}/publish", headers=MUTATION_HEADERS)
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Course is not ready for publication"}
+    assert client.get(base).json()["status"] == "draft"
+
+
+def test_publish_with_empty_section_returns_409(client: TestClient) -> None:
+    authenticate(client, "owner@example.com")
+    teacher_space_id = create_teacher_space(client, "Space")
+    create_environment(client, teacher_space_id)
+    course = create_course(client, teacher_space_id, "Empty Section").json()
+    base = f"{courses_path(teacher_space_id)}/{course['id']}"
+    assert (
+        client.post(
+            f"{base}/sections",
+            json={"title": "Section", "position": 0},
+            headers=MUTATION_HEADERS,
+        ).status_code
+        == 201
+    )
+
+    response = client.post(f"{base}/publish", headers=MUTATION_HEADERS)
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Course is not ready for publication"}
+    assert client.get(base).json()["status"] == "draft"
+
+
+def test_publish_with_empty_learning_unit_returns_409(client: TestClient) -> None:
+    authenticate(client, "owner@example.com")
+    teacher_space_id = create_teacher_space(client, "Space")
+    create_environment(client, teacher_space_id)
+    course = create_course(client, teacher_space_id, "Empty Unit").json()
+    base = f"{courses_path(teacher_space_id)}/{course['id']}"
+    section = client.post(
+        f"{base}/sections",
+        json={"title": "Section", "position": 0},
+        headers=MUTATION_HEADERS,
+    ).json()
+    assert (
+        client.post(
+            f"{base}/sections/{section['id']}/units",
+            json={"title": "Unit", "position": 0},
+            headers=MUTATION_HEADERS,
+        ).status_code
+        == 201
+    )
+
+    response = client.post(f"{base}/publish", headers=MUTATION_HEADERS)
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Course is not ready for publication"}
+    assert client.get(base).json()["status"] == "draft"
+
+
+def test_publish_with_partially_ready_hierarchy_returns_409(client: TestClient) -> None:
+    authenticate(client, "owner@example.com")
+    teacher_space_id = create_teacher_space(client, "Space")
+    create_environment(client, teacher_space_id)
+    course = create_course(client, teacher_space_id, "Partial").json()
+    make_course_ready(client, teacher_space_id, course["id"])
+    base = f"{courses_path(teacher_space_id)}/{course['id']}"
+    assert (
+        client.post(
+            f"{base}/sections",
+            json={"title": "Empty Section", "position": 1},
+            headers=MUTATION_HEADERS,
+        ).status_code
+        == 201
+    )
+
+    response = client.post(f"{base}/publish", headers=MUTATION_HEADERS)
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Course is not ready for publication"}
+    assert client.get(base).json()["status"] == "draft"
+
+
+def test_publish_ready_course_succeeds_and_republishes_idempotently(
+    client: TestClient,
+) -> None:
+    authenticate(client, "owner@example.com")
+    teacher_space_id = create_teacher_space(client, "Space")
+    create_environment(client, teacher_space_id)
+    course = create_course(client, teacher_space_id, "Ready").json()
+    make_course_ready(client, teacher_space_id, course["id"])
+    base = f"{courses_path(teacher_space_id)}/{course['id']}"
+
+    published = client.post(f"{base}/publish", headers=MUTATION_HEADERS)
+    republished = client.post(f"{base}/publish", headers=MUTATION_HEADERS)
+
+    assert published.status_code == republished.status_code == 200
+    assert published.json()["status"] == republished.json()["status"] == "published"
+    assert published.json()["updated_at"].removesuffix("Z") == republished.json()[
+        "updated_at"
+    ].removesuffix("Z")
 
 
 def test_lifecycle_requires_authentication_and_csrf(client: TestClient) -> None:
