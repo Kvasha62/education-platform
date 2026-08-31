@@ -8,6 +8,8 @@ import { ActivityContentPanel } from './ActivityContentPanel'
 import { activityApi } from './activityApi'
 import type { Activity, ActivityType } from './activityApi'
 import { activityKeys } from './activityQueries'
+import { courseApi } from './courseApi'
+import { courseKeys } from './courseQueries'
 
 const activityTypes: Array<{ value: ActivityType; label: string }> = [
   { value: 'lecture', label: 'Lecture' },
@@ -23,6 +25,7 @@ interface ActivityRowProps {
   courseId: string
   sectionId: string
   learningUnitId: string
+  readOnly: boolean
 }
 
 const ActivityRow = ({
@@ -31,6 +34,7 @@ const ActivityRow = ({
   courseId,
   sectionId,
   learningUnitId,
+  readOnly,
 }: ActivityRowProps) => {
   const queryClient = useQueryClient()
   const queryKey = activityKeys.all(teacherSpaceId, courseId, sectionId, learningUnitId)
@@ -53,7 +57,13 @@ const ActivityRow = ({
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (readOnly) return
     updateActivity.mutate()
+  }
+
+  const remove = () => {
+    if (readOnly) return
+    deleteActivity.mutate()
   }
 
   return (
@@ -62,6 +72,7 @@ const ActivityRow = ({
         <label>
           Activity title
           <input
+            disabled={readOnly}
             maxLength={120}
             onChange={(event) => setTitle(event.target.value)}
             required
@@ -71,6 +82,7 @@ const ActivityRow = ({
         <label>
           Position
           <input
+            disabled={readOnly}
             min={0}
             onChange={(event) => setPosition(Number(event.target.value))}
             required
@@ -80,13 +92,13 @@ const ActivityRow = ({
         </label>
         <span className="activity-type">{activity.type}</span>
         <div className="section-actions">
-          <button disabled={updateActivity.isPending} type="submit">
+          <button disabled={readOnly || updateActivity.isPending} type="submit">
             {updateActivity.isPending ? 'Saving…' : 'Save'}
           </button>
           <button
             className="button-secondary"
-            disabled={deleteActivity.isPending}
-            onClick={() => deleteActivity.mutate()}
+            disabled={readOnly || deleteActivity.isPending}
+            onClick={remove}
             type="button"
           >
             {deleteActivity.isPending ? 'Deleting…' : 'Delete'}
@@ -103,6 +115,7 @@ const ActivityRow = ({
       {updateActivity.isError && <ErrorState message={errorMessage(updateActivity.error)} />}
       {deleteActivity.isError && <ErrorState message={errorMessage(deleteActivity.error)} />}
       <ActivityContentPanel
+        readOnly={readOnly}
         scope={{
           activityId: activity.id,
           courseId,
@@ -131,6 +144,15 @@ export const ActivitiesPage = () => {
   const [title, setTitle] = useState('')
   const [type, setType] = useState<ActivityType>('lecture')
   const [position, setPosition] = useState(0)
+  const course = useQuery({
+    queryKey: courseKeys.detail(scopeId, selectedCourseId),
+    queryFn: () => courseApi.get(scopeId, selectedCourseId),
+    enabled: Boolean(scopeId && selectedCourseId),
+    retry: false,
+  })
+  const readOnly = course.data?.status === 'published' || course.data?.status === 'archived'
+  const readOnlyMessage =
+    course.data?.status === 'published' ? 'Published — read-only' : 'Archived — read-only'
   const activities = useQuery({
     queryKey,
     queryFn: () => activityApi.list(scopeId, selectedCourseId, selectedSectionId, selectedUnitId),
@@ -153,6 +175,7 @@ export const ActivitiesPage = () => {
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (readOnly) return
     createActivity.mutate()
   }
 
@@ -169,11 +192,13 @@ export const ActivitiesPage = () => {
           Back to Learning Units
         </Link>
       </div>
+      {readOnly && <div className="state">{readOnlyMessage}</div>}
 
       <form className="create-space" onSubmit={submit}>
         <label>
           Activity title
           <input
+            disabled={readOnly}
             maxLength={120}
             onChange={(event) => setTitle(event.target.value)}
             required
@@ -182,7 +207,7 @@ export const ActivitiesPage = () => {
         </label>
         <label>
           Type
-          <select onChange={(event) => setType(event.target.value as ActivityType)} value={type}>
+          <select disabled={readOnly} onChange={(event) => setType(event.target.value as ActivityType)} value={type}>
             {activityTypes.map((item) => (
               <option key={item.value} value={item.value}>{item.label}</option>
             ))}
@@ -191,6 +216,7 @@ export const ActivitiesPage = () => {
         <label>
           Position
           <input
+            disabled={readOnly}
             min={0}
             onChange={(event) => setPosition(Number(event.target.value))}
             required
@@ -198,7 +224,7 @@ export const ActivitiesPage = () => {
             value={position}
           />
         </label>
-        <button disabled={createActivity.isPending} type="submit">
+        <button disabled={readOnly || createActivity.isPending} type="submit">
           {createActivity.isPending ? 'Creating…' : 'Create Activity'}
         </button>
       </form>
@@ -220,6 +246,7 @@ export const ActivitiesPage = () => {
               courseId={selectedCourseId}
               key={activity.id}
               learningUnitId={selectedUnitId}
+              readOnly={readOnly}
               sectionId={selectedSectionId}
               teacherSpaceId={scopeId}
             />

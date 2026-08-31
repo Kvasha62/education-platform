@@ -34,15 +34,18 @@ const contentPage = (items: unknown[], page = 1, hasNext = false) => ({
 })
 const LocationProbe = () => <output aria-label="Current route">{useLocation().pathname}</output>
 
-const renderPanel = () =>
+const renderPanel = (readOnly = false) =>
   render(
     <QueryClientProvider client={createQueryClient()}>
       <MemoryRouter>
-        <ActivityContentPanel scope={scope} />
+        <ActivityContentPanel readOnly={readOnly} scope={scope} />
         <LocationProbe />
       </MemoryRouter>
     </QueryClientProvider>,
   )
+
+const mutationMethod = (init?: RequestInit) =>
+  init?.method === 'POST' || init?.method === 'DELETE'
 
 describe('Activity Content management', () => {
   afterEach(() => vi.unstubAllGlobals())
@@ -178,4 +181,53 @@ describe('Activity Content management', () => {
     expect(requests.some((url) => url.includes('page=2&page_size=20'))).toBe(true)
   })
 
+  it('disables attach/detach in read-only mode and sends no mutation requests', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (isContentRequest(url)) return jsonResponse(contentPage([ownedContent]))
+      if (url.endsWith(linksEndpoint)) return jsonResponse([reference])
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    renderPanel(true)
+
+    expect(await screen.findByText('Status: published')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Attach Content' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeDisabled()
+    expect(screen.getByLabelText('Existing Content')).toBeDisabled()
+    expect(screen.getByRole('link', { name: 'Edit Content' })).toHaveAttribute(
+      'href',
+      '/app/contents/content-id/edit',
+    )
+    await user.click(screen.getByRole('button', { name: 'Attach Content' }))
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
+    expect(fetchMock.mock.calls.filter(([, init]) => mutationMethod(init))).toHaveLength(0)
+  })
+
+  it('keeps Load more pagination available in read-only mode', async () => {
+    const secondContent = { ...ownedContent, id: 'content-2', title: 'Second Reading' }
+    let resolveSecondPage: ((response: Response) => void) | undefined
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('page=1&page_size=20')) {
+        return jsonResponse(contentPage([ownedContent], 1, true))
+      }
+      if (url.includes('page=2&page_size=20')) {
+        return new Promise<Response>((resolve) => { resolveSecondPage = resolve })
+      }
+      if (url.endsWith(linksEndpoint)) return jsonResponse([])
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    const user = userEvent.setup()
+    renderPanel(true)
+
+    const select = await screen.findByLabelText('Existing Content')
+    expect(within(select).getByRole('option', { name: /Reading/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Load more' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'Load more' }))
+    resolveSecondPage?.(jsonResponse(contentPage([secondContent], 2, false)))
+
+    expect(await within(select).findByRole('option', { name: /Second Reading/ })).toBeInTheDocument()
+  })
 })

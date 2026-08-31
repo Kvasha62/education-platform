@@ -3,6 +3,8 @@ import { FormEvent, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../../shared/api'
 import { ErrorState, LoadingState } from '../../shared/ui'
+import { courseApi } from './courseApi'
+import { courseKeys } from './courseQueries'
 import { learningUnitApi } from './learningUnitApi'
 import type { LearningUnit } from './learningUnitApi'
 import { learningUnitKeys } from './learningUnitQueries'
@@ -15,9 +17,10 @@ interface LearningUnitRowProps {
   teacherSpaceId: string
   courseId: string
   sectionId: string
+  readOnly: boolean
 }
 
-const LearningUnitRow = ({ unit, teacherSpaceId, courseId, sectionId }: LearningUnitRowProps) => {
+const LearningUnitRow = ({ unit, teacherSpaceId, courseId, sectionId, readOnly }: LearningUnitRowProps) => {
   const queryClient = useQueryClient()
   const queryKey = learningUnitKeys.all(teacherSpaceId, courseId, sectionId)
   const [title, setTitle] = useState(unit.title)
@@ -33,7 +36,13 @@ const LearningUnitRow = ({ unit, teacherSpaceId, courseId, sectionId }: Learning
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (readOnly) return
     updateUnit.mutate()
+  }
+
+  const remove = () => {
+    if (readOnly) return
+    deleteUnit.mutate()
   }
 
   return (
@@ -42,6 +51,7 @@ const LearningUnitRow = ({ unit, teacherSpaceId, courseId, sectionId }: Learning
         <label>
           Learning Unit title
           <input
+            disabled={readOnly}
             maxLength={120}
             onChange={(event) => setTitle(event.target.value)}
             required
@@ -51,6 +61,7 @@ const LearningUnitRow = ({ unit, teacherSpaceId, courseId, sectionId }: Learning
         <label>
           Position
           <input
+            disabled={readOnly}
             min={0}
             onChange={(event) => setPosition(Number(event.target.value))}
             required
@@ -66,13 +77,13 @@ const LearningUnitRow = ({ unit, teacherSpaceId, courseId, sectionId }: Learning
           Open Activities
         </Link>
         <div className="section-actions">
-          <button disabled={updateUnit.isPending} type="submit">
+          <button disabled={readOnly || updateUnit.isPending} type="submit">
             {updateUnit.isPending ? 'Saving…' : 'Save'}
           </button>
           <button
             className="button-secondary"
-            disabled={deleteUnit.isPending}
-            onClick={() => deleteUnit.mutate()}
+            disabled={readOnly || deleteUnit.isPending}
+            onClick={remove}
             type="button"
           >
             {deleteUnit.isPending ? 'Deleting…' : 'Delete'}
@@ -98,6 +109,15 @@ export const LearningUnitsPage = () => {
   const queryKey = learningUnitKeys.all(scopeId, selectedCourseId, selectedSectionId)
   const [title, setTitle] = useState('')
   const [position, setPosition] = useState(0)
+  const course = useQuery({
+    queryKey: courseKeys.detail(scopeId, selectedCourseId),
+    queryFn: () => courseApi.get(scopeId, selectedCourseId),
+    enabled: Boolean(scopeId && selectedCourseId),
+    retry: false,
+  })
+  const readOnly = course.data?.status === 'published' || course.data?.status === 'archived'
+  const readOnlyMessage =
+    course.data?.status === 'published' ? 'Published — read-only' : 'Archived — read-only'
   const units = useQuery({
     queryKey,
     queryFn: () => learningUnitApi.list(scopeId, selectedCourseId, selectedSectionId),
@@ -114,6 +134,7 @@ export const LearningUnitsPage = () => {
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (readOnly) return
     createUnit.mutate()
   }
 
@@ -128,11 +149,13 @@ export const LearningUnitsPage = () => {
           Back to Sections
         </Link>
       </div>
+      {readOnly && <div className="state">{readOnlyMessage}</div>}
 
       <form className="create-space" onSubmit={submit}>
         <label>
           Learning Unit title
           <input
+            disabled={readOnly}
             maxLength={120}
             onChange={(event) => setTitle(event.target.value)}
             required
@@ -142,6 +165,7 @@ export const LearningUnitsPage = () => {
         <label>
           Position
           <input
+            disabled={readOnly}
             min={0}
             onChange={(event) => setPosition(Number(event.target.value))}
             required
@@ -149,7 +173,7 @@ export const LearningUnitsPage = () => {
             value={position}
           />
         </label>
-        <button disabled={createUnit.isPending} type="submit">
+        <button disabled={readOnly || createUnit.isPending} type="submit">
           {createUnit.isPending ? 'Creating…' : 'Create Learning Unit'}
         </button>
       </form>
@@ -169,6 +193,7 @@ export const LearningUnitsPage = () => {
             <LearningUnitRow
               courseId={selectedCourseId}
               key={unit.id}
+              readOnly={readOnly}
               sectionId={selectedSectionId}
               unit={unit}
               teacherSpaceId={scopeId}

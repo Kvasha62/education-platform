@@ -10,6 +10,10 @@ const identity = {
   id: 'identity-id', email: 'teacher@example.com', status: 'active',
   created_at: '2026-08-25T00:00:00Z', updated_at: '2026-08-25T00:00:00Z',
 }
+const course = {
+  id: 'course-id', educational_environment_id: 'environment-id', title: 'Foundations', status: 'draft',
+  created_at: '2026-08-25T00:00:00Z', updated_at: '2026-08-25T00:00:00Z',
+}
 const firstSection = {
   id: 'section-1', course_id: 'course-id', title: 'Introduction', position: 0,
   created_at: '2026-08-25T00:00:00Z', updated_at: '2026-08-25T00:00:00Z',
@@ -17,6 +21,7 @@ const firstSection = {
 const secondSection = { ...firstSection, id: 'section-2', title: 'Advanced', position: 2 }
 const route = '/app/teacher-spaces/space-id/environment/courses/course-id/sections'
 const endpoint = '/api/v1/teacher-spaces/space-id/environment/courses/course-id/sections'
+const courseEndpoint = '/api/v1/teacher-spaces/space-id/environment/courses/course-id'
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
@@ -28,6 +33,9 @@ const renderRoute = () => {
     </QueryClientProvider>,
   )
 }
+
+const mutationMethod = (init?: RequestInit) =>
+  init?.method === 'POST' || init?.method === 'PATCH' || init?.method === 'DELETE'
 
 describe('Section UI', () => {
   afterEach(() => vi.unstubAllGlobals())
@@ -46,11 +54,12 @@ describe('Section UI', () => {
   })
 
   it('renders Sections in the server-provided position order', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) =>
-      String(input).endsWith('/api/v1/auth/me')
-        ? jsonResponse(identity)
-        : jsonResponse([firstSection, secondSection]),
-    ))
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+      if (url.endsWith(courseEndpoint)) return jsonResponse(course)
+      return jsonResponse([firstSection, secondSection])
+    }))
     renderRoute()
 
     const rows = await screen.findAllByRole('listitem')
@@ -65,6 +74,7 @@ describe('Section UI', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+      if (url.endsWith(courseEndpoint)) return jsonResponse(course)
       if (url.endsWith(endpoint) && init?.method === 'POST') {
         expect(JSON.parse(String(init.body))).toEqual({ title: 'Introduction', position: 0 })
         sections = [firstSection]
@@ -92,6 +102,7 @@ describe('Section UI', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+      if (url.endsWith(courseEndpoint)) return jsonResponse(course)
       if (url.endsWith(`${endpoint}/section-1`) && init?.method === 'PATCH') {
         expect(JSON.parse(String(init.body))).toEqual({ title: 'Updated', position: 3 })
         section = { ...section, title: 'Updated', position: 3 }
@@ -122,6 +133,7 @@ describe('Section UI', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+      if (url.endsWith(courseEndpoint)) return jsonResponse(course)
       if (url.endsWith(`${endpoint}/section-1`) && init?.method === 'DELETE') {
         sections = []
         return new Response(null, { status: 204 })
@@ -151,5 +163,73 @@ describe('Section UI', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ detail: 'Authentication required' }, 401)))
     renderRoute()
     expect(await screen.findByRole('heading', { name: 'Log in' })).toBeInTheDocument()
+  })
+
+  it('renders a PUBLISHED Course read-only and sends no mutation requests', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+      if (url.endsWith(courseEndpoint)) return jsonResponse({ ...course, status: 'published' })
+      if (url.endsWith(endpoint)) return jsonResponse([firstSection])
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    renderRoute()
+
+    expect(await screen.findByText('Published — read-only')).toBeInTheDocument()
+    const row = await screen.findByRole('listitem')
+    expect(within(row).getByDisplayValue('Introduction')).toBeInTheDocument()
+    expect(within(row).getByText('Position 0')).toBeInTheDocument()
+    expect(within(row).getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(within(row).getByRole('button', { name: 'Delete' })).toBeDisabled()
+    expect(within(row).getByLabelText('Section title')).toBeDisabled()
+    expect(within(row).getByLabelText('Position')).toBeDisabled()
+    expect(within(row).getByRole('link', { name: 'Open Units' })).toHaveAttribute(
+      'href',
+      '/app/teacher-spaces/space-id/environment/courses/course-id/sections/section-1/learning-units',
+    )
+    expect(screen.getByRole('button', { name: 'Create Section' })).toBeDisabled()
+    expect(screen.getAllByLabelText('Section title').every((input) => input.hasAttribute('disabled'))).toBe(true)
+    expect(screen.getByRole('link', { name: 'Back to Course' })).toHaveAttribute(
+      'href',
+      '/app/teacher-spaces/space-id/environment/courses/course-id',
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Create Section' }))
+    await user.click(within(row).getByRole('button', { name: 'Save' }))
+    await user.click(within(row).getByRole('button', { name: 'Delete' }))
+
+    expect(fetchMock.mock.calls.some(([url, init]) =>
+      String(url).endsWith(courseEndpoint) && !init?.method,
+    )).toBe(true)
+    expect(fetchMock.mock.calls.filter(([, init]) => mutationMethod(init))).toHaveLength(0)
+  })
+
+  it('renders an ARCHIVED Course read-only and sends no mutation requests', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+      if (url.endsWith(courseEndpoint)) return jsonResponse({ ...course, status: 'archived' })
+      if (url.endsWith(endpoint)) return jsonResponse([firstSection])
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    renderRoute()
+
+    expect(await screen.findByText('Archived — read-only')).toBeInTheDocument()
+    const row = await screen.findByRole('listitem')
+    expect(within(row).getByDisplayValue('Introduction')).toBeInTheDocument()
+    expect(within(row).getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(within(row).getByRole('button', { name: 'Delete' })).toBeDisabled()
+    expect(within(row).getByRole('link', { name: 'Open Units' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create Section' })).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: 'Create Section' }))
+    await user.click(within(row).getByRole('button', { name: 'Save' }))
+    await user.click(within(row).getByRole('button', { name: 'Delete' }))
+
+    expect(fetchMock.mock.calls.filter(([, init]) => mutationMethod(init))).toHaveLength(0)
   })
 })

@@ -3,6 +3,8 @@ import { FormEvent, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../../shared/api'
 import { ErrorState, LoadingState } from '../../shared/ui'
+import { courseApi } from './courseApi'
+import { courseKeys } from './courseQueries'
 import { sectionApi } from './sectionApi'
 import type { Section } from './sectionApi'
 import { sectionKeys } from './sectionQueries'
@@ -14,9 +16,10 @@ interface SectionRowProps {
   section: Section
   teacherSpaceId: string
   courseId: string
+  readOnly: boolean
 }
 
-const SectionRow = ({ section, teacherSpaceId, courseId }: SectionRowProps) => {
+const SectionRow = ({ section, teacherSpaceId, courseId, readOnly }: SectionRowProps) => {
   const queryClient = useQueryClient()
   const queryKey = sectionKeys.all(teacherSpaceId, courseId)
   const [title, setTitle] = useState(section.title)
@@ -32,7 +35,13 @@ const SectionRow = ({ section, teacherSpaceId, courseId }: SectionRowProps) => {
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (readOnly) return
     updateSection.mutate()
+  }
+
+  const remove = () => {
+    if (readOnly) return
+    deleteSection.mutate()
   }
 
   return (
@@ -41,6 +50,7 @@ const SectionRow = ({ section, teacherSpaceId, courseId }: SectionRowProps) => {
         <label>
           Section title
           <input
+            disabled={readOnly}
             maxLength={120}
             onChange={(event) => setTitle(event.target.value)}
             required
@@ -50,6 +60,7 @@ const SectionRow = ({ section, teacherSpaceId, courseId }: SectionRowProps) => {
         <label>
           Position
           <input
+            disabled={readOnly}
             min={0}
             onChange={(event) => setPosition(Number(event.target.value))}
             required
@@ -65,13 +76,13 @@ const SectionRow = ({ section, teacherSpaceId, courseId }: SectionRowProps) => {
           Open Units
         </Link>
         <div className="section-actions">
-          <button disabled={updateSection.isPending} type="submit">
+          <button disabled={readOnly || updateSection.isPending} type="submit">
             {updateSection.isPending ? 'Saving…' : 'Save'}
           </button>
           <button
             className="button-secondary"
-            disabled={deleteSection.isPending}
-            onClick={() => deleteSection.mutate()}
+            disabled={readOnly || deleteSection.isPending}
+            onClick={remove}
             type="button"
           >
             {deleteSection.isPending ? 'Deleting…' : 'Delete'}
@@ -95,6 +106,15 @@ export const SectionsPage = () => {
   const queryKey = sectionKeys.all(scopeId, selectedCourseId)
   const [title, setTitle] = useState('')
   const [position, setPosition] = useState(0)
+  const course = useQuery({
+    queryKey: courseKeys.detail(scopeId, selectedCourseId),
+    queryFn: () => courseApi.get(scopeId, selectedCourseId),
+    enabled: Boolean(scopeId && selectedCourseId),
+    retry: false,
+  })
+  const readOnly = course.data?.status === 'published' || course.data?.status === 'archived'
+  const readOnlyMessage =
+    course.data?.status === 'published' ? 'Published — read-only' : 'Archived — read-only'
   const sections = useQuery({
     queryKey,
     queryFn: () => sectionApi.list(scopeId, selectedCourseId),
@@ -111,6 +131,7 @@ export const SectionsPage = () => {
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (readOnly) return
     createSection.mutate()
   }
 
@@ -125,11 +146,13 @@ export const SectionsPage = () => {
           Back to Course
         </Link>
       </div>
+      {readOnly && <div className="state">{readOnlyMessage}</div>}
 
       <form className="create-space" onSubmit={submit}>
         <label>
           Section title
           <input
+            disabled={readOnly}
             maxLength={120}
             onChange={(event) => setTitle(event.target.value)}
             required
@@ -139,6 +162,7 @@ export const SectionsPage = () => {
         <label>
           Position
           <input
+            disabled={readOnly}
             min={0}
             onChange={(event) => setPosition(Number(event.target.value))}
             required
@@ -146,7 +170,7 @@ export const SectionsPage = () => {
             value={position}
           />
         </label>
-        <button disabled={createSection.isPending} type="submit">
+        <button disabled={readOnly || createSection.isPending} type="submit">
           {createSection.isPending ? 'Creating…' : 'Create Section'}
         </button>
       </form>
@@ -166,6 +190,7 @@ export const SectionsPage = () => {
             <SectionRow
               courseId={selectedCourseId}
               key={section.id}
+              readOnly={readOnly}
               section={section}
               teacherSpaceId={scopeId}
             />
