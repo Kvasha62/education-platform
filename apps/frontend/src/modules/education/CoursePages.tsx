@@ -176,6 +176,14 @@ export const CoursePage = () => {
               {archive.isPending ? 'Archiving…' : 'Archive Course'}
             </button>
           )}
+          {course.data.status === 'draft' && (
+            <Link
+              className="primary-link"
+              to={`/app/teacher-spaces/${scopeId}/environment/courses/${selectedCourseId}/preview`}
+            >
+              Preview Course
+            </Link>
+          )}
           <Link className="primary-link" to={`/app/teacher-spaces/${scopeId}/environment/courses/${selectedCourseId}/sections`}>
             Open Sections
           </Link>

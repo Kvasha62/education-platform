@@ -5,7 +5,7 @@ import {
   TeacherAssessmentReviewQueuePage,
 } from '../modules/assessment'
 import { ContentEditorPage, CreateContentPage } from '../modules/content'
-import { ActivitiesPage, CoursePage, CoursesPage, EducationalEnvironmentPage, LearningUnitsPage, SectionsPage } from '../modules/education'
+import { ActivitiesPage, CoursePage, CoursePreviewPage, CoursesPage, EducationalEnvironmentPage, LearningUnitsPage, SectionsPage } from '../modules/education'
 import { MyCoursesPage, StudentActivityPage, StudentCoursePage, StudentCoursesPage, StudentDashboardPage } from '../modules/learning'
 import { LoginPage, PublicOnlyRoute, RegisterPage } from '../modules/identity/AuthPages'
 import { TeacherSpacePage, TeacherSpacesPage } from '../modules/teacher'
@@ -55,6 +55,10 @@ export const routes = [
           {
             path: 'app/teacher-spaces/:teacherSpaceId/environment/courses/:courseId',
             element: <CoursePage />,
+          },
+          {
+            path: 'app/teacher-spaces/:teacherSpaceId/environment/courses/:courseId/preview',
+            element: <CoursePreviewPage />,
           },
           {
             path: 'app/teacher-spaces/:teacherSpaceId/environment/courses/:courseId/sections',
