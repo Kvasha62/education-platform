@@ -22,9 +22,13 @@ const course = {
   updated_at: '2026-08-25T00:00:00Z',
 }
 const secondCourse = { ...course, id: 'published-course', title: 'Published Course', status: 'published' }
+const archivedCourse = { ...course, id: 'archived-course', title: 'Archived Course', status: 'archived' }
 const listRoute = '/app/teacher-spaces/space-id/environment/courses'
 const detailRoute = `${listRoute}/course-id`
+const publishedRoute = `${listRoute}/published-course`
+const archivedRoute = `${listRoute}/archived-course`
 const endpoint = '/api/v1/teacher-spaces/space-id/environment/courses'
+const publishEndpoint = `${endpoint}/course-id/publish`
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -33,15 +37,39 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 const renderRoute = (entry = listRoute) => {
   const router = createMemoryRouter(routes, { initialEntries: [entry] })
-  return render(
-    <QueryClientProvider client={createQueryClient()}>
+  const queryClient = createQueryClient()
+  const view = render(
+    <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   )
+  return { ...view, queryClient }
 }
 
+const courseForId = (id: string) => {
+  if (id === secondCourse.id) return secondCourse
+  if (id === archivedCourse.id) return archivedCourse
+  return course
+}
+
+const courseDetailFetch = (
+  publish: () => Promise<Response>,
+  current: () => typeof course,
+) =>
+  vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+    if (url.endsWith('/publish')) return publish()
+    if (url.endsWith(endpoint) && init?.method !== 'POST') return jsonResponse([current()])
+    const id = url.slice(url.lastIndexOf('/') + 1)
+    return jsonResponse(id === course.id ? current() : courseForId(id))
+  })
+
 describe('Course UI', () => {
-  afterEach(() => vi.unstubAllGlobals())
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
 
   it('shows loading and an explicit empty Courses state', async () => {
     let resolveCourses: ((response: Response) => void) | undefined
@@ -169,5 +197,187 @@ describe('Course UI', () => {
 
     expect(await screen.findByRole('heading', { name: 'Log in' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Courses' })).not.toBeInTheDocument()
+  })
+
+  it('offers Publish Course for a DRAFT Course', async () => {
+    vi.stubGlobal('fetch', courseDetailFetch(async () => jsonResponse(course), () => course))
+    renderRoute(detailRoute)
+
+    expect(
+      await screen.findByRole('button', { name: 'Publish Course' }),
+    ).toBeInTheDocument()
+  })
+
+  it('hides Publish Course for a PUBLISHED Course', async () => {
+    vi.stubGlobal(
+      'fetch',
+      courseDetailFetch(async () => jsonResponse(secondCourse), () => secondCourse),
+    )
+    renderRoute(publishedRoute)
+
+    expect(await screen.findByRole('heading', { name: secondCourse.title })).toBeInTheDocument()
+    expect(screen.getByText('PUBLISHED')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Publish Course' })).not.toBeInTheDocument()
+  })
+
+  it('hides Publish Course for an ARCHIVED Course', async () => {
+    vi.stubGlobal(
+      'fetch',
+      courseDetailFetch(async () => jsonResponse(archivedCourse), () => archivedCourse),
+    )
+    renderRoute(archivedRoute)
+
+    expect(await screen.findByRole('heading', { name: archivedCourse.title })).toBeInTheDocument()
+    expect(screen.getByText('ARCHIVED')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Publish Course' })).not.toBeInTheDocument()
+  })
+
+  it('cancels publication without sending a request', async () => {
+    const fetchMock = courseDetailFetch(async () => jsonResponse(course), () => course)
+    vi.stubGlobal('fetch', fetchMock)
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const user = userEvent.setup()
+    renderRoute(detailRoute)
+
+    await user.click(await screen.findByRole('button', { name: 'Publish Course' }))
+
+    expect(confirm).toHaveBeenCalledWith(`Publish "${course.title}"?`)
+    expect(
+      fetchMock.mock.calls.some(([url, init]) => String(url).endsWith('/publish') && init?.method === 'POST'),
+    ).toBe(false)
+    expect(screen.getByRole('button', { name: 'Publish Course' })).toBeEnabled()
+  })
+
+  it('publishes with a bodyless POST after confirmation', async () => {
+    const fetchMock = courseDetailFetch(async () => jsonResponse(course), () => course)
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    renderRoute(detailRoute)
+
+    await user.click(await screen.findByRole('button', { name: 'Publish Course' }))
+
+    const publishCall = fetchMock.mock.calls.find(([url]) => String(url).endsWith(publishEndpoint))
+    expect(String(publishCall?.[0]).endsWith(publishEndpoint)).toBe(true)
+    expect(publishCall?.[1]).toEqual(
+      expect.objectContaining({ credentials: 'include', method: 'POST' }),
+    )
+    expect(publishCall?.[1]?.body).toBeUndefined()
+  })
+
+  it('disables the action and shows a pending label while publishing', async () => {
+    let resolvePublish: ((response: Response) => void) | undefined
+    const fetchMock = courseDetailFetch(
+      () => new Promise<Response>((resolve) => { resolvePublish = resolve }),
+      () => course,
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    renderRoute(detailRoute)
+
+    await user.click(await screen.findByRole('button', { name: 'Publish Course' }))
+
+    expect(await screen.findByRole('button', { name: 'Publishing…' })).toBeDisabled()
+    resolvePublish?.(jsonResponse(course))
+  })
+
+  it('invalidates the Course detail and Course list queries after a successful publish', async () => {
+    let current = course
+    const fetchMock = courseDetailFetch(async () => {
+      current = { ...course, status: 'published' }
+      return jsonResponse(current)
+    }, () => current)
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    const { queryClient } = renderRoute(detailRoute)
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+
+    await user.click(await screen.findByRole('button', { name: 'Publish Course' }))
+
+    expect(await screen.findByText('PUBLISHED')).toBeInTheDocument()
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ['teacher-space', 'space-id', 'courses', 'course-id'],
+    })
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ['teacher-space', 'space-id', 'courses'],
+    })
+  })
+
+  it('shows the published status and removes the action after a successful publish', async () => {
+    let current = course
+    const fetchMock = courseDetailFetch(async () => {
+      current = { ...course, status: 'published' }
+      return jsonResponse(current)
+    }, () => current)
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    renderRoute(detailRoute)
+
+    await user.click(await screen.findByRole('button', { name: 'Publish Course' }))
+
+    expect(await screen.findByText('PUBLISHED')).toBeInTheDocument()
+    expect(screen.queryByText('DRAFT')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Publish Course' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: course.title })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open Sections' })).toBeInTheDocument()
+  })
+
+  it('surfaces a readiness conflict and keeps the DRAFT Course publishable', async () => {
+    const fetchMock = courseDetailFetch(
+      async () => jsonResponse({ detail: 'Course is not ready for publication' }, 409),
+      () => course,
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    renderRoute(detailRoute)
+
+    await user.click(await screen.findByRole('button', { name: 'Publish Course' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Course is not ready for publication',
+    )
+    expect(screen.getByRole('heading', { name: course.title })).toBeInTheDocument()
+    expect(screen.getByText('DRAFT')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Publish Course' })).toBeEnabled()
+  })
+
+  it('surfaces a disabled Teacher Space conflict through the existing error path', async () => {
+    const fetchMock = courseDetailFetch(
+      async () => jsonResponse({ detail: 'Disabled Teacher Space is read-only' }, 409),
+      () => course,
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    renderRoute(detailRoute)
+
+    await user.click(await screen.findByRole('button', { name: 'Publish Course' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Disabled Teacher Space is read-only',
+    )
+    expect(screen.getByText('DRAFT')).toBeInTheDocument()
+  })
+
+  it('keeps the loaded Course rendered when publication is rejected', async () => {
+    const fetchMock = courseDetailFetch(
+      async () => jsonResponse({ detail: 'Untrusted request origin' }, 403),
+      () => course,
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    renderRoute(detailRoute)
+
+    await user.click(await screen.findByRole('button', { name: 'Publish Course' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Untrusted request origin')
+    expect(screen.getByRole('heading', { name: course.title })).toBeInTheDocument()
+    expect(screen.getByText('DRAFT')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open Sections' })).toBeInTheDocument()
   })
 })
