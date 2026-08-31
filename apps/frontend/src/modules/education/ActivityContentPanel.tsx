@@ -11,7 +11,12 @@ import { activityContentKeys } from './activityContentQueries'
 const errorMessage = (error: unknown) =>
   error instanceof ApiError || error instanceof Error ? error.message : 'Request failed.'
 
-export const ActivityContentPanel = ({ scope }: { scope: ActivityContentScope }) => {
+interface ActivityContentPanelProps {
+  scope: ActivityContentScope
+  readOnly?: boolean
+}
+
+export const ActivityContentPanel = ({ readOnly = false, scope }: ActivityContentPanelProps) => {
   const queryClient = useQueryClient()
   const linkedKey = activityContentKeys.linked(scope)
   const [contentId, setContentId] = useState('')
@@ -36,6 +41,16 @@ export const ActivityContentPanel = ({ scope }: { scope: ActivityContentScope })
   const linkedIds = new Set(linked.data?.map((item) => item.id) ?? [])
   const ownedItems = owned.data?.pages.flatMap((page) => page.items) ?? []
   const available = ownedItems.filter((item) => !linkedIds.has(item.id))
+
+  const attachContent = () => {
+    if (readOnly) return
+    attach.mutate()
+  }
+
+  const detachContent = (selectedContentId: string) => {
+    if (readOnly) return
+    detach.mutate(selectedContentId)
+  }
 
   return (
     <div className="activity-content" aria-label="Linked Content">
@@ -62,8 +77,8 @@ export const ActivityContentPanel = ({ scope }: { scope: ActivityContentScope })
                 <Link to={`/app/contents/${reference.id}/edit`}>Edit Content</Link>
                 <button
                   className="button-secondary"
-                  disabled={detach.isPending}
-                  onClick={() => detach.mutate(reference.id)}
+                  disabled={readOnly || detach.isPending}
+                  onClick={() => detachContent(reference.id)}
                   type="button"
                 >
                   Remove
@@ -79,7 +94,11 @@ export const ActivityContentPanel = ({ scope }: { scope: ActivityContentScope })
         <div className="attach-content">
           <label>
             Existing Content
-            <select onChange={(event) => setContentId(event.target.value)} value={contentId}>
+            <select
+              disabled={readOnly}
+              onChange={(event) => setContentId(event.target.value)}
+              value={contentId}
+            >
               <option value="">Select Content</option>
               {available.map((content) => (
                 <option key={content.id} value={content.id}>
@@ -89,8 +108,8 @@ export const ActivityContentPanel = ({ scope }: { scope: ActivityContentScope })
             </select>
           </label>
           <button
-            disabled={!contentId || attach.isPending}
-            onClick={() => attach.mutate()}
+            disabled={readOnly || !contentId || attach.isPending}
+            onClick={attachContent}
             type="button"
           >
             {attach.isPending ? 'Attaching…' : 'Attach Content'}
