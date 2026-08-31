@@ -24,4 +24,8 @@ export const courseApi = {
     apiRequest<Course>(coursesPath(teacherSpaceId), { method: 'POST', body: input }),
   get: (teacherSpaceId: string, courseId: string) =>
     apiRequest<Course>(`${coursesPath(teacherSpaceId)}/${courseId}`),
+  publish: (teacherSpaceId: string, courseId: string) =>
+    apiRequest<Course>(`${coursesPath(teacherSpaceId)}/${courseId}/publish`, {
+      method: 'POST',
+    }),
 }

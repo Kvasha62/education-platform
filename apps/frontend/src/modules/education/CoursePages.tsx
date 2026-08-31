@@ -101,12 +101,30 @@ export const CoursePage = () => {
   }>()
   const scopeId = teacherSpaceId ?? ''
   const selectedCourseId = courseId ?? ''
+  const queryClient = useQueryClient()
   const course = useQuery({
     queryKey: courseKeys.detail(scopeId, selectedCourseId),
     queryFn: () => courseApi.get(scopeId, selectedCourseId),
     enabled: Boolean(scopeId && selectedCourseId),
     retry: false,
   })
+  const publish = useMutation({
+    mutationFn: () => courseApi.publish(scopeId, selectedCourseId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: courseKeys.detail(scopeId, selectedCourseId),
+        }),
+        queryClient.invalidateQueries({ queryKey: courseKeys.all(scopeId) }),
+      ])
+    },
+  })
+
+  const confirmPublish = () => {
+    if (course.data && window.confirm(`Publish "${course.data.title}"?`)) {
+      publish.mutate()
+    }
+  }
 
   return (
     <section className="course-detail" aria-labelledby="course-title">
@@ -121,11 +139,22 @@ export const CoursePage = () => {
             <div><dt>Status</dt><dd>{statusLabel(course.data.status)}</dd></div>
             <div><dt>Created</dt><dd>{new Date(course.data.created_at).toLocaleDateString()}</dd></div>
           </dl>
+          {course.data.status === 'draft' && (
+            <button
+              className="button-secondary"
+              disabled={publish.isPending}
+              onClick={confirmPublish}
+              type="button"
+            >
+              {publish.isPending ? 'Publishing…' : 'Publish Course'}
+            </button>
+          )}
           <Link className="primary-link" to={`/app/teacher-spaces/${scopeId}/environment/courses/${selectedCourseId}/sections`}>
             Open Sections
           </Link>
         </div>
       )}
+      {publish.isError && <ErrorState message={errorMessage(publish.error)} />}
     </section>
   )
 }
