@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import {
   StudentAssessmentAttemptPage,
   TeacherAssessmentAttemptPage,
+  TeacherAssessmentDefinitionPage,
   TeacherAssessmentReviewQueuePage,
 } from '../modules/assessment'
 import { ContentEditorPage, CreateContentPage } from '../modules/content'
@@ -71,6 +72,10 @@ export const routes = [
           {
             path: 'app/teacher-spaces/:teacherSpaceId/environment/courses/:courseId/sections/:sectionId/learning-units/:learningUnitId/activities',
             element: <ActivitiesPage />,
+          },
+          {
+            path: 'app/teacher-spaces/:teacherSpaceId/activities/:activityId/assessment-definition',
+            element: <TeacherAssessmentDefinitionPage />,
           },
           {
             path: 'app/teacher-spaces/:teacherSpaceId/activities/:activityId/assessment-review',

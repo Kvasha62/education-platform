@@ -31,11 +31,12 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 const renderRoute = () => {
   const router = createMemoryRouter(routes, { initialEntries: [route] })
-  return render(
+  const rendered = render(
     <QueryClientProvider client={createQueryClient()}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   )
+  return { ...rendered, router }
 }
 
 const mutationMethod = (init?: RequestInit) =>
@@ -211,6 +212,111 @@ describe('Activity UI', () => {
       String(url).endsWith(courseEndpoint) && !init?.method,
     )).toBe(true)
     expect(fetchMock.mock.calls.filter(([, init]) => mutationMethod(init))).toHaveLength(0)
+  })
+
+  it('exposes exactly one management entry and no Review CTA when the Activity has no Definition', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+      if (url.endsWith(courseEndpoint)) return jsonResponse(course)
+      if (url.endsWith(endpoint)) return jsonResponse([firstActivity])
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    renderRoute()
+
+    const row = await screen.findByRole('listitem')
+    const entries = within(row).getAllByRole('link', { name: 'Set up assessment' })
+    expect(entries).toHaveLength(1)
+    expect(entries[0].getAttribute('href')).toContain(
+      `/app/teacher-spaces/space-id/activities/activity-1/assessment-definition`,
+    )
+    expect(entries[0].getAttribute('href')).toContain(`backTo=${encodeURIComponent(route)}`)
+    expect(within(row).queryByRole('link', { name: 'Assessment review' })).not.toBeInTheDocument()
+  })
+
+  it('exposes the settings entry next to the unchanged Review entry when a Definition exists', async () => {
+    const assessedActivity = {
+      ...firstActivity,
+      id: 'activity-3',
+      title: 'Homework One',
+      type: 'homework',
+      position: 3,
+      assessment_definition_id: 'definition-1',
+    }
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+      if (url.endsWith(courseEndpoint)) return jsonResponse(course)
+      if (url.endsWith(endpoint)) return jsonResponse([assessedActivity])
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    renderRoute()
+
+    const row = await screen.findByRole('listitem')
+    const settings = within(row).getByRole('link', { name: 'Assessment settings' })
+    expect(settings.getAttribute('href')).toContain(
+      `/app/teacher-spaces/space-id/activities/activity-3/assessment-definition`,
+    )
+    const review = within(row).getByRole('link', { name: 'Assessment review' })
+    expect(review.getAttribute('href')).toContain(
+      `/app/teacher-spaces/space-id/activities/activity-3/assessment-review`,
+    )
+  })
+
+  it('derives entry visibility only from the projection field, never from Activity type', async () => {
+    const homeworkActivity = {
+      ...secondActivity,
+      id: 'activity-4',
+      title: 'Homework Two',
+      type: 'homework',
+      assessment_definition_id: null,
+    }
+    const assessedLecture = {
+      ...firstActivity,
+      id: 'activity-5',
+      title: 'Lecture Two',
+      type: 'lecture',
+      position: 4,
+      assessment_definition_id: 'definition-2',
+    }
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+      if (url.endsWith(courseEndpoint)) return jsonResponse(course)
+      if (url.endsWith(endpoint)) {
+        return jsonResponse([firstActivity, homeworkActivity, assessedLecture])
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    renderRoute()
+
+    expect(await screen.findAllByRole('link', { name: 'Set up assessment' })).toHaveLength(2)
+    expect(screen.getAllByRole('link', { name: 'Assessment settings' })).toHaveLength(1)
+    expect(screen.getAllByRole('link', { name: 'Assessment review' })).toHaveLength(1)
+  })
+
+  it('navigates from the management entry to the dedicated Definition route', async () => {
+    const definitionUrl =
+      '/api/v1/teacher-spaces/space-id/activities/activity-1/assessment-definition'
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/auth/me')) return jsonResponse(identity)
+      if (url.endsWith(courseEndpoint)) return jsonResponse(course)
+      if (url.endsWith(endpoint)) return jsonResponse([firstActivity])
+      if (url.endsWith(definitionUrl)) {
+        return jsonResponse({ detail: 'Assessment Definition not found' }, 404)
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    const user = userEvent.setup()
+    const { router } = renderRoute()
+
+    await user.click(await screen.findByRole('link', { name: 'Set up assessment' }))
+
+    expect(router.state.location.pathname).toBe(
+      '/app/teacher-spaces/space-id/activities/activity-1/assessment-definition',
+    )
+    expect(await screen.findByRole('heading', { name: 'Set up assessment' })).toBeInTheDocument()
   })
 
   it('renders an ARCHIVED Course read-only and sends no mutation requests', async () => {
