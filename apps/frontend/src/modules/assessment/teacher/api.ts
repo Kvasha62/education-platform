@@ -43,11 +43,27 @@ export interface CorrectAssessmentInput {
   feedback: string | null
 }
 
+export type TeacherAssessmentDefinitionStatus = 'active' | 'archived'
+
+export interface TeacherAssessmentDefinition {
+  id: string
+  activity_id: string
+  instructions: string | null
+  status: TeacherAssessmentDefinitionStatus
+}
+
+export interface AssessmentDefinitionInput {
+  instructions: string | null
+}
+
 const attemptsPath = (teacherSpaceId: string, activityId: string) =>
   `/api/v1/teacher-spaces/${teacherSpaceId}/activities/${activityId}/assessment-attempts`
 
 const attemptPath = (teacherSpaceId: string, activityId: string, attemptId: string) =>
   `${attemptsPath(teacherSpaceId, activityId)}/${attemptId}`
+
+const definitionPath = (teacherSpaceId: string, activityId: string) =>
+  `/api/v1/teacher-spaces/${teacherSpaceId}/activities/${activityId}/assessment-definition`
 
 export const teacherAssessmentApi = {
   list: (
@@ -87,4 +103,20 @@ export const teacherAssessmentApi = {
       `${attemptPath(teacherSpaceId, activityId, attemptId)}/correction`,
       { method: 'POST', body: input },
     ),
+  getDefinition: (teacherSpaceId: string, activityId: string) =>
+    apiRequest<TeacherAssessmentDefinition>(definitionPath(teacherSpaceId, activityId)),
+  createDefinition: (teacherSpaceId: string, activityId: string, input: AssessmentDefinitionInput) =>
+    apiRequest<TeacherAssessmentDefinition>(definitionPath(teacherSpaceId, activityId), {
+      method: 'POST',
+      body: input,
+    }),
+  updateDefinition: (teacherSpaceId: string, activityId: string, input: AssessmentDefinitionInput) =>
+    apiRequest<TeacherAssessmentDefinition>(definitionPath(teacherSpaceId, activityId), {
+      method: 'PATCH',
+      body: input,
+    }),
+  archiveDefinition: (teacherSpaceId: string, activityId: string) =>
+    apiRequest<TeacherAssessmentDefinition>(`${definitionPath(teacherSpaceId, activityId)}/archive`, {
+      method: 'POST',
+    }),
 }

@@ -3,7 +3,7 @@ import { FormEvent, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../../shared/api'
 import { ErrorState, LoadingState } from '../../shared/ui'
-import { TeacherAssessmentReviewEntry } from '../assessment'
+import { TeacherAssessmentDefinitionEntry, TeacherAssessmentReviewEntry } from '../assessment'
 import { ActivityContentPanel } from './ActivityContentPanel'
 import { activityApi } from './activityApi'
 import type { Activity, ActivityType } from './activityApi'
@@ -110,6 +110,12 @@ const ActivityRow = ({
               activityId={activity.id}
             />
           )}
+          <TeacherAssessmentDefinitionEntry
+            backTo={activityBackTo}
+            teacherSpaceId={teacherSpaceId}
+            activityId={activity.id}
+            hasDefinition={activity.assessment_definition_id !== null}
+          />
         </div>
       </form>
       {updateActivity.isError && <ErrorState message={errorMessage(updateActivity.error)} />}

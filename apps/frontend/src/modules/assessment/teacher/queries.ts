@@ -16,4 +16,6 @@ export const teacherAssessmentKeys = {
     ] as const,
   detail: (teacherSpaceId: string, activityId: string, attemptId: string) =>
     [...teacherAssessmentKeys.all, 'detail', teacherSpaceId, activityId, attemptId] as const,
+  definition: (teacherSpaceId: string, activityId: string) =>
+    [...teacherAssessmentKeys.all, 'definition', teacherSpaceId, activityId] as const,
 }
