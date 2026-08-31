@@ -38,6 +38,13 @@ docker compose up --build
 Service-specific setup and checks are documented in `apps/backend/README.md` and
 `apps/frontend/README.md`.
 
+## End-to-end tests
+
+The Playwright E2E suite covers the first critical user journey from
+`ARCHITECTURE.md` §26 (login → environment → course structure → draft → preview →
+publish). It is documented in [`tests/e2e/README.md`](./tests/e2e/README.md) and
+runs in CI as the `e2e` job.
+
 ## Status
 
 EDU-001 provides the runnable repository and architecture foundation. Product functionality is intentionally not implemented yet.

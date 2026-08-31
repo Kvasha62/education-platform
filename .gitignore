@@ -11,6 +11,8 @@ node_modules/
 dist/
 coverage/
 .vite/
+tests/e2e/playwright-report/
+tests/e2e/test-results/
 .DS_Store
 
 *.tsbuildinfo

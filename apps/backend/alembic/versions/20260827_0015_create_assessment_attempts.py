@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
@@ -11,10 +12,20 @@ down_revision: str | None = "20260827_0014"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
+assessment_attempt_status = postgresql.ENUM(
+    "draft",
+    "submitted",
+    name="assessment_attempt_status",
+    create_type=False,
+)
+
 
 def upgrade():
-    status = sa.Enum("draft", "submitted", name="assessment_attempt_status")
-    status.create(op.get_bind(), checkfirst=True)
+    postgresql.ENUM(
+        "draft",
+        "submitted",
+        name="assessment_attempt_status",
+    ).create(op.get_bind(), checkfirst=True)
     op.create_table(
         "assessment_attempts",
         sa.Column("id", sa.Uuid(), primary_key=True),
@@ -26,7 +37,7 @@ def upgrade():
         ),
         sa.Column("student_id", sa.Uuid(), nullable=False),
         sa.Column("submission_data", sa.Text(), nullable=True),
-        sa.Column("status", status, nullable=False),
+        sa.Column("status", assessment_attempt_status, nullable=False),
     )
     op.create_index(
         "ix_assessment_attempts_assessment_definition_id",

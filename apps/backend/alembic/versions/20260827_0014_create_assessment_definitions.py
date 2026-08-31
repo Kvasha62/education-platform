@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
@@ -11,16 +12,26 @@ down_revision: str | None = "20260825_0013"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
+assessment_definition_status = postgresql.ENUM(
+    "active",
+    "archived",
+    name="assessment_definition_status",
+    create_type=False,
+)
+
 
 def upgrade() -> None:
-    status = sa.Enum("active", "archived", name="assessment_definition_status")
-    status.create(op.get_bind(), checkfirst=True)
+    postgresql.ENUM(
+        "active",
+        "archived",
+        name="assessment_definition_status",
+    ).create(op.get_bind(), checkfirst=True)
     op.create_table(
         "assessment_definitions",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("activity_id", sa.Uuid(), nullable=False),
         sa.Column("instructions", sa.Text(), nullable=True),
-        sa.Column("status", status, nullable=False),
+        sa.Column("status", assessment_definition_status, nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("activity_id", name="uq_assessment_definitions_activity"),
     )
