@@ -10,8 +10,17 @@ from app.education.api.course_schemas import (
     CreateCourseRequest,
     UpdateCourseRequest,
 )
-from app.education.api.dependencies import get_course_service, get_environment_service
-from app.education.application.errors import CourseNotFoundError, EnvironmentNotFoundError
+from app.education.api.dependencies import (
+    get_course_publication_service,
+    get_course_service,
+    get_environment_service,
+)
+from app.education.application.course_publication import CoursePublicationService
+from app.education.application.errors import (
+    CourseNotFoundError,
+    CourseNotReadyForPublicationError,
+    EnvironmentNotFoundError,
+)
 from app.education.application.services import CourseService, EducationalEnvironmentService
 from app.education.domain.models import (
     CourseImmutableError,
@@ -37,6 +46,7 @@ CurrentIdentity = Annotated[Identity, Depends(get_current_identity)]
 TeacherSpaces = Annotated[TeacherSpaceService, Depends(get_teacher_space_service)]
 Environments = Annotated[EducationalEnvironmentService, Depends(get_environment_service)]
 Courses = Annotated[CourseService, Depends(get_course_service)]
+Publication = Annotated[CoursePublicationService, Depends(get_course_publication_service)]
 
 
 def resolve_environment(
@@ -160,16 +170,21 @@ def publish_course(
     identity: CurrentIdentity,
     teacher_spaces: TeacherSpaces,
     environments: Environments,
-    courses: Courses,
+    publication: Publication,
 ) -> CourseResponse:
     environment, teacher_space = resolve_environment(
         teacher_space_id, identity, teacher_spaces, environments
     )
     require_writable(teacher_space)
     try:
-        course = courses.publish(course_id, environment.id)
+        course = publication.publish(course_id, environment.id)
     except CourseNotFoundError as error:
         raise course_not_found(error) from error
+    except CourseNotReadyForPublicationError as error:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Course is not ready for publication",
+        ) from error
     except InvalidCourseTransitionError as error:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
